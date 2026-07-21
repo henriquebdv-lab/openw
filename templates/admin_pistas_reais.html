@@ -1,0 +1,31 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'pistas' %}
+
+{% block admin_content %}
+<h1 class="h3 mb-4">Pistas Reais</h1>
+
+<p>{{ pistas|length }} pistas cadastradas. Edite tempo de pit, categoria (câmbio + suspensão), influências e temperaturas por trecho.</p>
+
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Nome</th><th>País</th><th>Km</th><th>Pit</th><th>Cat.</th>
+            <th>Temps (T1/T2/T3/T4)</th><th>Influências (M/C/S/P/G/E)</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in pistas %}
+        <tr>
+            <td>{{ p.nome }}</td>
+            <td>{{ p.pais }}</td>
+            <td>{{ p.extensao_km }}</td>
+            <td>{{ p.tempo_pit_stop_segundos }}s</td>
+            <td>{{ p.categoria_cambio_ideal }}{{ p.categoria_suspensao_ideal }}</td>
+            <td>{{ p.temperatura_trecho_1 }}/{{ p.temperatura_trecho_2 }}/{{ p.temperatura_trecho_3 }}/{{ p.temperatura_trecho_4 }}°</td>
+            <td>{{ p.influencia_motor }}/{{ p.influencia_cambio }}/{{ p.influencia_suspensao }}/{{ p.influencia_pneu }}/{{ p.influencia_combustivel }}/{{ p.influencia_engenheiro }}</td>
+            <td><a href="{{ url_for('admin_pista_editar', pista_id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

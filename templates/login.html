@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Entrar</h1>
+{% if erro %}<p style="color:#c00;">{{ erro }}</p>{% endif %}
+<form method="POST">
+    <label for="email">E-mail</label>
+    <input type="email" name="email" id="email" required>
+
+    <label for="senha">Senha</label>
+    <input type="password" name="senha" id="senha" required>
+
+    <button type="submit">Entrar</button>
+</form>
+<p style="text-align:center; margin:15px 0;">ou</p>
+<a href="{{ url_for('login_google') }}">
+    <button type="button" style="background:#4285F4;">Entrar com Google</button>
+</a>
+<p>Não tem conta? <a href="{{ url_for('registrar') }}">Cadastre-se</a></p>
+{% endblock %}

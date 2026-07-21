@@ -1,0 +1,8 @@
+<ul class="nav abas-ows">
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'classificacao_view' %}active{% endif %}" href="{{ url_for('classificacao_view') }}">Classificação</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'corrida_view' %}active{% endif %}" href="{{ url_for('corrida_view') }}">Corrida</a>
+    </li>
+</ul>

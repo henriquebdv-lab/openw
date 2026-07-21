@@ -1,0 +1,37 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'dashboard' %}
+
+{% block admin_content %}
+<h1 class="h3 mb-4">Painel Admin</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <p>Gera novos fornecedores em cada categoria (100 fornecedores, 10 tiers).
+           <strong>Segurança:</strong> fornecedores em uso por alguma equipe são apenas
+           desativados, não apagados.</p>
+        <form method="POST" action="{{ url_for('admin_gerar_fornecedores') }}"
+              onsubmit="return confirm('Vai gerar 100 novos fornecedores de cada categoria e desativar os antigos não usados. Confirma?');">
+            <button type="submit" class="btn btn-primary">🎲 Gerar 100 fornecedores de cada categoria</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Contagens atuais</div>
+    <table class="table mb-0">
+        <thead>
+            <tr><th>Categoria</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for chave, cfg in categorias.items() %}
+            <tr>
+                <td>{{ cfg.titulo }}</td>
+                <td>{{ contagens[chave] }}</td>
+            </tr>
+            {% endfor %}
+            <tr><td>Temporadas</td><td>{{ total_temporadas }}</td></tr>
+            <tr><td>Usuários</td><td>{{ total_usuarios }}</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

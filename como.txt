@@ -1,0 +1,449 @@
+Manual Estrategia F1
+ 
+Preparar Carro
+
+- Montar o carro: Oficina para montagem dos 3 principais componentes que serão usados até o fim da corrida: Motor, Câmbio e Suspensão. Além disso, você definirá o pneu e o combustível com os quais o carro fará o Treino Livre. Atenção ao escolher os itens para o treino livre, pois se o combustível acabar ou se o pneu chegar ao seu limite, significa que não poderá mais fazer voltas neste treino livre.
+
+- Treino Livre: Ao montar o carro, existe um conjunto de 5 ajustes ideais. Ajustando corretamente, seu carro terá a maior velocidade possível para o conjunto de peças definidos. Cada um desses 5 ajustes é referente a uma peça e tem o valor entre 1 e 99. A sua função no treino livre é conseguir descobrir os valores ideais ou chegar o mais perto possível deles. Para alcançar estes números você deve iniciar com valores quaisquer e fazer uma volta. Ao completar a volta, você pode se basear no tempo dela e nas dicas do piloto para alterar os valores até chegar ao ajuste perfeito. Tendo feito todo o treino, basta salvar o ajuste.
+
+- Treino Oficial: O treino oficial só pode ser feito após o ajuste do treino livre ser salvo. Como o motor, câmbio e suspensão já foram montados antes do treino livre, é hora de definir apenas o pneu e combustível para o treino oficial e início da corrida. Neste momento você define também o início da sua estratégia, selecionando a volta em que ocorrerá o seu primeiro pit stop. O restante da estratégia é definido em Estratégia de Corrida.
+
+- Estratégia de Corrida: Etapa final da preparação para corrida, onde serão feitas as últimas definições. O número da volta em que será o primeiro pit stop já foi definido. Agora escolha o pneu e combustível a serem colocados e e selecione se será feito outro pit stop ou se irá até o fim da corrida.
+
+- Estrategista: Se você não teve tempo de calcular uma estratégia para essa corrida, ou se ainda está aprendendo os cálculos e não se sente seguro o suficiente pra utilizar sua própria estratégia, contrate um estrategista para que ele desenvolva a sua estratégia de corrida. Dificilmente você sairá da corrida por erro dele. Entretanto, como você é o estrategista oficial, o estrategista contratado não tem muita habilidade e dificilmente você chegará a vencer uma corrida usando as recomendações dele. Mas pelo preço que ele cobra (apenas R$200,00), não se pode esperar muito.
+
+
+Comprar
+
+- Comprar: Área de compra de equipamentos e combustível. Os fornecedores contratados exibem a lista de produtos disponíveis para pronta entrega. Ao pagar o preço da peça desejada elas são enviadas para seu estoque.
+
+
+Design
+
+- Carro: Estúdio onde é selecionado como será a pintura do seu carro. Os associados tem opções extras de design.
+
+Verificações
+
+- Principal: É a primeira página que lhe é exibida quando você chega para mais um dia de administração: um relatório com as principais informações sobre sua temporada, todas atualizadas em tempo real. Os dados de sua última corrida e um resumo que facilita as verificações.
+
+- Comunicados: Você precisa ficar informado sobre o universo da fórmula 1 virtual: mudança de detalhes, reuniões para decisões, mudanças de especificações dos fabricantes e qualquer outra informação vinda dos administradores gerais do Estrategia F1. Você terá aberto sempre o comunicado mais recente, logo abaixo tem todo o histórico de informações anteriores, fique atento.
+
+- Notícias: As notícias se espalham muito rapidamente. Em pouco tempo chega a você qualquer informação sobre os últimos contratos com patrocinadores e fornecedores, sobre todos os pilotos, com data e horário. Você pode escolher entre ver as notícias gerais ou apenas as de seu grupo.
+
+- Próxima Corrida: Informações sobre a próxima pista: Tamanho total, peças ideais, número de voltas e recorde atual. Exibe também a previsão do tempo, que é de extrema importância na sua estratégia, pois além da temperatura, existem também os milimetros de água na pista. A quantida de água na pista define não apenas o tipo de pneu, mas também uma possível economia no desgaste de pneus.
+
+- Visão geral: Pasta com informações sobre os contratos fechados nessa temporada e os da próxima temporada.
+
+- Equipe: Informações sobre a sua equipe, exibindo o nome, o seu parceiro e o design de ambos os carros. Caso não tenha ainda uma equipe formada, há um formulário para enviar um convite para um piloto do seu grupo, solicitando a formação de uma nova equipe. Se seu parceiro tiver com dificuldades financeiras, você pode fazer um empréstimo.
+
+- Patrocinadores: Escritório onde ocorrem os fechamentos de contratos com os patrocinadores. Há uma lista com todas as empressa interessadas em patrocinar seu piloto e você poderá fechar contratos com até 5 empresas diferentes. Os patrocinadores irão pagar a cada corrida o valor combinado antes do fechamento do contrato.
+
+- Finanças: O seu extrato financeiro, exibindo todos os detalhes de débitos e créditos em seu caixa durante toda a temporada.
+
+- Estoque de peças: Exibe o galpão onde são estocadas as suas peças. Apenas as peças novas ficam armazenadas neste local, as peças já utilizadas vão para a oficina, onde poderão ser reparadas.
+
+- Mensagens: Área de comunicação com os outros jogadores. As mensagens são enviadas de acordo com um sistema de coordenadas no formato C:G:N, onde C representa a classe, G representa o grupo e N o numero do carro. Para descobrir as coordenadas dos outros pilotos, acesse a área de consultas.
+
+- Bastidores: Mostra os bastidores do seu grupo. Um mini fórum onde você pode debater sobre assuntos específicos, procurar parceiros ou se divertir com seus adversários. Cada piloto só tem acesso aos bastidores do seu próprio grupo.
+
+- Bolsa de Valores: Influi economicamente no jogo, os preços dos equipamentos variam de acordo com o mercado consumidor. Há um quadro comparativo de preços, exibindo as variações baseadas no preço anterior e no preço inicial.
+
+Contrato
+
+- Contrato: É o local onde você negocia os seus mais importantes contratos do jogo. Ao selecionar o segmento a ser visualizado, é apresentada uma lista de contratos disponíveis, com seus respectivos preços para novos contratos e renovações (quando for o caso). Para ter informações detalhadas sobre cada fornecedor, clique sobre o nome deste. Os contratos devem ser muito bem analisados pois a rescisão, quando é possível, tem um alto custo.
+
+Associados
+
+Menu com algumas das opções extras dos jogadores associados.
+
+- Banco: Acessando o banco, você tem acesso à duas "instituições": o banco propriamente dito e o agiota. O banco cobra juros de 6% por corrida e possui um limite de empréstimo de R$40.000,00. Além disso ele oferece a possibilidade de investimento na poupança, pagamento 3% de juros a cada corrida, sem limite de depósito. O agiota está sempre pronto para ser requisitado em situações de emergência. Com juros abusivos de 20% por corrida, ele tem o seu limite de empréstimo em R$10.000,00.
+
+Os empréstimos (tanto do banco, quanto do agiota) ficam disponíveis apenas após a 1ª corrida do piloto, e voltam a ser bloqueados em caso de reset. Empréstimo não é uma vantagem exclusiva para associados, pois isso traria um grande desequilíbrio nas corridas. Portanto qualquer jogador pode solicitar empréstimos.
+
+A poupança sim é uma opção exclusiva para associados, sendo um investimento de baixo risco, mas que trás um retorno também não muito elevado.
+
+Ela rende a cada corrida desde que se tenha assinado os contratos com fornecedor de combustível, pneus, câmbios, suspensão e motor.
+
+- Devolução de peças: Tem peças sobrando em seu estoque e precisa de dinheiro? Comprou a peça errada? Basta devolvê-la ao fornecedor. Desde que você nunca tenha feito uso dela e seja um jogador associado, o fornecedor aceitará a peça de volta e irá pagar por ela o valor de mercado.
+
+- Reparo de peças: Se a peça que você precisa está muito cara no mercado ou se você quer economizar um pouco, pode pedir aos seus mecânicos que reparem motores e câmbios já usados. Após o reparo a peça volta a ficar disponível para uso, e o reparo custa um pouco menos que uma peça nova. Mas cada peça só pode ser reparada uma vez, até ser descartada definitivamente.
+
+- Análise da Corrida: Conjunto de informações sobre a última corrida. O recordista da pista, clima, estratégia utilizada e informações volta a volta.
+
+Tabelas de Dados
+
+
+Resultado da Corrida para Pilotos
+Rank	Pontos	Premiação	Rank	Pontos	Premiação
+1	40	R$12.000,00	11	14	R$7.700,00
+2	35	R$11.000,00	12	12	R$7.400,00
+3	32	R$10.500,00	13	10	R$7.100,00
+4	29	R$10.000,00	14	8	R$6.800,00
+5	26	R$9.500,00	15	6	R$6.500,00
+6	24	R$9.200,00	16	5	R$6.200,00
+7	22	R$8.900,00	17	4	R$6.000,00
+8	20	R$8.600,00	18	3	R$5.800,00
+9	18	R$8.300,00	19	2	R$5.650,00
+10	16	R$8.000,00	20	1	R$5.500,00
+
+
+  Resultado da Corrida para Equipes  
+Rank	Premiação	Rank	Premiação
+1	R$8.000,00	6	R$2.000,00
+2	R$6.000,00	7	R$1.500,00
+3	R$5.000,00	8	R$1.000,00
+4	R$3.000,00	9	R$800,00
+5	R$2.500,00	10	R$500,00
+
+
+Equipamentos Indicados
+Pneu	 	Chuva	 	Câmbio	 	Categoria da pista	 	Suspensão	 	Categoria da Pista
+XX-50	 	0 a 3 mm	 	XX-50	 	A-	 	XX-50	 	-A
+XX-100	 	0 a 3 mm	 	XX-100	 	B-	 	XX-100	 	-B
+XX-200	 	0 a 3 mm	 	XX-200	 	C-	 	XX-200	 	-C
+XX-300	 	0 a 3 mm	 	XX-300	 	D-	 	XX-300	 	-D
+XX-400	 	0 a 3 mm	 	XX-400	 	E-	 	XX-400	 	-E
+XX-500	 	0 a 3 mm	 	XX-500	 	F-	 	XX-500	 	-F
+XX-600	 	4 a 6 mm	 	XX-600	 	G-	 	XX-600	 	-G
+XX-700	 	4 a 6 mm	 	XX-700	 	H-	 	XX-700	 	-H
+XX-800	 	7 a 9 mm	 	XX-800	 	I-	 	XX-800	 	-I
+XX-900	 	7 a 9 mm	 	XX-900	 	J-	 	-	 	-
+
+
+  Sobre/Subdesgastes relacionados à temperatura  
+Temperatura	Desgaste	Temperatura	Desgaste
+-2º C	-220 m/Km	22º C	20 m/Km
+-1º C	-210 m/Km	23º C	30 m/Km
+0º C	-200 m/Km	24º C	40 m/Km
+1º C	-190 m/Km	25º C	50 m/Km
+2º C	-180 m/Km	26º C	60 m/Km
+3º C	-170 m/Km	27º C	70 m/Km
+4º C	-160 m/Km	28º C	80 m/Km
+5º C	-150 m/Km	29º C	90 m/Km
+6º C	-140 m/Km	30º C	100 m/Km
+7º C	-130 m/Km	31º C	110 m/Km
+8º C	-120 m/Km	32º C	120 m/Km
+9º C	-110 m/Km	33º C	130 m/Km
+10º C	-100 m/Km	34º C	140 m/Km
+11º C	-90 m/Km	35º C	150 m/Km
+12º C	-80 m/Km	36º C	160 m/Km
+13º C	-70 m/Km	37º C	170 m/Km
+14º C	-60 m/Km	38º C	180 m/Km
+15º C	-50 m/Km	39º C	190 m/Km
+16º C	-40 m/Km	40º C	200 m/Km
+17º C	-30 m/Km	41º C	210 m/Km
+18º C	-20 m/Km	42º C	220 m/Km
+19º C	-10 m/Km	43º C	230 m/Km
+20º C	0 m/Km	44º C	240 m/Km
+21º C	10 m/Km	45º C	250 m/Km
+
+
+Modelo da Estrutura de Classes e Grupos
+C1G1
+C2G1	C2G2
+C3G1	C3G2	C3G3	C3G4
+C4G1	C4G2	C4G3	C4G4	C4G5	C4G6	C4G7	C4G8
+Em cada grupo são promovidos os 2 primeiros
+e rebaixados o 17º, 18º, 19º e o 20º colocado.
+
+
+Premiações Finais por temporada
+Pilotos
+Rank	Prêmio	Rank	Prêmio
+1	R$100.000,00	11	R$35.000,00
+2	R$85.000,00	12	R$33.000,00
+3	R$75.000,00	13	R$31.000,00
+4	R$70.000,00	14	R$29.000,00
+5	R$65.000,00	15	R$27.000,00
+6	R$60.000,00	16	R$25.000,00
+7	R$55.000,00	17	R$23.000,00
+8	R$50.000,00	18	R$22.000,00
+9	R$45.000,00	19	R$21.000,00
+10	R$40.000,00	20	R$20.000,00
+Equipes
+Rank	Prêmio
+1	R$80.000,00 / 2
+2	R$50.000,00 / 2
+3	R$30.000,00 / 2
+
+Fornecedores
+Motores
+Pneus
+Câmbios
+Suspensões
+Combustível
+Engenheiros
+
+Dicas Estrategia F1
+ 
+- Começou a jogar agora e gastou mais dinheiro do que devia? Você pode resetar a sua conta (menu Perfil) e recomeçar de novo no mesmo instante.
+
+- Nunca deixe de treinar seus mecânicos, inicialmente a possibilidade de quebra é de 10%, o que é bastante alto.
+
+- Um bom investimento seria comprar muitas peças para estocar quando a bolsa de valores fizer os preços caírem.
+
+- Cuidado ao rescindir um patrocínio, quanto mais corridas faltarem para o fim do contrato, maior a multa.
+
+- Nunca monte seu carro antes de fazer todos os cálculos da corrida, pois o motor utilizado deve ser definido de acordo com sua estrategia.
+
+- Se você não teve tempo de calcular uma estratégia para essa corrida, ou se ainda está aprendendo os cálculos e não se sente seguro o suficiente pra utilizar sua própria estratégia, contrate um estrategista para que ele desenvolva a sua estratégia de corrida.
+
+- Não é necessário contratar um engenheiro logo no início da temporada, junte algum dinheiro depois de umas corridas e só então contrate um engenheiro para desenvolver o seu chassis e aerodinâmica, ja que esses desenvolvimentos são necessários apenas para a próxima temporada. Mas não se esqueça dele, pois o desenvolvimento de chassis é requisito obrigatório para que possa participar normalmente da próxima temporada.
+
+- Sempre que possível, faça a troca do seu pneu antes que ele chegue próximo ao limite máximo de desgaste, pois com um pneu bastante desgastado seu piloto fará uma volta bem mais lenta que o normal.
+
+- Nem sempre os melhores fornecedores são os mais caros. Analise bem cada detalhe antes de fazer a sua escolha.
+
+
+Guia do Iniciante - Estrategia F1
+ 
+Agora o jogo começou de verdade! Tudo depende da sua administração. Você tem em caixa R$55.000,00 e várias tarefas a cumprir.
+
+Primeiramente, você deve assinar os contratos com fornecedores de peças e o de combustível.
+
+Escolha bem os seus fornecedores, pois o dinheiro que você possui em caixa deve pagar todos os contratos necessários (Motor, Pneus, Câmbio, Suspensão e Combustível), além de comprar todas as peças necessárias para a corrida. Caso você cometa algum deslize e gaste mais do que deveria, ainda existe uma solução: Acessar o menu Perfil, resetar sua conta e começar tudo novamente.
+
+Para saber quanto você deve gastar com os contratos e a relação custo/benefício dos fornecedores, analise bem os produtos (clicando sobre o nome do fornecedor) observe as características e os preços.
+
+Não feche nenhum contrato precipitadamente, pois os contratos para a temporada atual não podem ser rescindidos. Além disso você deve ter certeza que, após fechar todos os contratos, ainda terá dinheiro suficiente para comprar todas as peças para a sua 1ª corrida.
+
+
+=========================================
+Guia do Iniciante - Estrategia F1
+ 
+Tudo encaminhado! Você já contratou os fornecedores, agora falta se preparar para a corrida. No início é preciso bastante atenção, mas com o tempo você verá que é bastante simples deixar seu carro preparado para a corrida.
+
+O primeiro passo é clicar no link Próxima Corrida e analisar os dados fornecidos.
+
+Temos no exemplo abaixo a pista da Áustria:
+
+
+
+
+
+
+
+Nome: A1-Ring, Áustria
+Tamanho total: 307.100 metros
+Voltas: 71
+Câmbio/Suspensão Ideais: AB
+Influência: M9, C8, S7, P11, G12, E14
+Entrada/Saída Boxes: 14 segundos
+Recorde: --:--.---
+Por:
+
+
+
+Vamos às interpretações das informações:
+
+1) Tamanho total em metros e o número de voltas que são dadas nesta pista durante a corrida - Com esses dados você já pode calcular a primeira importante informação necessária para a sua estratégia, o tamanho de cada volta na pista. Para isso basta dividir o tamanho total pelo número de voltas. No exemplo acima temos:
+
+307.100 metros / 71 voltas = 4.325,36 metros por volta
+
+2) Categoria de Peças - De acordo com o traçado da pista foram definidos os modelos de câmbio e suspensão ideais para cada uma.
+
+Essas categorias são denominadas por duas letras, onde a primeira letra define o modelo de câmbio ideal e a segunda define o modelo de suspensão ideal.
+Cada letra corresponde a um modelo do seu fabricante. A tabela com cada correspondência encontra-se na Tabela de Dados, que fica na área de Consultas.
+
+Para exemplificar, vamos novamente usar a pista da Áustria:
+
+Câmbio/Suspensão Ideais: AB
+
+Logo:
+- Categoria do câmbio: A
+- Categoria da suspensão: B
+
+Consultando as peças correspondentes na Tabela de Dados encontramos:
+Câmbio A: modelo XX-50
+Suspensão B: modelo XX-100
+
+Se você contratou o fornecedor de Câmbios Cexuqe, a peça ideal será CE-50
+Se você contratou o fornecedor de Suspensão Wovada, a peça ideal será WO-100
+
+
+3) Influência - O carro é constituindo de vários itens, alguns tem uma importância maior que outros para o desempenho geral do carro. Talvez o nível da sua suspensão tenha mais importância que o nível do seu combustível, ou vice-versa.
+Estas importâncias têm valores fixos que podem ser qualitativamente descobertos com o passar do tempo. Entretanto, a cada corrida esses valores sofrem a influência de um multiplicador, que são estes valores divulgados em cada pista.
+
+Com valores aleatórios para exemplos:
+
+Importâncias fixas do jogo:
+Motor = 5
+Câmbio = 6
+Suspensão = 7
+Pneus = 8
+Combustível = 9
+Engenheiro = 10
+
+
+Influências: M9, C8, S7, P11, G12, E14
+Traduzindo as siglas dos multiplicadores, temos respectivamente:
+
+Motor = x9
+Câmbio = x8
+Suspensão = x7
+Pneus = x11
+Combustível = x12
+Engenheiro= x14
+
+Desta forma, teríamos para a Áustria, os seguintes valores:
+
+Motor = 5 x 9 = 45
+Câmbio = 6 x 8 = 48
+Suspensão = 7 x 7 = 49
+Pneus = 8 x 11 = 88
+Combustível = 9 x 12 = 108
+Engenheiro = 10 x 14 = 140
+
+Isso significa que nesta pista o Engenheiro e Combustível influenciam muito mais que os outros componentes do carro, portanto os pilotos que tiverem melhores contratos nestes itens têm uma vantagem nesta disputa. Lembrando que os valores fixos citados acima são totalmente fictícios e não necessariamente correspondem aos valores reais utilizados pelo jogo.
+
+4) Entrada/Saída dos boxes:
+
+Ao entrar nos boxes, há um limite máximo de velocidade. Por isso existe um tempo necessário para que ocorra a entrada e a saída dos boxes, obedecendo esse limite.
+O tempo varia a cada pista, e para jogadores mais experientes, esse tempo pode pesar bastante na escolha do número de paradas nos boxes.
+
+5) Recorde/Por
+
+Essa informação é meramente ilustrativa, serve para exibir qual foi o piloto que conseguiu fazer a volta mais rápida na pista. Este recorde permanece mesmo que a temporada chegue ao fim.
+
+Bom, você já possui algumas informações sobre a corrida agora. Já sabe o tamanho de cada volta e os modelos ideais de câmbio e suspensão.
+Mas isso não é o suficiente para que você faça sua estratégia. Falta ainda um detalhe muito importante: o clima.
+
+Na mesma página, você tem a previsão do tempo para a corrida, com o clima em cada trecho.
+Há a exibição da quantidade de chuva (em milímetros) e a temperatura em graus Celsius.
+De acordo com a quantidade de água você escolherá o tipo ideal de pneu para cada trecho:
+
+Pista Seca (0 a 3 mm), Pista Molhada (4 a 6 mm) ou Pista Encharcada (7 a 9 mm).
+Para maiores informações sobre os milímetros, consulte os textos complementares.
+
+A temperatura influenciará apenas no desgaste do seu pneu. Consulte na Tabela de Dados os valores de desgaste equivalente a cada temperatura.
+
+Continuando o exemplo da pista Austríaca, e supondo uma temperatura de 35 graus, consultemos a tabela:
+
+35 graus equivale a um desgaste extra de 150 m/km. Temos na Áustria cada volta com 4,326 km aproximadamente, fazendo uma regra de 3:
+
+1,000 km = 150 metros
+4,326 km = x metros
+x = 648,9 metros
+
+Portanto, enquanto a temperatura estiver em 35 graus, o desgaste do Pneu será:
+
+Tamanho da Volta + Desgaste Extra = Desgaste Total
+4,326 km + 648,9 m = 4974,9 metros por volta
+
+É importante ressaltar que a corrida é dividida em 4 trechos e a temperatura pode mudar de um trecho para outro. Na maioria das vezes é preciso calcular os desgaste por volta para cada um dos 4 trechos.
+
+Somando os desgastes de todas as voltas você terá o total de quilômetros que os seus pneus devem suportar. Lembrando que o Treino Oficial é constituído de apenas uma volta, e que as voltas do Treino Livre são feitas com um outro set de pneus, e não o mesmo que será utilizado na pista.
+
+O último cálculo é bem simples. Sabendo-se o tamanho de cada volta da pista (vamos utilizar para esse exemplo 4,326 km), você deverá calcular o consumo total de combustível na corrida. O consumo varia de acordo com o modelo do motor escolhido. Supondo que o consumo do motor escolhido seja 0,500 litros/km, teremos o seguinte consumo total:
+
+Consumo Total = 4,326 km * Voltas Totais * 0,500 litro/km
+
+Para saber a quantidade de voltas totais, basta adicionar a volta do Treino Oficial às voltas da corrida. Na Áustria temos:
+
+- Volta de Qualificação: é a volta que definirá a posição dos pilotos no grid de largada (1 volta).
+- Voltas da Corrida: número total de voltas da corrida. Este número varia de pista para pista.
+
+No caso do exemplo que estamos usando, 71 voltas na Áustria.
+Agora fica fácil calcular as voltas totais e finalmente terminar o cálculo do consumo total:
+Voltas Totais = 1 + 71 = 72
+Consumo total = 4,326 * 72 * 0,500 = 155,74 litros
+
+Agora que você já tem esses valores, já pode escolher as peças que deseja utilizar na corrida. Na próxima seção veremos como montar o carro para ajustá-lo durante o treino livre.
+
+
+Algumas observações importantes:
+
+- A capacidade máxima do tanque de combustível é de 150 litros.
+- Se o pneu suporta um desgaste de 200 km, ele irá explodir se o desgaste for maior que isso.
+============
+Pronto, a parte mais trabalhosa já passou. Você já tem sua estratégia em mente (ou anotada em algum lugar) e falta agora montar o carro e fazer o ajuste correto para a corrida.
+
+É necessário que você compre um jogo extra de pneus (além dos da corrida) para que possa fazer o Treino Livre. Além disso deve por no tanque uma quantidade suficiente de combustível para que o carro possa dar quantas voltas forem necessárias para o seu treino (se o seu combustível terminar você não poderá adicionar mais durante o treino).
+
+O treino livre serve para que as peças do carro sejam bem configuradas para a corrida. Tendo tudo que for necessário em estoque, monte o carro selecionando o motor, câmbio e suspensão planejados para a corrida e utilize este jogo extra de pneus e o combustível a ser utilizado neste treino livre.
+
+Com o carro montado, você já pode iniciar o treino livre. Existem 5 ajustes a serem feitos: Câmbio, Suspensão, Freio, Aerofólio Dianteiro e Traseiro.
+Cada um desses itens possui um valor de ajuste ideal, entre 1 e 99.
+
+Para iniciar você deverá escolher um valor qualquer para cada item e pedir para que o piloto faça uma volta na pista. Após esta volta, será indicado o tempo e dicas do piloto para que seja melhorado o ajuste em 2 itens. Então modifique os valores do ajuste feito e faça outra volta. Assim que algum item chegar ao valor ideal, o piloto passa a dar dicas de outra peça. Nem sempre é fácil saber o que o piloto quer dizer, mas isso é comum no início. Com o tempo você acabará descobrindo o significado de cada frase. Quando achar que já treinou o suficiente para essa corrida, salve o ajuste do carro.
+
+
+A única limitação no seu número de voltas durante o Treino Livre é a quantidade de litros no tanque e o desgaste dos pneus. Se não houver mais combustível no tanque ou o pneu já tiver chegado ao seu limite de desgaste, não será possível continuar a fazer voltas no Treino Livre.
+
+Após ter terminado o treino, ou até mesmo antes disso você poderá conferir o seu tempo e dos outros pilotos, clicando no link Visualizar : Treino Livre.
+===================
+Carro montado, peças definidas, ajuste feito. Está quase tudo pronto para a corrida. É hora de definir como o carro irá fazer o treino oficial e iniciará a corrida. Você certamente já escolheu os pneus que irá utilizar durante o Treino Oficial e a corrida. Provavelmente já os comprou e estão guardados em seu estoque. Então é hora de utilizá-los.
+
+Os pneus e o combustível colocados no carro para o Treino Livre já foram utilizados e a sobra foi descartada. Escolha agora os novos pneus e também a quantidade de combustível. Agora defina em que volta será feito o seu primeiro Pit Stop.
+
+
+Observação: A exibição ao vivo do Treino Oficial de todos os pilotos ocorre às 19h, no dia da corrida. Nesses dias o site não permite que os jogadores acessem as páginas de preparação do carro entre 19h e 21:30h.
+======
+ste é o último passo e talvez o mais importante de todo o jogo: a estratégia de corrida.
+
+Você já tem definida a volta em que fará o seu primeiro pit stop. Mas não definiu ainda as instruções dessa parada. Então defina agora o pneu a ser colocado no carro e a quantidade de combustível a ser adicionada.
+
+Se desejar fazer nesta corrida, outro pit stop, selecione o número da volta em que este próximo será feito e clique em Salvar. Logo abaixo irá aparecer um campo com as opções desta próxima parada, e assim sucessivamente, até que você selecione: Parar no Fim, não fazendo mais Pit Stop algum.
+
+
+Algumas considerações importantes:
+
+- Ao definir um pit stop para a volta 15 (por exemplo), isso significa que seu carro entrará nos boxes no fim da volta 14 e voltará para a corrida já no início da volta 15.
+- Você pode optar por não adicionar nenhum combustível no pit stop, para isso basta deixar o campo Combustível com o valor 0.
+=====
+Você pode salvar este conteúdo em um arquivo no projeto, por exemplo chamado como.txt, ou copiar diretamente para um bloco de notas.
+
+Texto para salvar:
+
+Resumo do projeto atual
+
+O projeto é uma aplicação web em Flask com SQLAlchemy, SQLite e templates Jinja, voltada para um jogo de estratégia tipo Fórmula 1. A ideia principal é simular a preparação da equipe para a corrida, incluindo montagem do carro, treinos, estratégia e corrida.
+
+O que já existe implementado
+
+- Estrutura base do app Flask com páginas de login, cadastro, equipe, corrida, classificação e administração.
+- Modelo de dados com usuários, equipes, fornecedores, configurações, desenvolvimento, treinamento de box e resultados de corrida.
+- Simulação básica de corrida.
+- Integração com pistas reais e cálculo de número de voltas.
+- Implementação de categorias de fornecedor e pista (pneu, câmbio, suspensão).
+- Fluxo inicial de treino livre:
+  - página para definir ajustes de setup
+  - simulação de uma volta
+  - feedback e dicas
+- Fluxo de treino oficial:
+  - seleção de pneu e combustível
+  - escolha da volta do primeiro pit stop
+  - opção de segundo pit stop
+  - resumo de estratégia
+- Fluxo de estratégia de corrida:
+  - definição da estratégia final
+  - sugestão de estrategista
+- Migrações do Flask-Migrate já iniciadas com Alembic.
+- Compatibilidade com bancos antigos, incluindo adaptação de colunas de fornecedores sem apagar o banco.
+
+O que ainda falta implementar
+
+- Persistência real dos dados de treino livre, treino oficial e estratégia no banco.
+  - Hoje esses dados ficam em sessão, então são perdidos ao recarregar a página ou trocar de sessão.
+- Integração completa entre preparação e corrida.
+  - O sistema ainda simula a corrida sem usar diretamente os dados escolhidos no treino livre/oficial/estratégia.
+- Lógica de estratégia mais realista.
+  - Em vez de um resumo simples, seria importante calcular melhor:
+    - consumo
+    - desgaste
+    - impacto de pneu/combustível
+    - timing de pit stop
+- Fluxo de “Preparar carro” mais fiel ao manual.
+  - Montagem de motor, câmbio, suspensão, pneu e combustível de forma mais completa e conectada ao restante da preparação.
+- Tela de “Próxima corrida” ou preparação da pista.
+  - Exibir dados mais completos da pista, clima, condições e categorias ideais.
+- Progressão e economia do jogo.
+  - Relacionar orçamento, fornecedores, contratos e custos com as etapas de corrida.
+- Melhorias de UX.
+  - Exibir mensagens mais claras, validações e estados do fluxo para guiar o jogador.
+
+Resumo do estágio atual
+
+O projeto já possui a base estrutural e os primeiros fluxos de preparação, mas ainda está em uma fase intermediária. O próximo passo mais importante é conectar o que foi preparado na tela de treino/estratégia com a simulação real da corrida e salvar essas escolhas de forma persistente.
+
+Se quiser, eu também posso te passar uma versão ainda mais curta, tipo checklist, para colar direto num arquivo de texto.

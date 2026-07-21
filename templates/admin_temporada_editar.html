@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Editar temporada: {{ temporada.nome }}</h1>
+<p><a href="{{ url_for('admin_temporadas') }}">← Voltar</a></p>
+
+<div class="card mb-4">
+    <div class="card-header">Renomear</div>
+    <div class="card-body">
+        <form method="POST" class="row g-2">
+            <input type="hidden" name="acao" value="renomear">
+            <div class="col-md-8">
+                <input type="text" name="nome" class="form-control" value="{{ temporada.nome }}" required>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-secondary w-100">Salvar nome</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">Adicionar corrida ao calendário</div>
+    <div class="card-body">
+        <form method="POST" class="row g-2">
+            <input type="hidden" name="acao" value="adicionar_pista">
+            <div class="col-md-8">
+                <select name="pista_id" class="form-select" required>
+                    <option value="">-- escolha uma pista --</option>
+                    {% for p in pistas %}
+                    <option value="{{ p.id }}">{{ p.nome }} ({{ p.pais }}, {{ p.extensao_km }} km)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary w-100">➕ Adicionar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<h2 class="h5">Calendário</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>#</th><th>Pista</th><th>País</th><th>Status</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for corrida in temporada.corridas_agendadas %}
+        {% set pista = pistas_por_id.get(corrida.pista_real_id) %}
+        <tr>
+            <td>{{ corrida.ordem }}</td>
+            <td>{{ corrida.pista_nome }}</td>
+            <td>{{ pista.pais if pista else '-' }}</td>
+            <td>
+                {% if corrida.executada %}
+                    ✅ Executada
+                {% else %}
+                    ⏳ Aguardando
+                {% endif %}
+            </td>
+            <td>
+                {% if not corrida.executada %}
+                <form method="POST" action="{{ url_for('admin_temporada_remover_corrida', corrida_id=corrida.id) }}" style="display:inline;"
+                      onsubmit="return confirm('Remover essa corrida do calendário?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">🗑</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">Nenhuma corrida ainda. Adicione acima.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

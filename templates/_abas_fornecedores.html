@@ -1,0 +1,7 @@
+<ul class="nav abas-ows flex-nowrap" style="overflow-x:auto;">
+    {% for chave, cfg in categorias_fornecedor.items() %}
+    <li class="nav-item">
+        <a class="nav-link text-nowrap {% if categoria == chave %}active{% endif %}" href="{{ url_for('admin_fornecedores', categoria=chave) }}">{{ cfg.titulo }}</a>
+    </li>
+    {% endfor %}
+</ul>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Editar equipe: {{ equipe.nome }}</h1>
+<p><a href="{{ url_for('minha_equipe') }}">← Voltar</a></p>
+
+<div class="alert alert-info">
+    Você pode trocar qualquer fornecedor. Cada troca <strong>debita o custo_montagem
+    do novo fornecedor</strong> do seu orçamento (o antigo já foi pago quando você
+    montou o carro).
+    <br>
+    Orçamento atual: <strong>{{ equipe.orcamento | dinheiro }}</strong>
+</div>
+
+<form method="POST" class="form-ows">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Motor</label>
+            <select name="motor_fornecedor_id" class="form-select">
+                {% for m in motores %}
+                <option value="{{ m.id }}" {% if equipe.motor_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} — montagem: {{ m.custo_montagem | dinheiro }} / temporada: {{ m.custo_temporada | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Combustível</label>
+            <select name="combustivel_fornecedor_id" class="form-select">
+                {% for m in combustiveis %}
+                <option value="{{ m.id }}" {% if equipe.combustivel_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} — montagem: {{ m.custo_montagem | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Pneu</label>
+            <select name="pneu_fornecedor_id" class="form-select">
+                {% for m in pneus %}
+                <option value="{{ m.id }}" {% if equipe.pneu_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} — montagem: {{ m.custo_montagem | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Chassi</label>
+            <select name="chassi_fornecedor_id" class="form-select">
+                {% for m in chassis %}
+                <option value="{{ m.id }}" {% if equipe.chassi_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} — montagem: {{ m.custo_montagem | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Câmbio</label>
+            <select name="cambio_fornecedor_id" class="form-select">
+                {% for m in cambios %}
+                <option value="{{ m.id }}" {% if equipe.cambio_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} — montagem: {{ m.custo_montagem | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Suspensão</label>
+            <select name="suspensao_fornecedor_id" class="form-select">
+                {% for m in suspensoes %}
+                <option value="{{ m.id }}" {% if equipe.suspensao_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} — montagem: {{ m.custo_montagem | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Engenheiro (opcional)</label>
+            <select name="engenheiro_fornecedor_id" class="form-select">
+                <option value="">-- sem engenheiro --</option>
+                {% for m in engenheiros %}
+                <option value="{{ m.id }}" {% if equipe.engenheiro_fornecedor_id == m.id %}selected{% endif %}>
+                    {{ m.nome }} (Nível {{ m.nivel }}) — montagem: {{ m.custo_montagem | dinheiro }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Combustível carregado (L) — máx 150L</label>
+            <input type="number" step="0.5" min="0" max="150" name="combustivel_carregado"
+                   value="{{ equipe.combustivel_carregado }}" class="form-control">
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">💾 Salvar trocas</button>
+        <a href="{{ url_for('minha_equipe') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

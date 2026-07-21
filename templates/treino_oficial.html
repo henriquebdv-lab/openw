@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Treino Oficial</h1>
+<p>Use o setup do treino livre e defina pneu, combustível e estratégia para a corrida.</p>
+
+{% if mensagem %}
+<div class="alert alert-info">{{ mensagem }}</div>
+{% endif %}
+
+<form method="POST" class="form-ows">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="pneu_fornecedor_id" class="form-label">Pneu</label>
+            <select id="pneu_fornecedor_id" name="pneu_fornecedor_id" class="form-select">
+                {% for pneu in pneus %}
+                <option value="{{ pneu.id }}">{{ pneu.nome }} (perf. {{ pneu.performance }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label for="combustivel_fornecedor_id" class="form-label">Combustível</label>
+            <select id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" class="form-select">
+                {% for combustivel in combustiveis %}
+                <option value="{{ combustivel.id }}">{{ combustivel.nome }} (efic. {{ combustivel.eficiencia }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label for="volta_primeiro_pit" class="form-label">Volta do primeiro pit stop</label>
+            <input id="volta_primeiro_pit" type="number" min="1" max="80" name="volta_primeiro_pit" value="10" class="form-control">
+        </div>
+        <div class="col-md-6">
+            <label for="outro_pit" class="form-label d-block">Segundo pit stop?</label>
+            <input id="outro_pit" type="checkbox" name="outro_pit" class="form-check-input">
+            <label class="form-check-label ms-2" for="outro_pit">Sim</label>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">Concluir treino oficial</button>
+</form>
+
+{% if resultado %}
+<div class="card mt-4">
+    <h2 class="h5">Resumo da sessão</h2>
+    <p><strong>Tempo estimado da volta:</strong> {{ resultado.tempo_volta }} s</p>
+    <p><strong>Pneu:</strong> {{ resultado.pneu }}</p>
+    <p><strong>Combustível:</strong> {{ resultado.combustivel }}</p>
+    <p><strong>Estratégia:</strong> {{ resultado.estrategia }}</p>
+</div>
+{% endif %}
+{% endblock %}

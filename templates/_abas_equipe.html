@@ -1,0 +1,11 @@
+<ul class="nav abas-ows">
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}" href="{{ url_for('minha_equipe') }}">Visão Geral</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'desenvolvimento_view' %}active{% endif %}" href="{{ url_for('desenvolvimento_view') }}">Desenvolvimento</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint == 'treinamento_view' %}active{% endif %}" href="{{ url_for('treinamento_view') }}">Treinamento</a>
+    </li>
+</ul>

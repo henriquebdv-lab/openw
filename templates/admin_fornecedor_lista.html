@@ -1,0 +1,83 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'fornecedores' %}
+
+{% block admin_content %}
+<h1 class="h3">{{ cfg.titulo }}</h1>
+<p>{{ total }} cadastrados</p>
+
+<div class="card mb-4">
+    <div class="card-header">Cadastrar novo</div>
+    <div class="card-body">
+        <form method="POST" class="form-ows">
+            <div class="mb-3">
+                <label for="nome" class="form-label">Nome</label>
+                <input id="nome" type="text" name="nome" class="form-control" placeholder="Nome do fornecedor" required>
+            </div>
+            <div class="mb-3">
+                <label for="custo_temporada" class="form-label">Custo por temporada</label>
+                <input id="custo_temporada" type="number" name="custo_temporada" step="1000" value="0" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="custo_montagem" class="form-label">Custo de montagem (por corrida)</label>
+                <input id="custo_montagem" type="number" name="custo_montagem" step="100" value="0" class="form-control" required>
+            </div>
+            {% for campo in cfg.campos %}
+            <div class="mb-3">
+                <label for="{{ campo.nome }}" class="form-label">{{ campo.label }}</label>
+                {% if campo.tipo == 'string' %}
+                    {% if campo.nome in ['categoria_pista'] %}
+                    <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
+                        {% for categoria in categorias_pista %}
+                        <option value="{{ categoria }}">{{ categoria }}</option>
+                        {% endfor %}
+                    </select>
+                    {% elif campo.nome in ['categoria_chuva'] %}
+                    <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
+                        {% for categoria in categorias_chuva %}
+                        <option value="{{ categoria }}">{{ categoria }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <input id="{{ campo.nome }}" type="text" name="{{ campo.nome }}" class="form-control">
+                    {% endif %}
+                {% else %}
+                <input id="{{ campo.nome }}" type="number" step="0.001" name="{{ campo.nome }}" value="0" class="form-control">
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </form>
+    </div>
+</div>
+
+<h2 class="h5">Lista (página {{ pagina }} de {{ total_paginas }})</h2>
+<table class="table table-sm">
+    <thead>
+        <tr>
+            <th>Nome</th><th>Temporada</th><th>Montagem</th>
+            {% for campo in cfg.campos %}<th>{{ campo.label }}</th>{% endfor %}
+            <th>Ativo</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for item in itens %}
+    <tr>
+        <td>{{ item.nome }}</td>
+        <td>{{ "{:,.0f}".format(item.custo_temporada) }}</td>
+        <td>{{ "{:,.0f}".format(item.custo_montagem) }}</td>
+        {% for campo in cfg.campos %}<td>{{ item | attr(campo.nome) }}</td>{% endfor %}
+        <td>{{ "Sim" if item.ativo else "Não" }}</td>
+        <td><a href="{{ url_for('admin_fornecedor_editar', categoria=categoria, item_id=item.id) }}">Editar</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p>
+    {% if pagina > 1 %}
+        <a href="{{ url_for('admin_fornecedores', categoria=categoria, pagina=pagina-1) }}">← Anterior</a>
+    {% endif %}
+    {% if pagina < total_paginas %}
+        <a href="{{ url_for('admin_fornecedores', categoria=categoria, pagina=pagina+1) }}">Próxima →</a>
+    {% endif %}
+</p>
+{% endblock %}

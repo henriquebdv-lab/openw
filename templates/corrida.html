@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Dia de Corrida</h1>
+{% include "_abas_corrida.html" %}
+
+{% if usuario_logado.eh_admin %}
+    {% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
+    <div class="card mb-3 border-success">
+        <div class="card-header bg-success text-white">
+            🏁 Próxima corrida da temporada ativa: <strong>{{ temporada.nome }}</strong>
+        </div>
+        <div class="card-body">
+            <p>
+                Etapa <strong>{{ proxima_corrida_temporada.ordem }}</strong> de {{ temporada.total_corridas() }}:
+                <strong>{{ pista_proxima_temporada.nome }}</strong> ({{ pista_proxima_temporada.pais }},
+                {{ pista_proxima_temporada.extensao_km }} km)
+            </p>
+            <p class="text-muted" style="font-size:0.9em;">
+                Ao rodar essa corrida, o <strong>custo_montagem</strong> dos fornecedores será debitado do orçamento de todas as equipes,
+                e a pontuação (25/18/15/12/10/8/6/4/2/1) será computada no ranking.
+            </p>
+            <form method="POST">
+                <input type="hidden" name="modo" value="temporada">
+                <button type="submit" class="btn btn-success">
+                    ▶ Rodar corrida da temporada ({{ pista_proxima_temporada.nome }})
+                </button>
+            </form>
+        </div>
+    </div>
+    {% elif temporada and not proxima_corrida_temporada %}
+    <div class="alert alert-info">
+        Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
+        Veja o ranking em <a href="{{ url_for('temporada_view') }}">Temporada</a>.
+    </div>
+    {% endif %}
+
+    <div class="card mb-3">
+        <div class="card-header">Corrida livre (fora da temporada)</div>
+        <div class="card-body">
+            <p class="text-muted" style="font-size:0.9em;">
+                Roda uma corrida qualquer. Também debita o custo_montagem, mas NÃO conta pra pontuação da temporada.
+            </p>
+            <form method="POST">
+                <label for="pista_id">Pista</label>
+                <select name="pista_id" id="pista_id" required>
+                    {% for p in pistas %}
+                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">▶ Simular corrida</button>
+            </form>
+        </div>
+    </div>
+{% else %}
+<p class="text-muted">Só o admin pode simular a corrida. O resultado mais recente aparece abaixo.</p>
+{% endif %}
+
+{% if resultado %}
+<h2>Replay volta a volta</h2>
+<div class="card">
+    <p>
+        <strong>{{ resultado.pista.nome }}</strong> ({{ resultado.pista.pais }}) -
+        {{ resultado.posicoes_por_volta|length }} voltas, {{ resultado.distancia_total }} km total -
+        pit stop base: {{ resultado.pista.tempo_pit_stop_segundos }}s |
+        câmbio: {{ resultado.pista.categoria_cambio_ideal }} | suspensão: {{ resultado.pista.categoria_suspensao_ideal }}
+    </p>
+    <p>
+        Temperaturas por trecho:
+        <strong>{{ resultado.temperaturas_trechos[0] }}°C</strong> /
+        <strong>{{ resultado.temperaturas_trechos[1] }}°C</strong> /
+        <strong>{{ resultado.temperaturas_trechos[2] }}°C</strong> /
+        <strong>{{ resultado.temperaturas_trechos[3] }}°C</strong>
+    </p>
+    <p>
+        Volta <strong id="volta-atual">1</strong> de {{ resultado.posicoes_por_volta|length }}
+    </p>
+    <div>
+        <button type="button" id="btn-anterior">⏮ Volta anterior</button>
+        <button type="button" id="btn-play">▶ Play</button>
+        <button type="button" id="btn-proxima">Próxima volta ⏭</button>
+    </div>
+    <table id="tabela-replay">
+        <tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>
+    </table>
+</div>
+
+<h2>Resultado final</h2>
+<table>
+    <tr><th>Posição</th><th>Equipe</th><th>Tempo total</th><th>Pit stops</th><th>Comb. qualifying</th></tr>
+    {% for r in resultado.classificacao_final %}
+    <tr class="{% if r.abandonou %}table-danger{% endif %}">
+        <td>P{{ r.posicao }}</td>
+        <td>{{ r.equipe }}</td>
+        {% if r.abandonou %}
+            <td colspan="3">Abandonou (pneu estourou na volta {{ r.volta_abandono }})</td>
+        {% else %}
+            <td>{{ r.tempo_total_segundos | tempo_min }}</td>
+            <td>{{ r.pit_stops }}</td>
+            <td>{{ r.combustivel_qualifying }} L</td>
+        {% endif %}
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+    const posicoesPorVolta = {{ resultado.posicoes_por_volta | tojson }};
+    let voltaIndex = 0;
+    let playing = false;
+    let playInterval = null;
+    function formatarTempo(s) {
+        const m = Math.floor(s / 60);
+        const seg = (s % 60).toFixed(3).padStart(6, "0");
+        return `${m}:${seg}`;
+    }
+    function formatarDiferenca(pos, dif, abandonou) {
+        if (abandonou) return "ABANDONOU";
+        if (pos === 1) return "-";
+        if (dif === null || dif === undefined) return "-";
+        if (Math.abs(dif) >= 60) {
+            const m = Math.floor(Math.abs(dif) / 60);
+            const s = (Math.abs(dif) % 60).toFixed(3).padStart(6, "0");
+            return `+${m}:${s}`;
+        }
+        return `+${dif.toFixed(3)}s`;
+    }
+    function renderVolta(index) {
+        const volta = posicoesPorVolta[index];
+        document.getElementById("volta-atual").textContent = index + 1;
+        const tabela = document.getElementById("tabela-replay");
+        tabela.innerHTML = "<tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>";
+        volta.forEach(linha => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>P${linha.posicao}</td><td>${linha.equipe}</td>` +
+                            `<td>${formatarTempo(linha.tempo_acumulado)}</td>` +
+                            `<td>${formatarDiferenca(linha.posicao, linha.diferenca_lider, linha.abandonou)}</td>` +
+                            `<td>${formatarDiferenca(linha.posicao, linha.diferenca_frente, linha.abandonou)}</td>`;
+            tabela.appendChild(tr);
+        });
+    }
+    document.getElementById("btn-proxima").addEventListener("click", () => {
+        if (voltaIndex < posicoesPorVolta.length - 1) { voltaIndex++; renderVolta(voltaIndex); }
+    });
+    document.getElementById("btn-anterior").addEventListener("click", () => {
+        if (voltaIndex > 0) { voltaIndex--; renderVolta(voltaIndex); }
+    });
+    document.getElementById("btn-play").addEventListener("click", function() {
+        playing = !playing;
+        this.textContent = playing ? "⏸ Pausar" : "▶ Play";
+        if (playing) {
+            playInterval = setInterval(() => {
+                if (voltaIndex < posicoesPorVolta.length - 1) {
+                    voltaIndex++;
+                    renderVolta(voltaIndex);
+                } else {
+                    clearInterval(playInterval);
+                    playing = false;
+                    this.textContent = "▶ Play";
+                }
+            }, 400);
+        } else {
+            clearInterval(playInterval);
+        }
+    });
+    renderVolta(0);
+</script>
+{% endif %}
+{% endblock %}

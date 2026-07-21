@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{#
+  Layout base para todas as telas de admin: sidebar fixa à esquerda,
+  conteúdo à direita. Cada admin_*.html estende esse arquivo em vez
+  do base.html direto, e coloca o conteúdo em {% block admin_content %}.
+#}
+
+{% block content %}
+<div class="row g-4">
+    {# ---------- SIDEBAR FIXA ---------- #}
+    <div class="col-lg-3 col-md-4">
+        <div class="list-group sticky-top" style="top: 1rem;">
+            <a href="{{ url_for('admin_dashboard') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'dashboard' %}active{% endif %}">
+                🏠 Painel
+            </a>
+            <a href="{{ url_for('admin_configuracoes') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'configuracoes' %}active{% endif %}">
+                ⚙ Configurações
+            </a>
+            <a href="{{ url_for('admin_pistas_reais') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'pistas' %}active{% endif %}">
+                🏁 Pistas Reais
+            </a>
+            <a href="{{ url_for('admin_temporadas') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'temporadas' %}active{% endif %}">
+                🏆 Temporadas
+            </a>
+            <a href="{{ url_for('admin_usuarios') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'usuarios' %}active{% endif %}">
+                👥 Usuários
+            </a>
+
+            {# Fornecedores agrupados: quando você tá em qualquer categoria
+               aparece o submenu com as 7 categorias #}
+            <div class="list-group-item {% if secao_admin == 'fornecedores' %}active{% endif %}"
+                 style="font-weight: bold;">
+                🔧 Fornecedores
+            </div>
+            {% if categorias_fornecedor %}
+                {% for chave, cfg in categorias_fornecedor.items() %}
+                <a href="{{ url_for('admin_fornecedores', categoria=chave) }}"
+                   class="list-group-item list-group-item-action {% if categoria_fornecedor_atual == chave %}active{% endif %}"
+                   style="padding-left: 2rem; font-size: 0.9em;">
+                    {{ cfg.titulo }}
+                </a>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    {# ---------- CONTEÚDO ---------- #}
+    <div class="col-lg-9 col-md-8">
+        {% block admin_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

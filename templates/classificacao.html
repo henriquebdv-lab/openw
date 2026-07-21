@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Dia de Corrida</h1>
+{% include "_abas_corrida.html" %}
+<form method="POST">
+    <button type="submit">Rodar classificação (1 volta rápida por equipe)</button>
+</form>
+{% if resultado %}
+<h2>Grid de largada</h2>
+<table>
+    <tr><th>Posição</th><th>Equipe</th><th>Tempo</th></tr>
+    {% for r in resultado %}
+    <tr>
+        <td>P{{ r.posicao_grid }}</td>
+        <td>{{ r.equipe }}</td>
+        <td>{{ r.tempo_classificacao | tempo_min }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
+{% endblock %}

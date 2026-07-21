@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Desenvolvimento</h1>
+{% include "_abas_equipe.html" %}
+
+<p class="text-muted">Desenvolve o chassi/aerodinâmica junto com o seu Engenheiro contratado. Quanto mais alto o percentual, mais do potencial dele você aproveita de verdade.</p>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Progresso: {{ registro.percentual }}%</h5>
+        <div class="progress mb-3" style="height: 24px;">
+            <div class="progress-bar bg-danger" style="width: {{ registro.percentual }}%;">{{ registro.percentual }}%</div>
+        </div>
+
+        {% if mensagem %}
+        <div class="alert alert-info">{{ mensagem }}</div>
+        {% endif %}
+
+        {% if registro.em_progresso %}
+            <p><strong>Em andamento</strong> - conclui em {{ registro.horario_conclusao.strftime('%d/%m %H:%M') }} (UTC)</p>
+            <button class="btn btn-secondary" disabled>Avançar +{{ registro.percentual }}%</button>
+        {% elif registro.percentual >= 100 %}
+            <p class="text-success">Desenvolvimento completo! 🎉</p>
+        {% else %}
+            <p>Próximo avanço: <strong>+{{ "{:,.0f}".format(proximo_custo) }}</strong> de custo, demora <strong>{{ proximo_tempo }}h</strong></p>
+            <form method="POST">
+                <button type="submit" class="btn btn-primary">Avançar</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'configuracoes' %}
+
+{% block admin_content %}
+<h1 class="h3 mb-4">Configurações do jogo</h1>
+
+<form method="POST">
+    <div class="card mb-3">
+        <div class="card-header">💰 Economia</div>
+        <div class="card-body">
+            <label class="form-label">Orçamento inicial (R$)</label>
+            <input type="number" step="1000" name="orcamento_inicial"
+                   value="{{ config.orcamento_inicial }}" class="form-control" required>
+            <small class="text-muted">Valor com o qual novos jogadores começam. Manual sugere R$ 55.000.</small>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">🔬 Desenvolvimento (chassi/aero)</div>
+        <div class="card-body row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Incremento por avanço (%)</label>
+                <input type="number" step="0.1" name="dev_incremento_percentual"
+                       value="{{ config.dev_incremento_percentual }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tempo base (horas)</label>
+                <input type="number" step="0.1" name="dev_tempo_base_horas"
+                       value="{{ config.dev_tempo_base_horas }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tempo fator (horas)</label>
+                <input type="number" step="0.1" name="dev_tempo_fator_horas"
+                       value="{{ config.dev_tempo_fator_horas }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Custo base (R$)</label>
+                <input type="number" step="1000" name="dev_custo_base"
+                       value="{{ config.dev_custo_base }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Custo fator</label>
+                <input type="number" step="0.1" name="dev_custo_fator"
+                       value="{{ config.dev_custo_fator }}" class="form-control" required>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">🔧 Treinamento de box (pit stop)</div>
+        <div class="card-body row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Incremento (%)</label>
+                <input type="number" step="0.1" name="treino_incremento_percentual"
+                       value="{{ config.treino_incremento_percentual }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tempo base (h)</label>
+                <input type="number" step="0.1" name="treino_tempo_base_horas"
+                       value="{{ config.treino_tempo_base_horas }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tempo fator (h)</label>
+                <input type="number" step="0.1" name="treino_tempo_fator_horas"
+                       value="{{ config.treino_tempo_fator_horas }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Custo base (R$)</label>
+                <input type="number" step="1000" name="treino_custo_base"
+                       value="{{ config.treino_custo_base }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Custo fator</label>
+                <input type="number" step="0.1" name="treino_custo_fator"
+                       value="{{ config.treino_custo_fator }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Pit sem treino (s)</label>
+                <input type="number" step="0.1" name="pit_tempo_sem_treino"
+                       value="{{ config.pit_tempo_sem_treino }}" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Pit treino completo (s)</label>
+                <input type="number" step="0.1" name="pit_tempo_treino_completo"
+                       value="{{ config.pit_tempo_treino_completo }}" class="form-control" required>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">💾 Salvar configurações</button>
+</form>
+{% endblock %}

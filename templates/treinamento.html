@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Treinamento de Box</h1>
+{% include "_abas_equipe.html" %}
+
+<p class="text-muted">Treina a equipe de box/mecânicos. Isso reduz o tempo parado nas paradas (entrada + troca + saída).</p>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Progresso: {{ registro.percentual }}%</h5>
+        <div class="progress mb-3" style="height: 24px;">
+            <div class="progress-bar bg-danger" style="width: {{ registro.percentual }}%;">{{ registro.percentual }}%</div>
+        </div>
+
+        <p>Tempo de pit stop atual: <strong>{{ tempo_pit_atual }}s</strong></p>
+
+        {% if mensagem %}
+        <div class="alert alert-info">{{ mensagem }}</div>
+        {% endif %}
+
+        {% if registro.em_progresso %}
+            <p><strong>Em andamento</strong> - conclui em {{ registro.horario_conclusao.strftime('%d/%m %H:%M') }} (UTC)</p>
+            <button class="btn btn-secondary" disabled>Avançar</button>
+        {% elif registro.percentual >= 100 %}
+            <p class="text-success">Treinamento completo! 🎉</p>
+        {% else %}
+            <p>Próximo avanço: <strong>+{{ "{:,.0f}".format(proximo_custo) }}</strong> de custo, demora <strong>{{ proximo_tempo }}h</strong></p>
+            <form method="POST">
+                <button type="submit" class="btn btn-primary">Avançar</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

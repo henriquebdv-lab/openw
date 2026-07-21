@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Criar sua equipe</h1>
+<p style="color:#666;">
+    O desempenho de cada fornecedor é secreto - escolha pelo nome e pelo custo.
+</p>
+
+<form method="POST">
+    <label for="nome">Nome da equipe</label>
+    <input type="text" name="nome" id="nome" required>
+
+    <label for="orcamento">Orçamento inicial</label>
+    <input type="number" name="orcamento" id="orcamento" value="1000000" step="10000">
+
+    <label for="motor_fornecedor_id">Motor</label>
+    <select name="motor_fornecedor_id" id="motor_fornecedor_id">
+        {% for m in motores %}
+            <option value="{{ m.id }}">
+                {{ m.nome }} - temporada: {{ "{:,.0f}".format(m.custo_temporada) }} / montagem: {{ "{:,.0f}".format(m.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="combustivel_fornecedor_id">Combustível</label>
+    <select name="combustivel_fornecedor_id" id="combustivel_fornecedor_id">
+        {% for c in combustiveis %}
+            <option value="{{ c.id }}">
+                {{ c.nome }} - temporada: {{ "{:,.0f}".format(c.custo_temporada) }} / montagem: {{ "{:,.0f}".format(c.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="pneu_fornecedor_id">Pneu</label>
+    <select name="pneu_fornecedor_id" id="pneu_fornecedor_id">
+        {% for p in pneus %}
+            <option value="{{ p.id }}">
+                {{ p.nome }} - temporada: {{ "{:,.0f}".format(p.custo_temporada) }} / montagem: {{ "{:,.0f}".format(p.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="chassi_fornecedor_id">Chassi</label>
+    <select name="chassi_fornecedor_id" id="chassi_fornecedor_id">
+        {% for c in chassis %}
+            <option value="{{ c.id }}">
+                {{ c.nome }} - temporada: {{ "{:,.0f}".format(c.custo_temporada) }} / montagem: {{ "{:,.0f}".format(c.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="cambio_fornecedor_id">Câmbio</label>
+    <select name="cambio_fornecedor_id" id="cambio_fornecedor_id">
+        {% for c in cambios %}
+            <option value="{{ c.id }}">
+                {{ c.nome }} - temporada: {{ "{:,.0f}".format(c.custo_temporada) }} / montagem: {{ "{:,.0f}".format(c.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="suspensao_fornecedor_id">Suspensão</label>
+    <select name="suspensao_fornecedor_id" id="suspensao_fornecedor_id">
+        {% for s in suspensoes %}
+            <option value="{{ s.id }}">
+                {{ s.nome }} - temporada: {{ "{:,.0f}".format(s.custo_temporada) }} / montagem: {{ "{:,.0f}".format(s.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="engenheiro_fornecedor_id">Engenheiro (opcional)</label>
+    <select name="engenheiro_fornecedor_id" id="engenheiro_fornecedor_id">
+        <option value="">Nenhum</option>
+        {% for e in engenheiros %}
+            <option value="{{ e.id }}">
+                {{ e.nome }} - Nível {{ e.nivel }} - temporada: {{ "{:,.0f}".format(e.custo_temporada) }} / montagem: {{ "{:,.0f}".format(e.custo_montagem) }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="combustivel_carregado">Combustível carregado (litros)</label>
+    <input type="number" name="combustivel_carregado" id="combustivel_carregado" value="110" min="50" max="150">
+
+    <button type="submit">Criar equipe</button>
+</form>
+{% endblock %}

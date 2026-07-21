@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Treino Livre</h1>
+<p>Defina os ajustes do carro para a sessão de treino e simule uma volta.</p>
+
+{% if mensagem %}
+<div class="alert alert-info">{{ mensagem }}</div>
+{% endif %}
+
+<form method="POST" class="form-ows">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="ajuste_cambio" class="form-label">Câmbio</label>
+            <input id="ajuste_cambio" type="number" min="1" max="99" name="ajuste_cambio" value="{{ ajustes.ajuste_cambio }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+            <label for="ajuste_suspensao" class="form-label">Suspensão</label>
+            <input id="ajuste_suspensao" type="number" min="1" max="99" name="ajuste_suspensao" value="{{ ajustes.ajuste_suspensao }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+            <label for="ajuste_freio" class="form-label">Freio</label>
+            <input id="ajuste_freio" type="number" min="1" max="99" name="ajuste_freio" value="{{ ajustes.ajuste_freio }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+            <label for="ajuste_aerofolio_dianteiro" class="form-label">Aero Dianteiro</label>
+            <input id="ajuste_aerofolio_dianteiro" type="number" min="1" max="99" name="ajuste_aerofolio_dianteiro" value="{{ ajustes.ajuste_aerofolio_dianteiro }}" class="form-control">
+        </div>
+        <div class="col-md-6">
+            <label for="ajuste_aerofolio_traseiro" class="form-label">Aero Traseiro</label>
+            <input id="ajuste_aerofolio_traseiro" type="number" min="1" max="99" name="ajuste_aerofolio_traseiro" value="{{ ajustes.ajuste_aerofolio_traseiro }}" class="form-control">
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">Fazer volta de treino</button>
+</form>
+
+{% if resultado %}
+<div class="card mt-4">
+    <h2 class="h5">Resultado da volta</h2>
+    <p><strong>Tempo:</strong> {{ resultado.tempo_volta }} s</p>
+    <p><strong>Resumo:</strong> {{ resultado.resumo }}</p>
+    <p><strong>Dicas:</strong> {{ resultado.dicas }}</p>
+</div>
+{% endif %}
+{% endblock %}

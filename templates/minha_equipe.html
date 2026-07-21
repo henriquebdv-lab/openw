@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">{{ equipe.nome }}</h1>
+{% include "_abas_equipe.html" %}
+
+<div class="card">
+    <p><strong>Orçamento:</strong> {{ "{:,.0f}".format(equipe.orcamento) }}</p>
+    <p><strong>Custo de montagem pra próxima corrida:</strong> {{ "{:,.0f}".format(custo_montagem) }}</p>
+</div>
+
+<h2>Equipamentos contratados</h2>
+<table>
+    <tr><th>Item</th><th>Fornecedor</th></tr>
+    <tr><td>Motor</td><td>{{ carro.motor.nome }}</td></tr>
+    <tr><td>Combustível</td><td>{{ carro.combustivel.nome }}</td></tr>
+    <tr><td>Pneu</td><td>{{ carro.pneu.nome }}</td></tr>
+    <tr><td>Chassi</td><td>{{ carro.chassi.nome }}</td></tr>
+    <tr><td>Câmbio</td><td>{{ carro.cambio.nome }}</td></tr>
+    <tr><td>Suspensão</td><td>{{ carro.suspensao.nome }}</td></tr>
+    {% if carro.engenheiro %}
+    <tr><td>Engenheiro</td><td>{{ carro.engenheiro.nome }} (Nível {{ carro.engenheiro.nivel }})</td></tr>
+    {% endif %}
+</table>
+
+<p style="color:#666; margin-top:20px;">
+    O desempenho de cada equipamento é mantido em segredo - você escolhe
+    com base no nome e no custo, não vê os números exatos.
+</p>
+{% endblock %}

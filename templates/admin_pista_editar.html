@@ -1,0 +1,76 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'pistas' %}
+
+{% block admin_content %}
+<h1 class="h3">Editar pista: {{ pista.nome }}</h1>
+<p class="text-muted">{{ pista.pais }} - {{ pista.extensao_km }} km</p>
+
+<form method="POST">
+    <div class="card mb-3">
+        <div class="card-header">Pit stop</div>
+        <div class="card-body">
+            <label class="form-label">Tempo base de pit stop (segundos)</label>
+            <input type="number" step="0.1" min="0" name="tempo_pit_stop_segundos"
+                   value="{{ pista.tempo_pit_stop_segundos }}" class="form-control" required>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">Categoria ideal (Câmbio + Suspensão)</div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Câmbio ideal</label>
+                    <select name="categoria_cambio_ideal" class="form-select">
+                        {% for c in categorias_pista %}
+                        <option value="{{ c }}" {% if pista.categoria_cambio_ideal == c %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Suspensão ideal</label>
+                    <select name="categoria_suspensao_ideal" class="form-select">
+                        {% for c in categorias_pista %}
+                        <option value="{{ c }}" {% if pista.categoria_suspensao_ideal == c %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">Influências (10 = neutro, 20 = dobro, 5 = metade)</div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for chave, label in [('motor','Motor (M)'), ('cambio','Câmbio (C)'), ('suspensao','Suspensão (S)'), ('pneu','Pneu (P)'), ('combustivel','Combustível (G)'), ('engenheiro','Engenheiro (E)')] %}
+                <div class="col-md-4">
+                    <label class="form-label">{{ label }}</label>
+                    <input type="number" min="1" max="30" name="influencia_{{ chave }}"
+                           value="{{ pista['influencia_' ~ chave] }}" class="form-control" required>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">Temperatura por trecho da corrida</div>
+        <div class="card-body">
+            <p class="text-muted">4 trechos iguais (25% das voltas cada). 20°C = neutro pro desgaste.</p>
+            <div class="row g-3">
+                {% for n in [1, 2, 3, 4] %}
+                <div class="col-md-3">
+                    <label class="form-label">Trecho {{ n }} (°C)</label>
+                    <input type="number" step="0.5" min="-10" max="50" name="temperatura_trecho_{{ n }}"
+                           value="{{ pista['temperatura_trecho_' ~ n] }}" class="form-control" required>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    <a href="{{ url_for('admin_pistas_reais') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

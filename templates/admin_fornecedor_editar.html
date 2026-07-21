@@ -1,0 +1,50 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'fornecedores' %}
+
+{% block admin_content %}
+<h1>Editar: {{ item.nome }}</h1>
+<form method="POST" class="form-ows">
+    <div class="mb-3">
+        <label for="nome" class="form-label">Nome</label>
+        <input id="nome" type="text" name="nome" value="{{ item.nome }}" class="form-control" required>
+    </div>
+    <div class="mb-3">
+        <label for="custo_temporada" class="form-label">Custo por temporada</label>
+        <input id="custo_temporada" type="number" name="custo_temporada" step="1000" value="{{ item.custo_temporada }}" class="form-control" required>
+    </div>
+    <div class="mb-3">
+        <label for="custo_montagem" class="form-label">Custo de montagem (por corrida)</label>
+        <input id="custo_montagem" type="number" name="custo_montagem" step="100" value="{{ item.custo_montagem }}" class="form-control" required>
+    </div>
+    {% for campo in cfg.campos %}
+    <div class="mb-3">
+        <label for="{{ campo.nome }}" class="form-label">{{ campo.label }}</label>
+        {% if campo.tipo == 'string' %}
+            {% if campo.nome in ['categoria_pista'] %}
+            <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
+                {% for categoria in categorias_pista %}
+                <option value="{{ categoria }}" {% if (item | attr(campo.nome)) == categoria %}selected{% endif %}>{{ categoria }}</option>
+                {% endfor %}
+            </select>
+            {% elif campo.nome in ['categoria_chuva'] %}
+            <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
+                {% for categoria in categorias_chuva %}
+                <option value="{{ categoria }}" {% if (item | attr(campo.nome)) == categoria %}selected{% endif %}>{{ categoria }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input id="{{ campo.nome }}" type="text" name="{{ campo.nome }}" value="{{ item | attr(campo.nome) }}" class="form-control">
+            {% endif %}
+        {% else %}
+        <input id="{{ campo.nome }}" type="number" step="0.001" name="{{ campo.nome }}" value="{{ item | attr(campo.nome) }}" class="form-control">
+        {% endif %}
+    </div>
+    {% endfor %}
+    <div class="form-check mb-3">
+        <input id="ativo" type="checkbox" name="ativo" class="form-check-input" {% if item.ativo %}checked{% endif %}>
+        <label for="ativo" class="form-check-label">Ativo</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    <a href="{{ url_for('admin_fornecedores', categoria=categoria) }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

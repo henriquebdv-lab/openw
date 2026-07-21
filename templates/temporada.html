@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3 mb-4">Temporada</h1>
+
+{% if not temporada %}
+    <div class="alert alert-info">
+        Nenhuma temporada ativa no momento. Peça pro admin criar uma em
+        <code>/admin/temporadas</code>.
+    </div>
+{% else %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h4">{{ temporada.nome }}</h2>
+            <p>
+                Corridas executadas: <strong>{{ temporada.corridas_executadas() }}</strong>
+                de <strong>{{ temporada.total_corridas() }}</strong>.
+            </p>
+        </div>
+    </div>
+
+    <h2 class="h5">📊 Ranking geral</h2>
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>#</th><th>Equipe</th>
+                <th>Pontos</th><th>Vitórias</th><th>Corridas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in ranking %}
+            <tr>
+                <td>{{ loop.index }}º</td>
+                <td>{{ r.equipe_nome }}</td>
+                <td><strong>{{ r.pontos_total }}</strong></td>
+                <td>{{ r.vitorias }}</td>
+                <td>{{ r.corridas }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">Nenhuma corrida executada ainda.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2 class="h5 mt-4">🗓 Calendário</h2>
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Etapa</th><th>Pista</th><th>País</th><th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for corrida in temporada.corridas_agendadas %}
+            {% set pista = pistas_por_id.get(corrida.pista_real_id) %}
+            <tr class="{% if corrida.executada %}text-muted{% endif %}">
+                <td>{{ corrida.ordem }}ª</td>
+                <td>{{ corrida.pista_nome or (pista.nome if pista else '?') }}</td>
+                <td>{{ pista.pais if pista else '-' }}</td>
+                <td>
+                    {% if corrida.executada %}
+                        ✅ Executada
+                        {% if corrida.data_execucao %}
+                            em {{ corrida.data_execucao.strftime('%d/%m/%Y') }}
+                        {% endif %}
+                    {% else %}
+                        ⏳ Aguardando
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted">Nenhuma corrida no calendário.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

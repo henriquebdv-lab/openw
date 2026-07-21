@@ -1,0 +1,171 @@
+/* ---------------------------------------------------------
+   Tema do Open Wheel Strategy
+   Todas as cores do site ficam aqui, como variáveis CSS.
+   Isso permite montar um editor de tema depois (o admin troca
+   os valores dessas variáveis e o site inteiro muda de cara,
+   sem precisar editar nenhum template).
+--------------------------------------------------------- */
+
+:root {
+    --ows-cor-primaria: #d40000;
+    --ows-cor-primaria-escura: #a30000;
+    --ows-cor-secundaria: #1a1a1a;
+    --ows-cor-fundo: #f8f8f8;
+    --ows-cor-superficie: #ffffff;
+    --ows-cor-texto: #1a1a1a;
+    --ows-cor-borda: #e0e0e0;
+
+    /* Sobrescreve as variáveis do Bootstrap com o nosso tema */
+    --bs-primary: var(--ows-cor-primaria);
+    --bs-primary-rgb: 212, 0, 0;
+    --bs-body-bg: var(--ows-cor-fundo);
+    --bs-body-color: var(--ows-cor-texto);
+    --bs-border-color: var(--ows-cor-borda);
+}
+
+body {
+    background-color: var(--ows-cor-fundo);
+    color: var(--ows-cor-texto);
+}
+
+.navbar-ows {
+    background-color: var(--ows-cor-secundaria) !important;
+}
+
+.navbar-ows .navbar-brand,
+.navbar-ows .nav-link {
+    color: #ffffff !important;
+}
+
+.navbar-ows .nav-link:hover {
+    color: var(--ows-cor-primaria) !important;
+}
+
+.btn-primary {
+    background-color: var(--ows-cor-primaria);
+    border-color: var(--ows-cor-primaria);
+}
+
+.btn-primary:hover {
+    background-color: var(--ows-cor-primaria-escura);
+    border-color: var(--ows-cor-primaria-escura);
+}
+
+.card {
+    border-color: var(--ows-cor-borda);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+    background-color: var(--ows-cor-fundo);
+    font-weight: 600;
+}
+
+a {
+    color: var(--ows-cor-primaria);
+}
+
+a:hover {
+    color: var(--ows-cor-primaria-escura);
+}
+
+.form-ows .form-label {
+    font-weight: 600;
+}
+
+.form-ows .form-control {
+    max-width: 480px;
+}
+
+.pista-card {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.pista-svg {
+    flex-shrink: 0;
+}
+
+.pista-titulo {
+    margin: 0;
+}
+
+.pista-meta {
+    margin: 4px 0;
+}
+
+.pista-legenda {
+    color: #666;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+/* ---------------------------------------------------------
+   Topbar (conta do jogador)
+--------------------------------------------------------- */
+.navbar-topo {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 3px solid var(--ows-cor-primaria);
+}
+
+/* ---------------------------------------------------------
+   Sidebar (navegação do jogo)
+--------------------------------------------------------- */
+.sidebar-ows {
+    background-color: var(--ows-cor-superficie);
+    border-right: 1px solid var(--ows-cor-borda);
+    min-height: calc(100vh - 56px);
+}
+
+.sidebar-secao {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #999;
+    padding: 0.75rem 1rem 0.25rem;
+    letter-spacing: 0.05em;
+}
+
+.sidebar-link {
+    display: block;
+    padding: 0.5rem 1rem;
+    color: var(--ows-cor-texto) !important;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-link:hover {
+    background-color: #fafafa;
+}
+
+.sidebar-link.active {
+    border-left-color: var(--ows-cor-primaria);
+    background-color: #fdeaea;
+    font-weight: 600;
+    color: var(--ows-cor-primaria) !important;
+}
+
+/* ---------------------------------------------------------
+   Abas internas de página (ex: Minha Equipe / Cores)
+--------------------------------------------------------- */
+.abas-ows {
+    border-bottom: 2px solid var(--ows-cor-borda);
+    margin-bottom: 1.5rem;
+}
+
+.abas-ows .nav-link {
+    color: var(--ows-cor-texto);
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+}
+
+.abas-ows .nav-link.active {
+    color: var(--ows-cor-primaria) !important;
+    border-bottom-color: var(--ows-cor-primaria);
+    background: none;
+    font-weight: 600;
+}
