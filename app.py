@@ -4,6 +4,7 @@ import click
 from dotenv import load_dotenv
 load_dotenv()
 
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from authlib.integrations.flask_client import OAuth
 from flask_migrate import Migrate
