@@ -1,10 +1,91 @@
 {% extends "base.html" %}
-{% block content %}
-<h1>Open Wheel Strategy</h1>
+{% block title %}Painel • Open Wheel Strategy{% endblock %}
 
-<div class="card">
-    <h2>Bem-vindo ao Open Wheel Strategy</h2>
-    <p>Faça login ou cadastre-se para começar a jogar e montar sua equipe de corrida.</p>
+{% block content %}
+
+{% if usuario_logado %}
+<!-- HERO: PRÓXIMA CORRIDA -->
+<div class="ows-hero">
+    <span class="ows-hero-label">PRÓXIMA CORRIDA</span>
+    <h1>GRANDE PRÊMIO DE ABERTURA</h1>
+    <div class="ows-hero-sub">Prepare sua equipe, defina a estratégia e comande as decisões da próxima corrida.</div>
+
+    <div class="ows-hero-meta">
+        <div><small>PISTA</small><strong>—</strong></div>
+        <div><small>VOLTAS</small><strong>—</strong></div>
+        <div><small>CLIMA</small><strong>—</strong></div>
+        <div><small>LARGADA</small><strong>Aguardando calendário</strong></div>
+    </div>
+
+    <div class="ows-hero-actions">
+        <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-btn ows-btn-primary">Preparar Estratégia</a>
+        <a href="{{ url_for('minha_equipe') }}" class="ows-btn ows-btn-ghost">Ver Equipe</a>
+    </div>
 </div>
+
+<!-- INDICADORES RÁPIDOS -->
+<div class="ows-grid-4" style="margin-bottom:24px;">
+    <div class="ows-card">
+        <h3>ORÇAMENTO</h3>
+        <div class="ows-value">
+            {% if usuario_logado.equipe %}
+                R$ {{ '{:,.0f}'.format(usuario_logado.equipe.orcamento or 0)|replace(',', '.') }}
+            {% else %}
+                --
+            {% endif %}
+        </div>
+        <div class="ows-hint">Restante da temporada</div>
+    </div>
+    <div class="ows-card">
+        <h3>EQUIPE</h3>
+        <div class="ows-value">
+            {% if usuario_logado.equipe %}{{ usuario_logado.equipe.nome }}{% else %}—{% endif %}
+        </div>
+        <div class="ows-hint">Configuração ativa</div>
+    </div>
+    <div class="ows-card">
+        <h3>DESENVOLVIMENTO</h3>
+        <div class="ows-value">—</div>
+        <div class="ows-hint">Chassi + aerodinâmica</div>
+    </div>
+    <div class="ows-card">
+        <h3>PIT STOP</h3>
+        <div class="ows-value">—</div>
+        <div class="ows-hint">Treinamento de boxes</div>
+    </div>
+</div>
+
+<!-- ATALHOS -->
+<div class="ows-grid-3">
+    <div class="ows-card">
+        <h3>TREINO</h3>
+        <p class="ows-muted" style="margin-bottom:16px;">Ajuste o setup do carro e acelere a evolução dos pilotos.</p>
+        <a href="{{ url_for('treino_livre_view') }}" class="ows-btn ows-btn-ghost">Treino Livre</a>
+        <a href="{{ url_for('treino_oficial_view') }}" class="ows-btn ows-btn-ghost">Treino Oficial</a>
+    </div>
+    <div class="ows-card">
+        <h3>ESTRATÉGIA</h3>
+        <p class="ows-muted" style="margin-bottom:16px;">Defina pit stops, pneus e combustível para a próxima corrida.</p>
+        <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-btn ows-btn-primary">Abrir Estratégia</a>
+    </div>
+    <div class="ows-card">
+        <h3>CAMPEONATO</h3>
+        <p class="ows-muted" style="margin-bottom:16px;">Acompanhe temporada, calendário e classificação.</p>
+        <a href="{{ url_for('temporada_view') }}" class="ows-btn ows-btn-ghost">Temporada</a>
+        <a href="{{ url_for('classificacao_view') }}" class="ows-btn ows-btn-ghost">Classificação</a>
+    </div>
+</div>
+
+{% else %}
+<!-- SEM LOGIN -->
+<div class="ows-card" style="max-width:640px;margin:60px auto;text-align:center;">
+    <h1 style="font-size:28px;">OPEN WHEEL STRATEGY</h1>
+    <p class="ows-muted">Gerencie uma equipe de monopostos: contrate fornecedores, defina estratégia, treine boxes e conquiste o campeonato.</p>
+    <div style="margin-top:22px;">
+        <a href="{{ url_for('registrar') }}" class="ows-btn ows-btn-primary">Criar conta</a>
+        <a href="{{ url_for('login') }}" class="ows-btn ows-btn-ghost">Entrar</a>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}

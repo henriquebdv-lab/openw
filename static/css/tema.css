@@ -1,171 +1,370 @@
-/* ---------------------------------------------------------
-   Tema do Open Wheel Strategy
-   Todas as cores do site ficam aqui, como variáveis CSS.
-   Isso permite montar um editor de tema depois (o admin troca
-   os valores dessas variáveis e o site inteiro muda de cara,
-   sem precisar editar nenhum template).
---------------------------------------------------------- */
+/* ============================================================
+   OPEN WHEEL STRATEGY - Tema visual v4
+   Substitui totalmente o tema.css antigo.
+   ============================================================ */
 
-:root {
-    --ows-cor-primaria: #d40000;
-    --ows-cor-primaria-escura: #a30000;
-    --ows-cor-secundaria: #1a1a1a;
-    --ows-cor-fundo: #f8f8f8;
-    --ows-cor-superficie: #ffffff;
-    --ows-cor-texto: #1a1a1a;
-    --ows-cor-borda: #e0e0e0;
-
-    /* Sobrescreve as variáveis do Bootstrap com o nosso tema */
-    --bs-primary: var(--ows-cor-primaria);
-    --bs-primary-rgb: 212, 0, 0;
-    --bs-body-bg: var(--ows-cor-fundo);
-    --bs-body-color: var(--ows-cor-texto);
-    --bs-border-color: var(--ows-cor-borda);
-}
-
-body {
-    background-color: var(--ows-cor-fundo);
-    color: var(--ows-cor-texto);
-}
-
-.navbar-ows {
-    background-color: var(--ows-cor-secundaria) !important;
-}
-
-.navbar-ows .navbar-brand,
-.navbar-ows .nav-link {
-    color: #ffffff !important;
-}
-
-.navbar-ows .nav-link:hover {
-    color: var(--ows-cor-primaria) !important;
-}
-
-.btn-primary {
-    background-color: var(--ows-cor-primaria);
-    border-color: var(--ows-cor-primaria);
-}
-
-.btn-primary:hover {
-    background-color: var(--ows-cor-primaria-escura);
-    border-color: var(--ows-cor-primaria-escura);
-}
-
-.card {
-    border-color: var(--ows-cor-borda);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-.card-header {
-    background-color: var(--ows-cor-fundo);
-    font-weight: 600;
-}
-
-a {
-    color: var(--ows-cor-primaria);
-}
-
-a:hover {
-    color: var(--ows-cor-primaria-escura);
-}
-
-.form-ows .form-label {
-    font-weight: 600;
-}
-
-.form-ows .form-control {
-    max-width: 480px;
-}
-
-.pista-card {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.pista-svg {
-    flex-shrink: 0;
-}
-
-.pista-titulo {
+* { box-sizing: border-box; }
+html, body {
     margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', 'Inter', Tahoma, sans-serif;
+    background: #08101e;
+    color: #eef2f8;
+    min-height: 100vh;
 }
 
-.pista-meta {
-    margin: 4px 0;
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, h4 { margin: 0 0 12px 0; letter-spacing: 0.5px; }
+p  { margin: 0 0 12px 0; color: #b2bccb; }
+hr { border: none; border-top: 1px solid #1e2a3d; margin: 16px 0; }
+
+/* ------------------------------------------------------------
+   SHELL PRINCIPAL
+   ------------------------------------------------------------ */
+.ows-shell {
+    display: flex;
+    min-height: 100vh;
 }
 
-.pista-legenda {
-    color: #666;
-    margin-top: 20px;
+/* ------------------------------------------------------------
+   SIDEBAR
+   ------------------------------------------------------------ */
+.ows-sidebar {
+    width: 260px;
+    background: #0b1524;
+    border-right: 1px solid #1a2740;
+    padding: 20px 0 40px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.ows-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px 24px 20px;
+    border-bottom: 1px solid #1a2740;
+    margin-bottom: 16px;
+}
+.ows-logo-mark {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff7a00, #ff3d00);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 22px;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(255,120,0,.35);
+}
+.ows-logo-text {
+    font-weight: 800;
     font-size: 14px;
+    line-height: 1.1;
+    letter-spacing: 2px;
+}
+.ows-logo-text span {
+    color: #ff8a3d;
+    font-weight: 600;
+    letter-spacing: 3px;
 }
 
-/* ---------------------------------------------------------
-   Topbar (conta do jogador)
---------------------------------------------------------- */
-.navbar-topo {
-    padding-top: 0.4rem;
-    padding-bottom: 0.4rem;
-    border-bottom: 3px solid var(--ows-cor-primaria);
-}
-
-/* ---------------------------------------------------------
-   Sidebar (navegação do jogo)
---------------------------------------------------------- */
-.sidebar-ows {
-    background-color: var(--ows-cor-superficie);
-    border-right: 1px solid var(--ows-cor-borda);
-    min-height: calc(100vh - 56px);
-}
-
-.sidebar-secao {
-    font-size: 0.75rem;
-    text-transform: uppercase;
+.ows-menu-section {
+    padding: 18px 20px 8px 20px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #5a6a83;
     font-weight: 700;
-    color: #999;
-    padding: 0.75rem 1rem 0.25rem;
-    letter-spacing: 0.05em;
 }
 
-.sidebar-link {
-    display: block;
-    padding: 0.5rem 1rem;
-    color: var(--ows-cor-texto) !important;
-    text-decoration: none;
+.ows-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    color: #b6c1d3;
+    font-size: 14px;
+    transition: all .15s ease;
     border-left: 3px solid transparent;
 }
-
-.sidebar-link:hover {
-    background-color: #fafafa;
+.ows-menu-link:hover {
+    background: #0f1c30;
+    color: #fff;
 }
-
-.sidebar-link.active {
-    border-left-color: var(--ows-cor-primaria);
-    background-color: #fdeaea;
-    font-weight: 600;
-    color: var(--ows-cor-primaria) !important;
-}
-
-/* ---------------------------------------------------------
-   Abas internas de página (ex: Minha Equipe / Cores)
---------------------------------------------------------- */
-.abas-ows {
-    border-bottom: 2px solid var(--ows-cor-borda);
-    margin-bottom: 1.5rem;
-}
-
-.abas-ows .nav-link {
-    color: var(--ows-cor-texto);
-    border: none;
-    border-bottom: 3px solid transparent;
-    border-radius: 0;
-}
-
-.abas-ows .nav-link.active {
-    color: var(--ows-cor-primaria) !important;
-    border-bottom-color: var(--ows-cor-primaria);
-    background: none;
+.ows-menu-link.active {
+    background: linear-gradient(90deg, rgba(255,122,0,.12), transparent);
+    color: #fff;
+    border-left-color: #ff7a00;
     font-weight: 600;
 }
+.ows-icon { width: 22px; text-align: center; }
+
+/* ------------------------------------------------------------
+   ÁREA PRINCIPAL
+   ------------------------------------------------------------ */
+.ows-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ows-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    background: #0a1322;
+    border-bottom: 1px solid #1a2740;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+.ows-topbar-title {
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: #ff8a3d;
+    font-weight: 700;
+}
+.ows-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ows-badge {
+    background: #101c30;
+    border: 1px solid #1e2c47;
+    border-radius: 10px;
+    padding: 6px 14px;
+    line-height: 1.1;
+}
+.ows-badge-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #7a8aa3;
+    font-weight: 700;
+}
+.ows-badge-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.ows-content {
+    padding: 32px;
+    flex: 1;
+}
+
+/* ------------------------------------------------------------
+   COMPONENTES
+   ------------------------------------------------------------ */
+.ows-card {
+    background: linear-gradient(180deg, #0f1a2d, #0b1524);
+    border: 1px solid #1e2c47;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 4px 22px rgba(0,0,0,.35);
+}
+.ows-card h3 {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #7a8aa3;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+.ows-card .ows-value {
+    font-size: 34px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+}
+.ows-card .ows-hint {
+    font-size: 12px;
+    color: #7a8aa3;
+    margin-top: 6px;
+}
+
+.ows-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+}
+.ows-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+.ows-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+@media (max-width: 1200px) {
+    .ows-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .ows-grid-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 800px) {
+    .ows-grid-4, .ows-grid-3, .ows-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* HERO (destaque de próxima corrida) */
+.ows-hero {
+    position: relative;
+    border-radius: 20px;
+    padding: 34px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 90% 20%, rgba(255,122,0,.20), transparent 60%),
+        linear-gradient(135deg, #10192c 0%, #0a1220 100%);
+    border: 1px solid #26344f;
+}
+.ows-hero-label {
+    display: inline-block;
+    padding: 5px 12px;
+    background: rgba(255,122,0,.15);
+    border: 1px solid rgba(255,122,0,.35);
+    color: #ffb069;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+.ows-hero h1 {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fff;
+    margin-bottom: 6px;
+}
+.ows-hero .ows-hero-sub {
+    color: #b2bccb;
+    margin-bottom: 18px;
+    font-size: 14px;
+}
+.ows-hero-meta {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+.ows-hero-meta > div {
+    line-height: 1.2;
+}
+.ows-hero-meta small {
+    color: #7a8aa3;
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+}
+.ows-hero-meta strong {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 4px;
+}
+.ows-hero-actions {
+    margin-top: 26px;
+    display: flex; gap: 12px; flex-wrap: wrap;
+}
+
+/* BOTÕES */
+.ows-btn {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all .15s ease;
+}
+.ows-btn-primary {
+    background: linear-gradient(135deg, #ff7a00, #ff3d00);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(255,120,0,.35);
+}
+.ows-btn-primary:hover { filter: brightness(1.05); }
+.ows-btn-ghost {
+    background: transparent;
+    color: #d6dcea;
+    border-color: #26344f;
+}
+.ows-btn-ghost:hover { background: #101c30; color: #fff; }
+.ows-btn-danger { background: #b93030; color: #fff; }
+
+/* BARRAS DE PROGRESSO */
+.ows-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.ows-progress-label {
+    width: 160px;
+    color: #b2bccb;
+    font-size: 13px;
+}
+.ows-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: #0d1727;
+    border: 1px solid #1e2c47;
+    border-radius: 999px;
+    overflow: hidden;
+}
+.ows-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff7a00, #ff3d00);
+    border-radius: 999px;
+}
+.ows-progress-value {
+    width: 48px;
+    text-align: right;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+/* TABELA MODERNA */
+.ows-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #0f1a2d;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #1e2c47;
+}
+.ows-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7a8aa3;
+    background: #0b1524;
+    border-bottom: 1px solid #1e2c47;
+}
+.ows-table td {
+    padding: 12px 16px;
+    color: #d6dcea;
+    border-bottom: 1px solid #14203a;
+    font-size: 14px;
+}
+.ows-table tr:hover td { background: #101c30; color: #fff; }
+
+/* Textos utilitários */
+.ows-muted { color: #7a8aa3; }
+.ows-strong { color: #fff; font-weight: 600; }
+.ows-orange { color: #ff8a3d; }
+
+/* Layout do GUEST (sem login) */
+.ows-guest { min-height: 100vh; background: #08101e; }
+.ows-guest-topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 30px; border-bottom: 1px solid #1a2740;
+}
+.ows-guest-brand { font-weight: 800; letter-spacing: 2px; display: flex; align-items: center; gap: 10px; }
+.ows-guest-content { padding: 40px; max-width: 1000px; margin: 0 auto; }

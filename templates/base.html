@@ -4,55 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Open Wheel Strategy{% endblock %}</title>
-
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tema.css') }}" rel="stylesheet">
 </head>
 <body>
-    <!-- Topo: sobre a CONTA do jogador -->
-    <nav class="navbar navbar-expand navbar-ows navbar-topo">
-        <div class="container-fluid px-3">
-            <a class="navbar-brand fw-bold" href="{{ url_for('home') }}">🏁 Open Wheel Strategy</a>
-            <div class="navbar-nav ms-auto flex-row gap-3">
-                {% if usuario_logado %}
-                    <span class="nav-link text-white-50">{{ usuario_logado.email }}</span>
-                    <a class="nav-link" href="{{ url_for('logout') }}">Sair</a>
-                {% else %}
-                    <a class="nav-link" href="{{ url_for('login') }}">Entrar</a>
-                    <a class="nav-link" href="{{ url_for('registrar') }}">Cadastrar</a>
-                {% endif %}
-                {% if usuario_logado and usuario_logado.eh_admin %}
-                <a class="nav-link text-white-50" href="{{ url_for('admin_dashboard') }}">⚙ Admin</a>
-                {% endif %}
+{% if usuario_logado %}
+<div class="ows-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="ows-sidebar">
+        <div class="ows-logo">
+            <div class="ows-logo-mark">O</div>
+            <div class="ows-logo-text">
+                OPEN WHEEL<br>
+                <span>STRATEGY</span>
             </div>
         </div>
-    </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            {% if usuario_logado %}
-            <!-- Lateral: sobre o JOGO -->
-            <nav class="col-md-2 sidebar-ows py-3">
-                <div class="sidebar-secao">Principal</div>
-                <a class="sidebar-link {% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Início</a>
-                <a class="sidebar-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}" href="{{ url_for('minha_equipe') }}">Minha Equipe</a>
+        <div class="ows-menu-section">COMANDO</div>
+        <a href="{{ url_for('home') }}" class="ows-menu-link {% if request.endpoint == 'home' %}active{% endif %}">
+            <span class="ows-icon">🏠</span> Painel
+        </a>
+        <a href="{{ url_for('minha_equipe') }}" class="ows-menu-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}">
+            <span class="ows-icon">🏎</span> Minha Equipe
+        </a>
+        <a href="{{ url_for('desenvolvimento_view') }}" class="ows-menu-link {% if request.endpoint == 'desenvolvimento_view' %}active{% endif %}">
+            <span class="ows-icon">🔬</span> Desenvolvimento
+        </a>
+        <a href="{{ url_for('treinamento_view') }}" class="ows-menu-link {% if request.endpoint == 'treinamento_view' %}active{% endif %}">
+            <span class="ows-icon">🔧</span> Treinamento
+        </a>
 
-                <div class="sidebar-secao">Corrida</div>
-                <a class="sidebar-link {% if request.endpoint == 'treino_livre_view' %}active{% endif %}" href="{{ url_for('treino_livre_view') }}">Treino Livre</a>
-                <a class="sidebar-link {% if request.endpoint == 'treino_oficial_view' %}active{% endif %}" href="{{ url_for('treino_oficial_view') }}">Treino Oficial</a>
-                <a class="sidebar-link {% if request.endpoint == 'estrategia_corrida_view' %}active{% endif %}" href="{{ url_for('estrategia_corrida_view') }}">Estratégia</a>
-                <a class="sidebar-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}" href="{{ url_for('pistas_reais_view') }}">Pistas</a>
-                <a class="sidebar-link {% if request.endpoint == 'classificacao_view' %}active{% endif %}" href="{{ url_for('classificacao_view') }}">Classificação</a>
-                <a class="sidebar-link {% if request.endpoint == 'corrida_view' %}active{% endif %}" href="{{ url_for('corrida_view') }}">Corrida</a>
-            </nav>
-            {% endif %}
+        <div class="ows-menu-section">CORRIDA</div>
+        <a href="{{ url_for('treino_livre_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_livre_view' %}active{% endif %}">
+            <span class="ows-icon">📋</span> Treino Livre
+        </a>
+        <a href="{{ url_for('treino_oficial_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_oficial_view' %}active{% endif %}">
+            <span class="ows-icon">📊</span> Treino Oficial
+        </a>
+        <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'estrategia_corrida_view' %}active{% endif %}">
+            <span class="ows-icon">🎯</span> Estratégia
+        </a>
+        <a href="{{ url_for('corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'corrida_view' %}active{% endif %}">
+            <span class="ows-icon">🏁</span> Corrida
+        </a>
+        <a href="{{ url_for('classificacao_view') }}" class="ows-menu-link {% if request.endpoint == 'classificacao_view' %}active{% endif %}">
+            <span class="ows-icon">📈</span> Classificação
+        </a>
 
-            <main class="{% if usuario_logado %}col-md-10{% else %}col-12{% endif %} py-4">
-                {% block content %}{% endblock %}
-            </main>
+        <div class="ows-menu-section">CAMPEONATO</div>
+        <a href="{{ url_for('temporada_view') }}" class="ows-menu-link {% if request.endpoint == 'temporada_view' %}active{% endif %}">
+            <span class="ows-icon">🏆</span> Temporada
+        </a>
+        <a href="{{ url_for('pistas_reais_view') }}" class="ows-menu-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}">
+            <span class="ows-icon">🗺</span> Pistas
+        </a>
+
+        {% if usuario_logado.eh_admin %}
+        <div class="ows-menu-section">SISTEMA</div>
+        <a href="{{ url_for('admin_dashboard') }}" class="ows-menu-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+            <span class="ows-icon">⚙</span> Administração
+        </a>
+        {% endif %}
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <div class="ows-main">
+
+        <!-- BARRA SUPERIOR -->
+        <header class="ows-topbar">
+            <div class="ows-topbar-title">CENTRO DE COMANDO</div>
+            <div class="ows-topbar-right">
+                {% if temporada_ativa %}
+                <div class="ows-badge">
+                    <div class="ows-badge-label">TEMPORADA</div>
+                    <div class="ows-badge-value">{{ temporada_ativa.nome }}</div>
+                </div>
+                {% endif %}
+                <div class="ows-badge">
+                    <div class="ows-badge-label">USUÁRIO</div>
+                    <div class="ows-badge-value">{{ usuario_logado.email }}</div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="ows-btn ows-btn-ghost">Sair</a>
+            </div>
+        </header>
+
+        <!-- CONTEÚDO DA PÁGINA -->
+        <div class="ows-content">
+            {% block content %}{% endblock %}
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</div>
+{% else %}
+<!-- Layout sem login -->
+<div class="ows-guest">
+    <header class="ows-guest-topbar">
+        <a class="ows-guest-brand" href="{{ url_for('home') }}">
+            <span class="ows-logo-mark">O</span> OPEN WHEEL STRATEGY
+        </a>
+        <div>
+            <a class="ows-btn ows-btn-ghost" href="{{ url_for('login') }}">Entrar</a>
+            <a class="ows-btn ows-btn-primary" href="{{ url_for('registrar') }}">Cadastrar</a>
+        </div>
+    </header>
+    <main class="ows-guest-content">
+        {% block guest_content %}{% block content_guest %}{% endblock %}{% endblock %}
+    </main>
+</div>
+{% endif %}
 </body>
 </html>
