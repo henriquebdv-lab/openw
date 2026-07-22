@@ -1,32 +1,195 @@
 {% extends "base.html" %}
+{% block title %}Desenvolvimento • Open Wheel Strategy{% endblock %}
+
 {% block content %}
-<h1 class="h3">Desenvolvimento</h1>
-{% include "_abas_equipe.html" %}
 
-<p class="text-muted">Desenvolve o chassi/aerodinâmica junto com o seu Engenheiro contratado. Quanto mais alto o percentual, mais do potencial dele você aproveita de verdade.</p>
+<div class="ows-hero" style="margin-bottom: 24px;">
+    <span class="ows-hero-label">DESENVOLVIMENTO</span>
+    <h1>CHASSI E AERODINÂMICA</h1>
+    <div class="ows-hero-sub">
+        Seu engenheiro contratado projeta o chassi e a aerodinâmica para a
+        <strong>próxima temporada</strong>. O que está sendo construído agora só
+        passa a valer quando a temporada terminar. Para participar da próxima
+        temporada, ambos precisam chegar a 100%.
+    </div>
 
-<div class="card">
-    <div class="card-body">
-        <h5>Progresso: {{ registro.percentual }}%</h5>
-        <div class="progress mb-3" style="height: 24px;">
-            <div class="progress-bar bg-danger" style="width: {{ registro.percentual }}%;">{{ registro.percentual }}%</div>
+    <div class="ows-hero-meta">
+        <div>
+            <small>NÍVEL PROJETISTA ATUAL</small>
+            <strong>Nível {{ registro.nivel_engenheiro_projetista or 1 }}</strong>
+        </div>
+        <div>
+            <small>CHASSI EM CONSTRUÇÃO</small>
+            <strong>{{ "%.1f"|format(registro.chassi_percentual_em_construcao or 0) }}%</strong>
+        </div>
+        <div>
+            <small>AERO EM CONSTRUÇÃO</small>
+            <strong>{{ "%.1f"|format(registro.aero_percentual_em_construcao or 0) }}%</strong>
+        </div>
+    </div>
+</div>
+
+{% if mensagem %}
+<div class="ows-card" style="margin-bottom: 18px; background: rgba(255,120,0,.08);">
+    <p style="margin: 0;">{{ mensagem }}</p>
+</div>
+{% endif %}
+
+{% if not equipe.engenheiro_fornecedor_id %}
+<div class="ows-card" style="margin-bottom: 18px; border-left: 3px solid #b93030;">
+    <h3 style="color: #ff8a8a;">SEM ENGENHEIRO CONTRATADO</h3>
+    <p class="ows-muted" style="margin: 0;">
+        Você não tem engenheiro contratado. Sem engenheiro, você não pode desenvolver
+        chassi ou aerodinâmica, e não vai participar da próxima temporada.
+        Contrate um engenheiro entre temporadas na tela <a href="{{ url_for('editar_equipe') }}" class="ows-orange">Editar Equipe</a>.
+    </p>
+</div>
+{% endif %}
+
+<div class="ows-grid-2" style="margin-bottom: 18px;">
+    <!-- CHASSI -->
+    <div class="ows-card">
+        <h3>🏎 CHASSI</h3>
+        <div class="ows-value" style="font-size: 42px;">{{ "%.0f"|format(registro.chassi_percentual_em_construcao or 0) }}%</div>
+        <div class="ows-hint">Em construção pra próxima temporada</div>
+
+        <hr style="border-color: #1e2c47; margin: 16px 0;">
+
+        <div>
+            <div class="ows-muted" style="font-size: 12px;">Próximo avanço custa:</div>
+            <div style="font-size: 18px; font-weight: 600; color: #fff;">
+                R$ {{ "{:,.0f}".format(proximo_custo_chassi or 0)|replace(",", ".") }}
+            </div>
         </div>
 
-        {% if mensagem %}
-        <div class="alert alert-info">{{ mensagem }}</div>
-        {% endif %}
+        <div style="margin-top: 10px;">
+            <div class="ows-muted" style="font-size: 12px;">Tempo até ficar pronto:</div>
+            <div style="font-size: 18px; font-weight: 600; color: #fff;">
+                {{ "%.1f"|format(proximo_tempo_chassi or 0) }} horas
+            </div>
+        </div>
 
-        {% if registro.em_progresso %}
-            <p><strong>Em andamento</strong> - conclui em {{ registro.horario_conclusao.strftime('%d/%m %H:%M') }} (UTC)</p>
-            <button class="btn btn-secondary" disabled>Avançar +{{ registro.percentual }}%</button>
-        {% elif registro.percentual >= 100 %}
-            <p class="text-success">Desenvolvimento completo! 🎉</p>
+        {% if not registro.em_progresso and (registro.chassi_percentual_em_construcao or 0) < 100 %}
+        <form method="POST" style="margin-top: 16px;">
+            <input type="hidden" name="peca" value="chassi">
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">
+                Avançar Chassi
+            </button>
+        </form>
+        {% elif (registro.chassi_percentual_em_construcao or 0) >= 100 %}
+        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
+            ✓ Chassi Completo
+        </div>
         {% else %}
-            <p>Próximo avanço: <strong>+{{ "{:,.0f}".format(proximo_custo) }}</strong> de custo, demora <strong>{{ proximo_tempo }}h</strong></p>
-            <form method="POST">
-                <button type="submit" class="btn btn-primary">Avançar</button>
-            </form>
+        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
+            Trabalho em andamento…
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- AERODINÂMICA -->
+    <div class="ows-card">
+        <h3>💨 AERODINÂMICA</h3>
+        <div class="ows-value" style="font-size: 42px;">{{ "%.0f"|format(registro.aero_percentual_em_construcao or 0) }}%</div>
+        <div class="ows-hint">Em construção pra próxima temporada</div>
+
+        <hr style="border-color: #1e2c47; margin: 16px 0;">
+
+        <div>
+            <div class="ows-muted" style="font-size: 12px;">Próximo avanço custa:</div>
+            <div style="font-size: 18px; font-weight: 600; color: #fff;">
+                R$ {{ "{:,.0f}".format(proximo_custo_aero or 0)|replace(",", ".") }}
+            </div>
+        </div>
+
+        <div style="margin-top: 10px;">
+            <div class="ows-muted" style="font-size: 12px;">Tempo até ficar pronto:</div>
+            <div style="font-size: 18px; font-weight: 600; color: #fff;">
+                {{ "%.1f"|format(proximo_tempo_aero or 0) }} horas
+            </div>
+        </div>
+
+        {% if not registro.em_progresso and (registro.aero_percentual_em_construcao or 0) < 100 %}
+        <form method="POST" style="margin-top: 16px;">
+            <input type="hidden" name="peca" value="aero">
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">
+                Avançar Aerodinâmica
+            </button>
+        </form>
+        {% elif (registro.aero_percentual_em_construcao or 0) >= 100 %}
+        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
+            ✓ Aero Completa
+        </div>
+        {% else %}
+        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
+            Trabalho em andamento…
+        </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Requisitos para próxima temporada -->
+<div class="ows-card" style="margin-bottom: 18px;">
+    <h3>REQUISITOS PARA A PRÓXIMA TEMPORADA</h3>
+    <p class="ows-muted" style="margin-top: 8px;">
+        No fim da temporada atual, para o carro passar pra próxima com o desenvolvimento aplicado,
+        os 3 requisitos abaixo precisam estar cumpridos:
+    </p>
+
+    <div style="margin-top: 16px;">
+        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
+            {% if equipe.engenheiro_fornecedor_id %}
+            <span style="color: #4caf50; font-size: 20px;">✓</span>
+            <span>Engenheiro contratado</span>
+            {% else %}
+            <span style="color: #b93030; font-size: 20px;">✗</span>
+            <span>Engenheiro contratado</span>
+            {% endif %}
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
+            {% if (registro.chassi_percentual_em_construcao or 0) >= 100 %}
+            <span style="color: #4caf50; font-size: 20px;">✓</span>
+            <span>Chassi 100%</span>
+            {% else %}
+            <span style="color: #b93030; font-size: 20px;">✗</span>
+            <span>Chassi 100% (faltam {{ "%.0f"|format(100 - (registro.chassi_percentual_em_construcao or 0)) }}%)</span>
+            {% endif %}
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
+            {% if (registro.aero_percentual_em_construcao or 0) >= 100 %}
+            <span style="color: #4caf50; font-size: 20px;">✓</span>
+            <span>Aerodinâmica 100%</span>
+            {% else %}
+            <span style="color: #b93030; font-size: 20px;">✗</span>
+            <span>Aerodinâmica 100% (faltam {{ "%.0f"|format(100 - (registro.aero_percentual_em_construcao or 0)) }}%)</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Estado do carro atual -->
+<div class="ows-card">
+    <h3>CARRO ATUAL (usa nas corridas)</h3>
+    <div class="ows-grid-2" style="margin-top: 10px;">
+        <div>
+            <div class="ows-muted" style="font-size: 12px;">Chassi aplicado</div>
+            <div style="font-size: 20px; font-weight: 600; color: #fff;">
+                {{ "%.0f"|format(registro.chassi_percentual_aplicado or 0) }}% (nível {{ registro.nivel_engenheiro_projetista or 1 }})
+            </div>
+        </div>
+        <div>
+            <div class="ows-muted" style="font-size: 12px;">Aerodinâmica aplicada</div>
+            <div style="font-size: 20px; font-weight: 600; color: #fff;">
+                {{ "%.0f"|format(registro.aero_percentual_aplicado or 0) }}% (nível {{ registro.nivel_engenheiro_projetista or 1 }})
+            </div>
+        </div>
+    </div>
+    <p class="ows-muted" style="margin-top: 12px; font-size: 12px;">
+        Esses valores são os que estão em uso nas corridas da temporada atual.
+        Só mudam quando a temporada termina e o desenvolvimento em construção é aplicado.
+    </p>
+</div>
+
 {% endblock %}

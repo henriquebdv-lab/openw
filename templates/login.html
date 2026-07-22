@@ -1,19 +1,35 @@
 {% extends "base.html" %}
+{% block title %}Entrar • Open Wheel Strategy{% endblock %}
+
 {% block content %}
-<h1>Entrar</h1>
-{% if erro %}<p style="color:#c00;">{{ erro }}</p>{% endif %}
-<form method="POST">
-    <label for="email">E-mail</label>
-    <input type="email" name="email" id="email" required>
+<div class="ows-auth-wrap">
+    <div class="ows-auth-card">
+        <span class="ows-hero-label">ACESSO</span>
+        <h1>ENTRAR</h1>
+        <p class="ows-muted">Acesse sua conta para comandar sua equipe.</p>
 
-    <label for="senha">Senha</label>
-    <input type="password" name="senha" id="senha" required>
+        {% if erro %}
+        <div class="ows-alert">{{ erro }}</div>
+        {% endif %}
 
-    <button type="submit">Entrar</button>
-</form>
-<p style="text-align:center; margin:15px 0;">ou</p>
-<a href="{{ url_for('login_google') }}">
-    <button type="button" style="background:#4285F4;">Entrar com Google</button>
-</a>
-<p>Não tem conta? <a href="{{ url_for('registrar') }}">Cadastre-se</a></p>
+        <form method="POST" class="ows-form">
+            <label>E-mail</label>
+            <input type="email" name="email" required autofocus>
+
+            <label>Senha</label>
+            <input type="password" name="senha" required>
+
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Entrar</button>
+        </form>
+
+        <div class="ows-divider"><span>ou</span></div>
+
+        <a href="{{ url_for('login_google') }}" class="ows-btn ows-btn-ghost ows-btn-full">Entrar com Google</a>
+
+        <p class="ows-auth-footer">
+            Ainda não tem conta?
+            <a href="{{ url_for('registrar') }}" class="ows-orange">Cadastre-se</a>
+        </p>
+    </div>
+</div>
 {% endblock %}

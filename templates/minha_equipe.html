@@ -1,29 +1,97 @@
 {% extends "base.html" %}
-{% block content %}
-<h1 class="h3">{{ equipe.nome }}</h1>
-{% include "_abas_equipe.html" %}
+{% block title %}{{ equipe.nome }} • Open Wheel Strategy{% endblock %}
 
-<div class="card">
-    <p><strong>Orçamento:</strong> {{ "{:,.0f}".format(equipe.orcamento) }}</p>
-    <p><strong>Custo de montagem pra próxima corrida:</strong> {{ "{:,.0f}".format(custo_montagem) }}</p>
+{% block content %}
+
+<!-- HERO com identidade da equipe -->
+<div class="ows-hero" style="margin-bottom: 24px;">
+    <span class="ows-hero-label">MINHA EQUIPE</span>
+    <h1>{{ equipe.nome }}</h1>
+    <div class="ows-hero-sub">Painel geral da sua equipe: orçamento, contratos ativos e configuração atual do carro.</div>
+
+    <div class="ows-hero-meta">
+        <div>
+            <small>ORÇAMENTO</small>
+            <strong>R$ {{ "{:,.0f}".format(equipe.orcamento or 0)|replace(",", ".") }}</strong>
+        </div>
+        <div>
+            <small>MONTAGEM PRÓXIMA CORRIDA</small>
+            <strong>R$ {{ "{:,.0f}".format(custo_montagem or 0)|replace(",", ".") }}</strong>
+        </div>
+        <div>
+            <small>SALDO APÓS MONTAGEM</small>
+            <strong>R$ {{ "{:,.0f}".format((equipe.orcamento or 0) - (custo_montagem or 0))|replace(",", ".") }}</strong>
+        </div>
+    </div>
+
+    <div class="ows-hero-actions">
+        <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-btn ows-btn-primary">Preparar Estratégia</a>
+        <a href="{{ url_for('desenvolvimento_view') }}" class="ows-btn ows-btn-ghost">Desenvolvimento</a>
+        <a href="{{ url_for('treinamento_view') }}" class="ows-btn ows-btn-ghost">Treinamento de Boxes</a>
+    </div>
 </div>
 
-<h2>Equipamentos contratados</h2>
-<table>
-    <tr><th>Item</th><th>Fornecedor</th></tr>
-    <tr><td>Motor</td><td>{{ carro.motor.nome }}</td></tr>
-    <tr><td>Combustível</td><td>{{ carro.combustivel.nome }}</td></tr>
-    <tr><td>Pneu</td><td>{{ carro.pneu.nome }}</td></tr>
-    <tr><td>Chassi</td><td>{{ carro.chassi.nome }}</td></tr>
-    <tr><td>Câmbio</td><td>{{ carro.cambio.nome }}</td></tr>
-    <tr><td>Suspensão</td><td>{{ carro.suspensao.nome }}</td></tr>
-    {% if carro.engenheiro %}
-    <tr><td>Engenheiro</td><td>{{ carro.engenheiro.nome }} (Nível {{ carro.engenheiro.nivel }})</td></tr>
-    {% endif %}
-</table>
+<!-- Includes de abas antigo, mantido pra não quebrar navegação existente -->
+{% include "_abas_equipe.html" ignore missing %}
 
-<p style="color:#666; margin-top:20px;">
-    O desempenho de cada equipamento é mantido em segredo - você escolhe
-    com base no nome e no custo, não vê os números exatos.
-</p>
+<!-- Componentes contratados como cards -->
+<h2 style="margin: 8px 0 18px 0; font-size: 14px; letter-spacing: 3px; color: #7a8aa3;">EQUIPAMENTOS CONTRATADOS</h2>
+
+<div class="ows-grid-4" style="margin-bottom: 18px;">
+    <div class="ows-card">
+        <h3>MOTOR</h3>
+        <div class="ows-value" style="font-size: 20px;">{{ carro.motor.nome }}</div>
+        <div class="ows-hint">Fornecedor ativo na temporada</div>
+    </div>
+    <div class="ows-card">
+        <h3>COMBUSTÍVEL</h3>
+        <div class="ows-value" style="font-size: 20px;">{{ carro.combustivel.nome }}</div>
+        <div class="ows-hint">Contrato de fornecimento</div>
+    </div>
+    <div class="ows-card">
+        <h3>PNEU</h3>
+        <div class="ows-value" style="font-size: 20px;">{{ carro.pneu.nome }}</div>
+        <div class="ows-hint">Categoria: {{ carro.pneu.categoria_chuva|default('seco') }}</div>
+    </div>
+    <div class="ows-card">
+        <h3>CHASSI</h3>
+        <div class="ows-value" style="font-size: 20px;">{{ carro.chassi.nome }}</div>
+        <div class="ows-hint">Base estrutural do carro</div>
+    </div>
+</div>
+
+<div class="ows-grid-3" style="margin-bottom: 24px;">
+    <div class="ows-card">
+        <h3>CÂMBIO</h3>
+        <div class="ows-value" style="font-size: 20px;">{{ carro.cambio.nome }}</div>
+        <div class="ows-hint">Categoria: {{ carro.cambio.categoria_pista|default('A') }}</div>
+    </div>
+    <div class="ows-card">
+        <h3>SUSPENSÃO</h3>
+        <div class="ows-value" style="font-size: 20px;">{{ carro.suspensao.nome }}</div>
+        <div class="ows-hint">Categoria: {{ carro.suspensao.categoria_pista|default('A') }}</div>
+    </div>
+    <div class="ows-card">
+        <h3>ENGENHEIRO</h3>
+        {% if carro.engenheiro %}
+        <div class="ows-value" style="font-size: 20px;">{{ carro.engenheiro.nome }}</div>
+        <div class="ows-hint">Nível {{ carro.engenheiro.nivel }}</div>
+        {% else %}
+        <div class="ows-value" style="font-size: 20px; color: #556277;">Sem contrato</div>
+        <div class="ows-hint">Nenhum engenheiro contratado</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Aviso sobre desempenho oculto -->
+<div class="ows-card" style="border-left: 3px solid #ff7a00;">
+    <h3 style="color: #ff8a3d;">SOBRE OS FORNECEDORES</h3>
+    <p class="ows-muted" style="margin: 0;">
+        O desempenho técnico de cada equipamento é mantido em segredo pelos fornecedores.
+        Você escolhe com base no nome, na categoria e no custo, sem ver os números exatos.
+        Boa parte da estratégia da temporada está justamente em identificar quais fornecedores
+        entregam mais do que aparentam.
+    </p>
+</div>
+
 {% endblock %}

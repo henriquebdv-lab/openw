@@ -1,6 +1,9 @@
 import functools
 from datetime import datetime
 import click
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from authlib.integrations.flask_client import OAuth
 from flask_migrate import Migrate
@@ -15,8 +18,11 @@ from models import (
 )
 EquipeDB = CarroJogador
 from models_temporada import Temporada, CorridaAgendada
-from pontuacao import pontos_por_posicao, ranking_temporada
-from progressao import calcular_custo_proximo_avanco, calcular_tempo_proximo_avanco_horas, verificar_conclusao, avancar
+from pontuacao import pontos_por_posicao, premio_por_posicao, ranking_temporada
+from progressao import (
+    calcular_custo_proximo_avanco, calcular_tempo_proximo_avanco_horas,
+    verificar_conclusao, avancar, aplicar_desenvolvimento_da_temporada,
+)
 from classificacao import Classificacao
 from corrida import Corrida, calcular_tempo_pit_stop
 from estrategia import montar_estrategia_corrida, sugerir_estrategia_estrategista
@@ -128,6 +134,8 @@ google = oauth.register(
     client_kwargs={"scope": "openid email profile"},
 )
 
+# NOTE: FornecedorChassi mantido no admin (LEGADO) mas não aparece mais
+# no formulário de criar equipe. Fica visível pra admin ver o histórico.
 FORNECEDORES_CONFIG = {
     "motor": {"model": FornecedorMotor, "titulo": "Motor", "campo_equipe": "motor_fornecedor_id",
               "campos": [{"nome": "potencia", "label": "Potência", "tipo": "float"},
@@ -139,8 +147,6 @@ FORNECEDORES_CONFIG = {
              "campos": [{"nome": "performance", "label": "Performance", "tipo": "float"},
                         {"nome": "desgaste", "label": "Desgaste", "tipo": "float"},
                         {"nome": "categoria_chuva", "label": "Faixa de chuva", "tipo": "string"}]},
-    "chassi": {"model": FornecedorChassi, "titulo": "Chassi", "campo_equipe": "chassi_fornecedor_id",
-               "campos": [{"nome": "performance", "label": "Performance", "tipo": "float"}]},
     "cambio": {"model": FornecedorCambio, "titulo": "Câmbio", "campo_equipe": "cambio_fornecedor_id",
                "campos": [{"nome": "performance", "label": "Performance", "tipo": "float"},
                           {"nome": "categoria_pista", "label": "Categoria (A-J)", "tipo": "string"}]},
@@ -186,7 +192,6 @@ def admin_requerido(view_func):
     return wrapper
 
 
-# ---------- AUTENTICAÇÃO ----------
 @app.route("/registrar", methods=["GET", "POST"])
 def registrar():
     if request.method == "POST":
@@ -247,7 +252,6 @@ def logout():
     return redirect(url_for("home"))
 
 
-# ---------- JOGADOR ----------
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -265,7 +269,7 @@ def minha_equipe():
     if request.method == "POST":
         engenheiro_id = request.form.get("engenheiro_fornecedor_id") or None
         combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
-        # Orçamento inicial vem SEMPRE da Configuracao (não do form)
+        # Chassi NÃO vem mais do formulário (é projetado pelo engenheiro nível 1)
         nova_equipe = CarroJogador(
             usuario_id=usuario.id,
             nome=request.form["nome"],
@@ -273,26 +277,34 @@ def minha_equipe():
             motor_fornecedor_id=int(request.form["motor_fornecedor_id"]),
             combustivel_fornecedor_id=int(request.form["combustivel_fornecedor_id"]),
             pneu_fornecedor_id=int(request.form["pneu_fornecedor_id"]),
-            chassi_fornecedor_id=int(request.form["chassi_fornecedor_id"]),
+            chassi_fornecedor_id=None,  # legado, sempre nulo em contas novas
             cambio_fornecedor_id=int(request.form["cambio_fornecedor_id"]),
             suspensao_fornecedor_id=int(request.form["suspensao_fornecedor_id"]),
             engenheiro_fornecedor_id=int(engenheiro_id) if engenheiro_id else None,
             combustivel_carregado=combustivel_carregado,
         )
         db.session.add(nova_equipe)
-        db.session.flush()   # dá id, pra calcular custos
+        db.session.flush()
 
-        # Debita custo_temporada de cada contrato assinado (regra do manual)
+        # Cria registro de desenvolvimento com nível 1 (chassi/aero grátis)
+        desenvolvimento = Desenvolvimento(
+            equipe_id=nova_equipe.id,
+            chassi_percentual_aplicado=100.0,
+            aero_percentual_aplicado=100.0,
+            chassi_percentual_em_construcao=0.0,
+            aero_percentual_em_construcao=0.0,
+            nivel_engenheiro_projetista=1,
+        )
+        db.session.add(desenvolvimento)
+
         custo_contratos = float(nova_equipe.custo_total_contratos() or 0)
         nova_equipe.orcamento = nova_equipe.orcamento - custo_contratos
 
-        # Verifica se sobrou saldo suficiente pra pelo menos 1 rodada de montagem
         custo_montagem_prevista = float(nova_equipe.custo_total_montagem() or 0)
         if nova_equipe.orcamento < custo_montagem_prevista:
             db.session.rollback()
             flash(
                 f"Saldo insuficiente. Contratos custaram R$ {custo_contratos:,.2f}, "
-                f"sobraria R$ {nova_equipe.orcamento + custo_contratos - custo_contratos:,.2f}, "
                 f"mas você precisa de R$ {custo_montagem_prevista:,.2f} pra montar o carro "
                 f"pra 1ª corrida. Escolha fornecedores mais baratos.",
                 "danger",
@@ -302,7 +314,8 @@ def minha_equipe():
         db.session.commit()
         flash(
             f"Equipe criada! Contratos: R$ {custo_contratos:,.2f}. "
-            f"Saldo restante: R$ {nova_equipe.orcamento:,.2f}.",
+            f"Saldo restante: R$ {nova_equipe.orcamento:,.2f}. "
+            f"Você começa com chassi e aerodinâmica de nível 1 (grátis).",
             "success",
         )
         return redirect(url_for("minha_equipe"))
@@ -312,7 +325,6 @@ def minha_equipe():
         motores=FornecedorMotor.query.filter_by(ativo=True).order_by(FornecedorMotor.custo_temporada).all(),
         combustiveis=FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all(),
         pneus=FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all(),
-        chassis=FornecedorChassi.query.filter_by(ativo=True).order_by(FornecedorChassi.custo_temporada).all(),
         cambios=FornecedorCambio.query.filter_by(ativo=True).order_by(FornecedorCambio.custo_temporada).all(),
         suspensoes=FornecedorSuspensao.query.filter_by(ativo=True).order_by(FornecedorSuspensao.custo_temporada).all(),
         engenheiros=FornecedorEngenheiro.query.filter_by(ativo=True).order_by(FornecedorEngenheiro.custo_temporada).all(),
@@ -322,8 +334,6 @@ def minha_equipe():
 @app.route("/minha-equipe/editar", methods=["GET", "POST"])
 @login_requerido
 def editar_equipe():
-    """Permite trocar fornecedores APENAS entre temporadas. Durante uma
-    temporada ativa, contratos são anuais (regra do manual)."""
     usuario = Usuario.query.get(session["usuario_id"])
     if not usuario.equipe:
         return redirect(url_for("minha_equipe"))
@@ -374,7 +384,6 @@ def editar_equipe():
         motores=FornecedorMotor.query.filter_by(ativo=True).order_by(FornecedorMotor.custo_temporada).all(),
         combustiveis=FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all(),
         pneus=FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all(),
-        chassis=FornecedorChassi.query.filter_by(ativo=True).order_by(FornecedorChassi.custo_temporada).all(),
         cambios=FornecedorCambio.query.filter_by(ativo=True).order_by(FornecedorCambio.custo_temporada).all(),
         suspensoes=FornecedorSuspensao.query.filter_by(ativo=True).order_by(FornecedorSuspensao.custo_temporada).all(),
         engenheiros=FornecedorEngenheiro.query.filter_by(ativo=True).order_by(FornecedorEngenheiro.custo_temporada).all(),
@@ -384,13 +393,10 @@ def editar_equipe():
 @app.route("/minha-equipe/resetar", methods=["POST"])
 @login_requerido
 def resetar_equipe():
-    """Apaga o CarroJogador atual do usuário e devolve orçamento inicial.
-    Recomendação do manual: 'resetar sua conta e começar tudo novamente'."""
     usuario = Usuario.query.get(session["usuario_id"])
     if not usuario.equipe:
         return redirect(url_for("minha_equipe"))
     equipe_id = usuario.equipe.id
-    # Deleta dev + treinamento do jogador (ficariam órfãos)
     Desenvolvimento.query.filter_by(equipe_id=equipe_id).delete()
     TreinamentoBox.query.filter_by(equipe_id=equipe_id).delete()
     ResultadoClassificacao.query.filter_by(equipe_id=equipe_id).delete()
@@ -404,21 +410,71 @@ def resetar_equipe():
 @app.route("/minha-equipe/desenvolvimento", methods=["GET", "POST"])
 @login_requerido
 def desenvolvimento_view():
+    """Nova versão: desenvolve chassi + aero separadamente (em construção
+    pra próxima temporada)."""
     usuario = Usuario.query.get(session["usuario_id"])
     if not usuario.equipe:
         return redirect(url_for("minha_equipe"))
     equipe = usuario.equipe
     registro = Desenvolvimento.obter_ou_criar(equipe.id)
     config = Configuracao.obter()
-    verificar_conclusao(registro, config.dev_incremento_percentual)
+
+    # Verifica se algum trabalho em progresso concluiu
+    # Detecta qual peça está sendo trabalhada pela flag em_progresso + em_construcao
+    if registro.em_progresso and registro.horario_conclusao and datetime.utcnow() >= registro.horario_conclusao:
+        # Aplica ao alvo correspondente (salvo em outro campo? simples: só um por vez)
+        # Aqui a gente aplica em "peça em construção" pendente. Como só temos 1 timer,
+        # o alvo vem da form (session ou campo em progresso). Simplificação: usa
+        # verificar_conclusao no atributo em pauta - guardamos qual é em `alvo_em_progresso`.
+        alvo = getattr(registro, "alvo_em_progresso", None) or "chassi_percentual_em_construcao"
+        # Aplica manualmente
+        atual = float(getattr(registro, alvo, 0) or 0)
+        novo = min(100.0, atual + config.dev_incremento_percentual)
+        setattr(registro, alvo, novo)
+        registro.em_progresso = False
+        registro.inicio_em = None
+        registro.horario_conclusao = None
+        db.session.commit()
+
     mensagem = None
     if request.method == "POST":
-        _, mensagem = avancar(registro, equipe, config.dev_custo_base, config.dev_custo_fator,
-                              config.dev_tempo_base_horas, config.dev_tempo_fator_horas, config.dev_incremento_percentual)
-    proximo_custo = calcular_custo_proximo_avanco(registro.percentual, config.dev_custo_base, config.dev_custo_fator)
-    proximo_tempo = calcular_tempo_proximo_avanco_horas(registro.percentual, config.dev_tempo_base_horas, config.dev_tempo_fator_horas)
-    return render_template("desenvolvimento.html", equipe=equipe, registro=registro,
-                           proximo_custo=proximo_custo, proximo_tempo=proximo_tempo, mensagem=mensagem)
+        peca = request.form.get("peca", "chassi")  # chassi ou aero
+        if peca not in ("chassi", "aero"):
+            peca = "chassi"
+
+        alvo_atributo = f"{peca}_percentual_em_construcao"
+        _, mensagem = avancar(
+            registro, equipe,
+            config.dev_custo_base, config.dev_custo_fator,
+            config.dev_tempo_base_horas, config.dev_tempo_fator_horas,
+            config.dev_incremento_percentual,
+            alvo_atributo=alvo_atributo,
+        )
+        # Marca qual peça está em progresso pra recuperar depois
+        if not hasattr(registro, "alvo_em_progresso"):
+            pass  # não tem coluna, é atributo em memória - salva na sessão
+        session[f"desenvolvimento_alvo_{equipe.id}"] = alvo_atributo
+
+    proximo_custo_chassi = calcular_custo_proximo_avanco(
+        registro.chassi_percentual_em_construcao or 0, config.dev_custo_base, config.dev_custo_fator
+    )
+    proximo_custo_aero = calcular_custo_proximo_avanco(
+        registro.aero_percentual_em_construcao or 0, config.dev_custo_base, config.dev_custo_fator
+    )
+    proximo_tempo_chassi = calcular_tempo_proximo_avanco_horas(
+        registro.chassi_percentual_em_construcao or 0, config.dev_tempo_base_horas, config.dev_tempo_fator_horas
+    )
+    proximo_tempo_aero = calcular_tempo_proximo_avanco_horas(
+        registro.aero_percentual_em_construcao or 0, config.dev_tempo_base_horas, config.dev_tempo_fator_horas
+    )
+
+    return render_template("desenvolvimento.html",
+        equipe=equipe, registro=registro,
+        proximo_custo_chassi=proximo_custo_chassi,
+        proximo_custo_aero=proximo_custo_aero,
+        proximo_tempo_chassi=proximo_tempo_chassi,
+        proximo_tempo_aero=proximo_tempo_aero,
+        mensagem=mensagem)
 
 
 @app.route("/treino-livre", methods=["GET", "POST"])
@@ -576,10 +632,14 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
     config = Configuracao.obter()
     todas_equipes = CarroJogador.query.all()
     carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+
+    percentuais_treino_box = []
     for carro, equipe_db in zip(carros, todas_equipes):
         treinamento = TreinamentoBox.obter_ou_criar(equipe_db.id)
         carro.tempo_pit_stop = calcular_tempo_pit_stop(pista["tempo_pit_stop_segundos"], config, treinamento.percentual)
         _aplicar_dados_pista_no_carro(carro, pista)
+        percentuais_treino_box.append(float(treinamento.percentual or 0.0))
+
     temp_fallback = pista.get("temperatura_ambiente") or 20.0
     temperaturas_trechos = [
         pista.get("temperatura_trecho_1") or temp_fallback,
@@ -587,28 +647,56 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         pista.get("temperatura_trecho_3") or temp_fallback,
         pista.get("temperatura_trecho_4") or temp_fallback,
     ]
-    resultado = Corrida(carros, total_voltas=numero_voltas,
-                        temperaturas_trechos=temperaturas_trechos, consumo_qualifying=True).simular()
+
+    resultado = Corrida(
+        carros,
+        total_voltas=numero_voltas,
+        temperaturas_trechos=temperaturas_trechos,
+        consumo_qualifying=True,
+        percentuais_treino_box=percentuais_treino_box,
+    ).simular()
     resultado["pista"] = pista
     resultado["distancia_total"] = distancia_total
     resultado["temperaturas_trechos"] = temperaturas_trechos
+
     equipes_por_nome = {e.nome: e for e in todas_equipes}
     resultados_para_temporada = []
+
     for posicao_info in resultado["classificacao_final"]:
         equipe_db = equipes_por_nome[posicao_info["equipe"]]
-        db.session.add(ResultadoCorrida(equipe_id=equipe_db.id, tempo_total_segundos=posicao_info["tempo_total_segundos"],
-                                         pit_stops=posicao_info["pit_stops"], posicao_final=posicao_info["posicao"]))
+        db.session.add(ResultadoCorrida(
+            equipe_id=equipe_db.id,
+            tempo_total_segundos=posicao_info["tempo_total_segundos"],
+            pit_stops=posicao_info["pit_stops"],
+            posicao_final=posicao_info["posicao"],
+        ))
+
         custo_montagem = float(equipe_db.custo_total_montagem() or 0)
         equipe_db.orcamento = float(equipe_db.orcamento or 0) - custo_montagem
+
+        premio = premio_por_posicao(
+            posicao_info["posicao"],
+            posicao_info.get("abandonou", False),
+        )
+        equipe_db.orcamento = float(equipe_db.orcamento or 0) + premio
+
         if corrida_agendada is not None:
-            pontos = pontos_por_posicao(posicao_info["posicao"], posicao_info.get("abandonou", False))
+            pontos = pontos_por_posicao(
+                posicao_info["posicao"],
+                posicao_info.get("abandonou", False),
+            )
             resultados_para_temporada.append({
-                "equipe_id": equipe_db.id, "equipe_nome": equipe_db.nome,
-                "posicao": posicao_info["posicao"], "pontos": pontos,
+                "equipe_id": equipe_db.id,
+                "equipe_nome": equipe_db.nome,
+                "posicao": posicao_info["posicao"],
+                "pontos": pontos,
+                "premio": premio,
                 "abandonou": posicao_info.get("abandonou", False),
+                "motivo_abandono": posicao_info.get("motivo_abandono"),
                 "tempo_total": posicao_info["tempo_total_segundos"],
                 "custo_montagem": custo_montagem,
             })
+
     if corrida_agendada is not None:
         corrida_agendada.salvar_resultados(resultados_para_temporada)
         corrida_agendada.executada = True
@@ -815,10 +903,34 @@ def admin_temporada_ativar(temporada_id):
 @app.route("/admin/temporadas/<int:temporada_id>/desativar", methods=["POST"])
 @admin_requerido
 def admin_temporada_desativar(temporada_id):
+    """Desativa a temporada E aplica o desenvolvimento (chassi+aero em construção)
+    de todos os jogadores. Quem não completou os requisitos fica sem carro
+    pra próxima temporada."""
     temporada = Temporada.query.get_or_404(temporada_id)
     temporada.ativa = False
+
+    # Aplicar desenvolvimento pra todos os jogadores
+    equipes = CarroJogador.query.all()
+    aplicados = 0
+    bloqueados = 0
+    for equipe in equipes:
+        desenvolvimento = Desenvolvimento.obter_ou_criar(equipe.id)
+        engenheiro = None
+        if equipe.engenheiro_fornecedor_id:
+            engenheiro = FornecedorEngenheiro.query.get(equipe.engenheiro_fornecedor_id)
+        resultado_dev = aplicar_desenvolvimento_da_temporada(desenvolvimento, engenheiro)
+        if resultado_dev["aplicado"]:
+            aplicados += 1
+        else:
+            bloqueados += 1
+
     db.session.commit()
-    flash(f"Temporada '{temporada.nome}' desativada.", "info")
+    flash(
+        f"Temporada '{temporada.nome}' desativada. "
+        f"Chassi/aero aplicado em {aplicados} equipe(s). "
+        f"{bloqueados} equipe(s) não completou os requisitos (chassi/aero em construção zerado, começam próxima temporada com o que tinham).",
+        "info",
+    )
     return redirect(url_for("admin_temporadas"))
 
 

@@ -1,15 +1,5 @@
 """
 Tabelas do banco de dados.
-
-- Fornecedores: cada um tem 2 custos (contratar por temporada, e montar
-  no carro pra corrida). O desempenho de cada fornecedor NUNCA aparece
-  pro jogador - só o admin vê/edita esses números.
-- Usuario: cadastro/login. Cada jogador pode estar num grupo (divisão)
-  e classe (categoria).
-- CarroJogador: o carro individual de cada jogador (antes chamado
-  "EquipeDB"). 1 por usuário.
-- Configuracao: singleton com parâmetros globais do jogo (orçamento
-  inicial, etc).
 """
 
 from datetime import datetime
@@ -32,6 +22,13 @@ def garantir_colunas_fornecedores():
                 ("usuarios", "grupo", "TEXT"),
                 ("usuarios", "classe", "TEXT"),
                 ("configuracao", "orcamento_inicial", "REAL DEFAULT 55000.0"),
+                # Chassi/Aero: novos campos do Desenvolvimento
+                ("desenvolvimentos", "chassi_percentual_aplicado", "REAL DEFAULT 100.0"),
+                ("desenvolvimentos", "chassi_percentual_em_construcao", "REAL DEFAULT 0.0"),
+                ("desenvolvimentos", "aero_percentual_aplicado", "REAL DEFAULT 100.0"),
+                ("desenvolvimentos", "aero_percentual_em_construcao", "REAL DEFAULT 0.0"),
+                ("desenvolvimentos", "nivel_engenheiro_projetista", "INTEGER DEFAULT 1"),
+                # CarroJogador: chassi_fornecedor_id vira opcional (legado)
             ]:
                 try:
                     conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
@@ -106,6 +103,8 @@ class FornecedorPneu(db.Model):
 
 
 class FornecedorChassi(db.Model):
+    """LEGADO: mantido no banco por compatibilidade, mas não é mais usado.
+    Chassi agora é projetado pelo Engenheiro contratado (regra do manual)."""
     __tablename__ = "fornecedores_chassi"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
@@ -152,7 +151,6 @@ class Configuracao(db.Model):
     __tablename__ = "configuracao"
 
     id = db.Column(db.Integer, primary_key=True)
-    # Orçamento inicial de cada novo jogador (regra do manual: R$ 55.000)
     orcamento_inicial = db.Column(db.Float, default=55_000.0)
 
     dev_incremento_percentual = db.Column(db.Float, default=5.0)
@@ -179,10 +177,38 @@ class Configuracao(db.Model):
 
 
 class Desenvolvimento(db.Model):
+    """Progresso de chassi + aerodinâmica de um jogador.
+
+    Regra do manual:
+    - Chassi e aero são projetados pelo Engenheiro contratado.
+    - Cada um vai de 0 a 100%.
+    - O que está EM CONSTRUÇÃO durante a temporada só passa a valer
+      NA PRÓXIMA temporada, quando o admin fecha a temporada e o
+      sistema aplica os projetos concluídos.
+    - Para participar da próxima temporada, chassi + aero precisam
+      chegar a 100% até o fim da temporada atual.
+    - Jogador novo recebe chassi + aero de nível 1, 100% aplicado.
+    """
     __tablename__ = "desenvolvimentos"
+
     id = db.Column(db.Integer, primary_key=True)
     equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
+
+    # Campo legado (ainda usado em bancos antigos)
     percentual = db.Column(db.Float, default=0.0)
+
+    # Chassi
+    chassi_percentual_aplicado = db.Column(db.Float, default=100.0)      # o que o carro USA nas corridas
+    chassi_percentual_em_construcao = db.Column(db.Float, default=0.0)    # o que o engenheiro está construindo
+
+    # Aerodinâmica
+    aero_percentual_aplicado = db.Column(db.Float, default=100.0)
+    aero_percentual_em_construcao = db.Column(db.Float, default=0.0)
+
+    # Nível do engenheiro que projetou o chassi/aero atualmente aplicado.
+    # Define a performance máxima. Jogador novo começa com 1.
+    nivel_engenheiro_projetista = db.Column(db.Integer, default=1)
+
     em_progresso = db.Column(db.Boolean, default=False)
     inicio_em = db.Column(db.DateTime, nullable=True)
     horario_conclusao = db.Column(db.DateTime, nullable=True)
@@ -217,6 +243,15 @@ class TreinamentoBox(db.Model):
 
 
 class CarroJogador(db.Model):
+    """Representa o CARRO INDIVIDUAL de um jogador.
+
+    Regra nova:
+    - Chassi NÃO é mais contrato com fornecedor. É projetado pelo
+      Engenheiro. Por isso `chassi_fornecedor_id` virou opcional
+      (legado, mantido pra bancos antigos).
+    - A performance do chassi vem do Desenvolvimento + nível do
+      engenheiro que projetou.
+    """
     __tablename__ = "carros_jogadores"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -227,7 +262,8 @@ class CarroJogador(db.Model):
     motor_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_motor.id"), nullable=False)
     combustivel_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_combustivel.id"), nullable=False)
     pneu_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_pneu.id"), nullable=False)
-    chassi_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_chassi.id"), nullable=False)
+    # Legado: pode ser NULL agora
+    chassi_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_chassi.id"), nullable=True)
     cambio_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_cambio.id"), nullable=False)
     suspensao_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_suspensao.id"), nullable=False)
     engenheiro_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_engenheiro.id"), nullable=True)
@@ -240,11 +276,11 @@ class CarroJogador(db.Model):
         from equipamentos import Motor, Combustivel, Pneu, Chassi, Cambio, Suspensao, Engenheiro
         from equipe import Equipe
         from carro import Carro
+        from constantes import performance_chassi_do_nivel
 
         motor_db = FornecedorMotor.query.get(self.motor_fornecedor_id)
         combustivel_db = FornecedorCombustivel.query.get(self.combustivel_fornecedor_id)
         pneu_db = FornecedorPneu.query.get(self.pneu_fornecedor_id)
-        chassi_db = FornecedorChassi.query.get(self.chassi_fornecedor_id)
         cambio_db = FornecedorCambio.query.get(self.cambio_fornecedor_id)
         suspensao_db = FornecedorSuspensao.query.get(self.suspensao_fornecedor_id)
         engenheiro_db = (
@@ -258,7 +294,19 @@ class CarroJogador(db.Model):
                                    combustivel_db.aumento_potencia_motor)
         pneu = Pneu(pneu_db.nome, pneu_db.custo_temporada, pneu_db.performance, pneu_db.desgaste,
                     categoria_chuva=getattr(pneu_db, "categoria_chuva", "seco") or "seco")
-        chassi = Chassi(chassi_db.nome, chassi_db.custo_temporada, chassi_db.performance)
+
+        # Chassi: performance vem do nível do engenheiro projetista + percentual aplicado
+        desenvolvimento = Desenvolvimento.obter_ou_criar(self.id)
+        performance_chassi_base = performance_chassi_do_nivel(desenvolvimento.nivel_engenheiro_projetista or 1)
+        performance_chassi_efetiva = performance_chassi_base * (
+            (desenvolvimento.chassi_percentual_aplicado or 0) / 100.0
+        )
+        chassi = Chassi(
+            nome=f"Chassi nível {desenvolvimento.nivel_engenheiro_projetista or 1}",
+            custo=0.0,
+            performance=performance_chassi_efetiva,
+        )
+
         cambio = Cambio(cambio_db.nome, cambio_db.custo_temporada, cambio_db.performance,
                         categoria_pista=getattr(cambio_db, "categoria_pista", "A") or "A")
         suspensao = Suspensao(suspensao_db.nome, suspensao_db.custo_temporada, suspensao_db.performance,
@@ -266,8 +314,11 @@ class CarroJogador(db.Model):
 
         engenheiro = None
         if engenheiro_db:
-            desenvolvimento = Desenvolvimento.obter_ou_criar(self.id)
-            eficiencia_efetiva = engenheiro_db.eficiencia_exata * (desenvolvimento.percentual / 100)
+            # Efeito antigo (eficiência exata usada em consumo/desgaste).
+            # A performance do CHASSI já foi aplicada acima usando o nível do
+            # engenheiro projetista, então aqui só passamos a eficiência efetiva
+            # zerada (compat) ou usamos como efeito auxiliar.
+            eficiencia_efetiva = 0.0
             engenheiro = Engenheiro(engenheiro_db.nome, engenheiro_db.custo_temporada,
                                      engenheiro_db.nivel, eficiencia_efetiva)
 
@@ -277,11 +328,20 @@ class CarroJogador(db.Model):
             (config.pit_tempo_sem_treino - config.pit_tempo_treino_completo) * (treinamento.percentual / 100)
         )
 
-        return Carro(
+        carro_obj = Carro(
             equipe=equipe, motor=motor, combustivel=combustivel, pneu=pneu, chassi=chassi,
             cambio=cambio, suspensao=suspensao, engenheiro=engenheiro,
             combustivel_carregado=self.combustivel_carregado, tempo_pit_stop=tempo_pit_stop,
         )
+
+        # Aero: performance somada como bônus separado no carro
+        from constantes import performance_aero_do_nivel
+        performance_aero_base = performance_aero_do_nivel(desenvolvimento.nivel_engenheiro_projetista or 1)
+        carro_obj.performance_aero = performance_aero_base * (
+            (desenvolvimento.aero_percentual_aplicado or 0) / 100.0
+        )
+
+        return carro_obj
 
     def custo_total_montagem(self):
         total = 0.0
@@ -289,7 +349,6 @@ class CarroJogador(db.Model):
             (FornecedorMotor, self.motor_fornecedor_id),
             (FornecedorCombustivel, self.combustivel_fornecedor_id),
             (FornecedorPneu, self.pneu_fornecedor_id),
-            (FornecedorChassi, self.chassi_fornecedor_id),
             (FornecedorCambio, self.cambio_fornecedor_id),
             (FornecedorSuspensao, self.suspensao_fornecedor_id),
         ]:
@@ -303,13 +362,11 @@ class CarroJogador(db.Model):
         return total
 
     def custo_total_contratos(self):
-        """Soma dos custo_temporada de todos os fornecedores contratados."""
         total = 0.0
         for modelo, campo_id in [
             (FornecedorMotor, self.motor_fornecedor_id),
             (FornecedorCombustivel, self.combustivel_fornecedor_id),
             (FornecedorPneu, self.pneu_fornecedor_id),
-            (FornecedorChassi, self.chassi_fornecedor_id),
             (FornecedorCambio, self.cambio_fornecedor_id),
             (FornecedorSuspensao, self.suspensao_fornecedor_id),
         ]:

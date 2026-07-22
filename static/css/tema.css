@@ -1,205 +1,91 @@
 /* ============================================================
-   OPEN WHEEL STRATEGY - Tema visual v4
+   OPEN WHEEL STRATEGY - Tema visual v4.1
    Substitui totalmente o tema.css antigo.
    ============================================================ */
 
 * { box-sizing: border-box; }
 html, body {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     font-family: 'Segoe UI', 'Inter', Tahoma, sans-serif;
     background: #08101e;
     color: #eef2f8;
     min-height: 100vh;
 }
-
 a { color: inherit; text-decoration: none; }
 h1, h2, h3, h4 { margin: 0 0 12px 0; letter-spacing: 0.5px; }
 p  { margin: 0 0 12px 0; color: #b2bccb; }
 hr { border: none; border-top: 1px solid #1e2a3d; margin: 16px 0; }
 
-/* ------------------------------------------------------------
-   SHELL PRINCIPAL
-   ------------------------------------------------------------ */
-.ows-shell {
-    display: flex;
-    min-height: 100vh;
-}
+/* SHELL LOGADO */
+.ows-shell { display: flex; min-height: 100vh; }
 
-/* ------------------------------------------------------------
-   SIDEBAR
-   ------------------------------------------------------------ */
+/* SIDEBAR */
 .ows-sidebar {
-    width: 260px;
-    background: #0b1524;
-    border-right: 1px solid #1a2740;
-    padding: 20px 0 40px 0;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
+    width: 260px; background: #0b1524; border-right: 1px solid #1a2740;
+    padding: 20px 0 40px 0; position: sticky; top: 0;
+    height: 100vh; overflow-y: auto;
 }
-
 .ows-logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 20px 24px 20px;
-    border-bottom: 1px solid #1a2740;
-    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px 24px 20px; border-bottom: 1px solid #1a2740; margin-bottom: 16px;
 }
 .ows-logo-mark {
-    width: 42px; height: 42px;
-    border-radius: 50%;
+    width: 42px; height: 42px; border-radius: 50%;
     background: linear-gradient(135deg, #ff7a00, #ff3d00);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 22px;
-    color: #fff;
+    font-weight: 800; font-size: 22px; color: #fff;
     box-shadow: 0 0 20px rgba(255,120,0,.35);
 }
-.ows-logo-text {
-    font-weight: 800;
-    font-size: 14px;
-    line-height: 1.1;
-    letter-spacing: 2px;
-}
-.ows-logo-text span {
-    color: #ff8a3d;
-    font-weight: 600;
-    letter-spacing: 3px;
-}
+.ows-logo-text { font-weight: 800; font-size: 14px; line-height: 1.1; letter-spacing: 2px; }
+.ows-logo-text span { color: #ff8a3d; font-weight: 600; letter-spacing: 3px; }
 
 .ows-menu-section {
-    padding: 18px 20px 8px 20px;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: #5a6a83;
-    font-weight: 700;
+    padding: 18px 20px 8px 20px; font-size: 11px; letter-spacing: 2px;
+    color: #5a6a83; font-weight: 700;
 }
-
 .ows-menu-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 20px;
-    color: #b6c1d3;
-    font-size: 14px;
-    transition: all .15s ease;
-    border-left: 3px solid transparent;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; color: #b6c1d3; font-size: 14px;
+    transition: all .15s ease; border-left: 3px solid transparent;
 }
-.ows-menu-link:hover {
-    background: #0f1c30;
-    color: #fff;
-}
+.ows-menu-link:hover { background: #0f1c30; color: #fff; }
 .ows-menu-link.active {
     background: linear-gradient(90deg, rgba(255,122,0,.12), transparent);
-    color: #fff;
-    border-left-color: #ff7a00;
-    font-weight: 600;
+    color: #fff; border-left-color: #ff7a00; font-weight: 600;
 }
 .ows-icon { width: 22px; text-align: center; }
 
-/* ------------------------------------------------------------
-   ÁREA PRINCIPAL
-   ------------------------------------------------------------ */
-.ows-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
+/* ÁREA PRINCIPAL */
+.ows-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .ows-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 32px;
-    background: #0a1322;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px; background: #0a1322;
     border-bottom: 1px solid #1a2740;
-    position: sticky;
-    top: 0;
-    z-index: 20;
+    position: sticky; top: 0; z-index: 20;
 }
-.ows-topbar-title {
-    font-size: 12px;
-    letter-spacing: 4px;
-    color: #ff8a3d;
-    font-weight: 700;
-}
-.ows-topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
+.ows-topbar-title { font-size: 12px; letter-spacing: 4px; color: #ff8a3d; font-weight: 700; }
+.ows-topbar-right { display: flex; align-items: center; gap: 16px; }
 
-.ows-badge {
-    background: #101c30;
-    border: 1px solid #1e2c47;
-    border-radius: 10px;
-    padding: 6px 14px;
-    line-height: 1.1;
-}
-.ows-badge-label {
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: #7a8aa3;
-    font-weight: 700;
-}
-.ows-badge-value {
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
-}
+.ows-badge { background: #101c30; border: 1px solid #1e2c47; border-radius: 10px; padding: 6px 14px; line-height: 1.1; }
+.ows-badge-label { font-size: 10px; letter-spacing: 2px; color: #7a8aa3; font-weight: 700; }
+.ows-badge-value { font-size: 13px; font-weight: 600; color: #fff; }
 
-.ows-content {
-    padding: 32px;
-    flex: 1;
-}
+.ows-content { padding: 32px; flex: 1; }
 
-/* ------------------------------------------------------------
-   COMPONENTES
-   ------------------------------------------------------------ */
+/* CARDS */
 .ows-card {
     background: linear-gradient(180deg, #0f1a2d, #0b1524);
-    border: 1px solid #1e2c47;
-    border-radius: 16px;
-    padding: 22px;
-    box-shadow: 0 4px 22px rgba(0,0,0,.35);
+    border: 1px solid #1e2c47; border-radius: 16px;
+    padding: 22px; box-shadow: 0 4px 22px rgba(0,0,0,.35);
 }
-.ows-card h3 {
-    font-size: 11px;
-    letter-spacing: 3px;
-    color: #7a8aa3;
-    font-weight: 700;
-    margin-bottom: 12px;
-}
-.ows-card .ows-value {
-    font-size: 34px;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 1px;
-}
-.ows-card .ows-hint {
-    font-size: 12px;
-    color: #7a8aa3;
-    margin-top: 6px;
-}
+.ows-card h3 { font-size: 11px; letter-spacing: 3px; color: #7a8aa3; font-weight: 700; margin-bottom: 12px; }
+.ows-card .ows-value { font-size: 32px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+.ows-card .ows-hint  { font-size: 12px; color: #7a8aa3; margin-top: 6px; }
 
-.ows-grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
-}
-.ows-grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-}
-.ows-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-}
+.ows-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.ows-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.ows-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 @media (max-width: 1200px) {
     .ows-grid-4 { grid-template-columns: repeat(2, 1fr); }
     .ows-grid-3 { grid-template-columns: 1fr 1fr; }
@@ -208,163 +94,98 @@ hr { border: none; border-top: 1px solid #1e2a3d; margin: 16px 0; }
     .ows-grid-4, .ows-grid-3, .ows-grid-2 { grid-template-columns: 1fr; }
 }
 
-/* HERO (destaque de próxima corrida) */
+/* HERO */
 .ows-hero {
-    position: relative;
-    border-radius: 20px;
-    padding: 34px;
-    margin-bottom: 24px;
+    position: relative; border-radius: 20px; padding: 34px; margin-bottom: 24px;
     overflow: hidden;
-    background:
-        radial-gradient(circle at 90% 20%, rgba(255,122,0,.20), transparent 60%),
-        linear-gradient(135deg, #10192c 0%, #0a1220 100%);
+    background: radial-gradient(circle at 90% 20%, rgba(255,122,0,.20), transparent 60%),
+                linear-gradient(135deg, #10192c 0%, #0a1220 100%);
     border: 1px solid #26344f;
 }
 .ows-hero-label {
-    display: inline-block;
-    padding: 5px 12px;
-    background: rgba(255,122,0,.15);
-    border: 1px solid rgba(255,122,0,.35);
-    color: #ffb069;
-    border-radius: 999px;
-    font-size: 11px;
-    letter-spacing: 2px;
-    font-weight: 700;
-    margin-bottom: 14px;
+    display: inline-block; padding: 5px 12px;
+    background: rgba(255,122,0,.15); border: 1px solid rgba(255,122,0,.35);
+    color: #ffb069; border-radius: 999px;
+    font-size: 11px; letter-spacing: 2px; font-weight: 700; margin-bottom: 14px;
 }
-.ows-hero h1 {
-    font-size: 34px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    color: #fff;
-    margin-bottom: 6px;
-}
-.ows-hero .ows-hero-sub {
-    color: #b2bccb;
-    margin-bottom: 18px;
-    font-size: 14px;
-}
-.ows-hero-meta {
-    display: flex;
-    gap: 30px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-}
-.ows-hero-meta > div {
-    line-height: 1.2;
-}
-.ows-hero-meta small {
-    color: #7a8aa3;
-    font-size: 11px;
-    letter-spacing: 2px;
-    font-weight: 700;
-}
-.ows-hero-meta strong {
-    display: block;
-    font-size: 20px;
-    font-weight: 700;
-    color: #fff;
-    margin-top: 4px;
-}
-.ows-hero-actions {
-    margin-top: 26px;
-    display: flex; gap: 12px; flex-wrap: wrap;
-}
+.ows-hero h1 { font-size: 30px; font-weight: 800; letter-spacing: 1px; color: #fff; margin-bottom: 6px; }
+.ows-hero .ows-hero-sub { color: #b2bccb; margin-bottom: 18px; font-size: 14px; }
+.ows-hero-meta { display: flex; gap: 30px; flex-wrap: wrap; margin-top: 20px; }
+.ows-hero-meta > div { line-height: 1.2; }
+.ows-hero-meta small { color: #7a8aa3; font-size: 11px; letter-spacing: 2px; font-weight: 700; }
+.ows-hero-meta strong { display: block; font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px; }
+.ows-hero-actions { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
 
 /* BOTÕES */
 .ows-btn {
-    display: inline-block;
-    padding: 10px 18px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all .15s ease;
+    display: inline-block; padding: 10px 18px; border-radius: 10px;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+    border: 1px solid transparent; transition: all .15s ease;
+    text-align: center;
 }
-.ows-btn-primary {
-    background: linear-gradient(135deg, #ff7a00, #ff3d00);
-    color: #fff;
-    box-shadow: 0 4px 18px rgba(255,120,0,.35);
-}
+.ows-btn-primary { background: linear-gradient(135deg, #ff7a00, #ff3d00); color: #fff; box-shadow: 0 4px 18px rgba(255,120,0,.35); }
 .ows-btn-primary:hover { filter: brightness(1.05); }
-.ows-btn-ghost {
-    background: transparent;
-    color: #d6dcea;
-    border-color: #26344f;
-}
+.ows-btn-ghost { background: transparent; color: #d6dcea; border-color: #26344f; }
 .ows-btn-ghost:hover { background: #101c30; color: #fff; }
 .ows-btn-danger { background: #b93030; color: #fff; }
+.ows-btn-full { display: block; width: 100%; margin-top: 6px; }
 
-/* BARRAS DE PROGRESSO */
-.ows-progress {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-.ows-progress-label {
-    width: 160px;
-    color: #b2bccb;
-    font-size: 13px;
-}
-.ows-progress-bar {
-    flex: 1;
-    height: 8px;
-    background: #0d1727;
-    border: 1px solid #1e2c47;
-    border-radius: 999px;
-    overflow: hidden;
-}
-.ows-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #ff7a00, #ff3d00);
-    border-radius: 999px;
-}
-.ows-progress-value {
-    width: 48px;
-    text-align: right;
-    color: #fff;
-    font-weight: 600;
-    font-size: 13px;
-}
-
-/* TABELA MODERNA */
-.ows-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #0f1a2d;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid #1e2c47;
-}
-.ows-table th {
-    text-align: left;
-    padding: 12px 16px;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: #7a8aa3;
-    background: #0b1524;
-    border-bottom: 1px solid #1e2c47;
-}
-.ows-table td {
-    padding: 12px 16px;
-    color: #d6dcea;
-    border-bottom: 1px solid #14203a;
-    font-size: 14px;
-}
-.ows-table tr:hover td { background: #101c30; color: #fff; }
-
-/* Textos utilitários */
-.ows-muted { color: #7a8aa3; }
-.ows-strong { color: #fff; font-weight: 600; }
-.ows-orange { color: #ff8a3d; }
-
-/* Layout do GUEST (sem login) */
-.ows-guest { min-height: 100vh; background: #08101e; }
+/* LAYOUT SEM LOGIN */
+.ows-guest { min-height: 100vh; background: #08101e; display: flex; flex-direction: column; }
 .ows-guest-topbar {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 20px 30px; border-bottom: 1px solid #1a2740;
+    padding: 18px 30px; border-bottom: 1px solid #1a2740;
+    background: #0a1322;
 }
-.ows-guest-brand { font-weight: 800; letter-spacing: 2px; display: flex; align-items: center; gap: 10px; }
-.ows-guest-content { padding: 40px; max-width: 1000px; margin: 0 auto; }
+.ows-guest-brand { font-weight: 800; letter-spacing: 2px; display: flex; align-items: center; gap: 10px; color: #fff; }
+.ows-guest-content { padding: 40px; max-width: 1100px; margin: 0 auto; width: 100%; flex: 1; }
+
+/* LANDING */
+.ows-landing {
+    max-width: 720px; margin: 40px auto; text-align: center;
+    background: linear-gradient(180deg, #0f1a2d, #0b1524);
+    border: 1px solid #1e2c47; border-radius: 20px;
+    padding: 50px 40px;
+}
+.ows-landing h1 { font-size: 30px; color: #fff; letter-spacing: 1px; }
+.ows-landing-sub { color: #b2bccb; font-size: 15px; margin: 12px 0 26px; }
+
+/* AUTH (login / cadastro) */
+.ows-auth-wrap { display: flex; justify-content: center; align-items: flex-start; padding: 30px 0; }
+.ows-auth-card {
+    width: 100%; max-width: 420px;
+    background: linear-gradient(180deg, #0f1a2d, #0b1524);
+    border: 1px solid #1e2c47; border-radius: 20px;
+    padding: 34px;
+}
+.ows-auth-card h1 { font-size: 24px; color: #fff; margin: 8px 0 4px; letter-spacing: 1px; }
+.ows-form { display: flex; flex-direction: column; margin-top: 18px; }
+.ows-form label {
+    font-size: 11px; letter-spacing: 2px; color: #7a8aa3;
+    font-weight: 700; margin-top: 12px; margin-bottom: 6px;
+}
+.ows-form input {
+    background: #0b1524; border: 1px solid #26344f; color: #fff;
+    padding: 12px 14px; border-radius: 10px; font-size: 14px;
+    outline: none;
+}
+.ows-form input:focus { border-color: #ff7a00; }
+.ows-form button { margin-top: 20px; }
+.ows-alert {
+    margin-top: 14px; padding: 10px 14px;
+    background: rgba(255, 70, 70, .1); border: 1px solid rgba(255, 70, 70, .4);
+    color: #ffb0b0; border-radius: 10px; font-size: 13px;
+}
+.ows-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 20px 0; color: #556277; font-size: 12px;
+}
+.ows-divider::before, .ows-divider::after {
+    content: ''; flex: 1; height: 1px; background: #1e2c47;
+}
+.ows-auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: #b2bccb; }
+
+/* Utilitários */
+.ows-muted  { color: #7a8aa3; }
+.ows-strong { color: #fff; font-weight: 600; }
+.ows-orange { color: #ff8a3d; }

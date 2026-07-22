@@ -4,7 +4,6 @@
 {% block content %}
 
 {% if usuario_logado %}
-<!-- HERO: PRÓXIMA CORRIDA -->
 <div class="ows-hero">
     <span class="ows-hero-label">PRÓXIMA CORRIDA</span>
     <h1>GRANDE PRÊMIO DE ABERTURA</h1>
@@ -23,24 +22,17 @@
     </div>
 </div>
 
-<!-- INDICADORES RÁPIDOS -->
 <div class="ows-grid-4" style="margin-bottom:24px;">
     <div class="ows-card">
         <h3>ORÇAMENTO</h3>
         <div class="ows-value">
-            {% if usuario_logado.equipe %}
-                R$ {{ '{:,.0f}'.format(usuario_logado.equipe.orcamento or 0)|replace(',', '.') }}
-            {% else %}
-                --
-            {% endif %}
+            {% if usuario_logado.equipe %}R$ {{ '{:,.0f}'.format(usuario_logado.equipe.orcamento or 0)|replace(',', '.') }}{% else %}--{% endif %}
         </div>
         <div class="ows-hint">Restante da temporada</div>
     </div>
     <div class="ows-card">
         <h3>EQUIPE</h3>
-        <div class="ows-value">
-            {% if usuario_logado.equipe %}{{ usuario_logado.equipe.nome }}{% else %}—{% endif %}
-        </div>
+        <div class="ows-value">{% if usuario_logado.equipe %}{{ usuario_logado.equipe.nome }}{% else %}—{% endif %}</div>
         <div class="ows-hint">Configuração ativa</div>
     </div>
     <div class="ows-card">
@@ -55,7 +47,6 @@
     </div>
 </div>
 
-<!-- ATALHOS -->
 <div class="ows-grid-3">
     <div class="ows-card">
         <h3>TREINO</h3>
@@ -75,13 +66,15 @@
         <a href="{{ url_for('classificacao_view') }}" class="ows-btn ows-btn-ghost">Classificação</a>
     </div>
 </div>
-
 {% else %}
-<!-- SEM LOGIN -->
-<div class="ows-card" style="max-width:640px;margin:60px auto;text-align:center;">
-    <h1 style="font-size:28px;">OPEN WHEEL STRATEGY</h1>
-    <p class="ows-muted">Gerencie uma equipe de monopostos: contrate fornecedores, defina estratégia, treine boxes e conquiste o campeonato.</p>
-    <div style="margin-top:22px;">
+<div class="ows-landing">
+    <span class="ows-hero-label">BEM-VINDO</span>
+    <h1>COMANDE SUA EQUIPE DE MONOPOSTOS</h1>
+    <p class="ows-landing-sub">
+        Contrate fornecedores, ajuste o setup, defina estratégias, treine os boxes
+        e conquiste o campeonato. Cada decisão importa.
+    </p>
+    <div class="ows-hero-actions" style="justify-content:center;">
         <a href="{{ url_for('registrar') }}" class="ows-btn ows-btn-primary">Criar conta</a>
         <a href="{{ url_for('login') }}" class="ows-btn ows-btn-ghost">Entrar</a>
     </div>
