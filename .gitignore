@@ -3,3 +3,17 @@ client_secret_*.json
 __pycache__/
 instance/
 .env
+cat >> .gitignore << 'EOF'
+
+# Exports temporarios (mandados pro chat da IA)
+openwheel_tudo.txt
+openwheel_templates.txt
+openwheel_templates.md
+openwheel_templates.py
+decisoes
+misc/regras (1).md
+EOF
+
+git add .gitignore
+git commit -m "Ignora arquivos temporarios de export"
+git push
