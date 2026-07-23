@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block titulo %}Ranking de Treino Livre{% endblock %}
+
+{% block conteudo %}
+<div class="container my-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h3 mb-0">🏆 Ranking de Treino Livre</h1>
+    <a href="{{ url_for('treino_livre_view') }}" class="btn btn-outline-primary">← Voltar ao treino</a>
+  </div>
+
+  <p class="text-muted">
+    Melhor volta de cada equipe, da mais rápida pra mais lenta. Só o recorde de
+    cada equipe aparece aqui.
+  </p>
+
+  {% if resultados %}
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-striped align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Pos.</th>
+              <th>Equipe</th>
+              <th>Melhor volta</th>
+              <th>Tempo médio</th>
+              <th>Voltas</th>
+              <th>Pneu</th>
+              <th>Combustível</th>
+              <th>Erro setup</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in resultados %}
+              <tr class="{{ 'table-warning' if r.equipe_id == minha_equipe_id else '' }}">
+                <td class="fw-bold">{{ loop.index }}º</td>
+                <td>
+                  {{ r.equipe.nome if r.equipe else 'Equipe #' ~ r.equipe_id }}
+                  {% if r.equipe_id == minha_equipe_id %}
+                    <span class="badge bg-primary">você</span>
+                  {% endif %}
+                </td>
+                <td class="fw-semibold">{{ r.melhor_volta_tempo | tempo_min }}</td>
+                <td>{{ r.tempo_medio | tempo_min }}</td>
+                <td>{{ r.total_voltas }}</td>
+                <td>{{ r.pneu_nome or '-' }}</td>
+                <td>{{ r.combustivel_nome or '-' }}</td>
+                <td>{{ r.erro_setup }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-secondary">
+      Nenhum treino livre registrado ainda. Vá em
+      <a href="{{ url_for('treino_livre_view') }}">Treino Livre</a> e rode o primeiro!
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

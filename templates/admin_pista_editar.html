@@ -40,13 +40,13 @@
     </div>
 
     <div class="card mb-3">
-        <div class="card-header">Influências (10 = neutro, 20 = dobro, 5 = metade)</div>
+        <div class="card-header">Influências (faixa 7 a 15 - baixo = componente importa pouco, alto = importa muito)</div>
         <div class="card-body">
             <div class="row g-3">
                 {% for chave, label in [('motor','Motor (M)'), ('cambio','Câmbio (C)'), ('suspensao','Suspensão (S)'), ('pneu','Pneu (P)'), ('combustivel','Combustível (G)'), ('engenheiro','Engenheiro (E)')] %}
                 <div class="col-md-4">
                     <label class="form-label">{{ label }}</label>
-                    <input type="number" min="1" max="30" name="influencia_{{ chave }}"
+                    <input type="number" min="7" max="15" name="influencia_{{ chave }}"
                            value="{{ pista['influencia_' ~ chave] }}" class="form-control" required>
                 </div>
                 {% endfor %}

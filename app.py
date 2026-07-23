@@ -11,6 +11,7 @@ import config
 from constantes import TANQUE_MAXIMO_LITROS
 from models import (
     db, Usuario, CarroJogador, ResultadoClassificacao, ResultadoCorrida,
+    ResultadoTreinoLivre,
     FornecedorMotor, FornecedorCombustivel, FornecedorPneu,
     FornecedorChassi, FornecedorCambio, FornecedorSuspensao,
     FornecedorEngenheiro,
@@ -26,6 +27,8 @@ from progressao import (
 from classificacao import Classificacao
 from corrida import Corrida, calcular_tempo_pit_stop
 from estrategia import montar_estrategia_corrida, sugerir_estrategia_estrategista
+from treino_livre_sim import simular_treino_livre_real
+import modelos_componente
 
 
 def simular_treino_livre(ajustes):
@@ -401,6 +404,7 @@ def resetar_equipe():
     TreinamentoBox.query.filter_by(equipe_id=equipe_id).delete()
     ResultadoClassificacao.query.filter_by(equipe_id=equipe_id).delete()
     ResultadoCorrida.query.filter_by(equipe_id=equipe_id).delete()
+    ResultadoTreinoLivre.query.filter_by(equipe_id=equipe_id).delete()
     db.session.delete(usuario.equipe)
     db.session.commit()
     flash("Conta resetada. Você pode montar sua equipe do zero.", "info")
@@ -480,20 +484,126 @@ def desenvolvimento_view():
 @app.route("/treino-livre", methods=["GET", "POST"])
 @login_requerido
 def treino_livre_view():
+    """TREINO LIVRE REAL (stint de teste, volta a volta).
+
+    O jogador escolhe pista, pneu, combustível e quanto combustível carregar
+    (define o número de voltas), além do setup de teste (modelos 50-900 de
+    câmbio/suspensão/pneu). A simulação roda volta a volta com feedback do
+    piloto e salva apenas o MELHOR resultado da equipe (ResultadoTreinoLivre).
+    """
     usuario = Usuario.query.get(session["usuario_id"])
     if not usuario.equipe:
         return redirect(url_for("minha_equipe"))
-    ajustes = {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
-               "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
+    equipe = usuario.equipe
+
+    criar_banco_pistas_reais()
+    pistas = listar_pistas_reais()
+    pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
+    combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+
     resultado = None
     mensagem = None
+    novo_recorde = False
+
+    # Valores padrão do formulário (pré-preenchidos com o que a equipe já usa).
+    escolhas = {
+        "pista_id": (pistas[0]["id"] if pistas else None),
+        "pneu_fornecedor_id": equipe.pneu_fornecedor_id,
+        "combustivel_fornecedor_id": equipe.combustivel_fornecedor_id,
+        "combustivel_litros": 30.0,
+        "modelo_cambio": equipe.modelo_cambio or 500,
+        "modelo_suspensao": equipe.modelo_suspensao or 500,
+        "modelo_pneu": equipe.modelo_pneu or "",
+    }
+
     if request.method == "POST":
-        ajustes = {k: int(request.form.get(k, 50)) for k in ajustes.keys()}
-        resultado = simular_treino_livre(ajustes)
-        session["treino_livre_salvo"] = ajustes
-        session["treino_livre_resultado"] = resultado
-        mensagem = "Volta de treino concluída."
-    return render_template("treino_livre.html", ajustes=ajustes, resultado=resultado, mensagem=mensagem)
+        def _int(nome, padrao=None):
+            valor = request.form.get(nome)
+            try:
+                return int(valor)
+            except (TypeError, ValueError):
+                return padrao
+
+        escolhas["pista_id"] = _int("pista_id", escolhas["pista_id"])
+        escolhas["pneu_fornecedor_id"] = _int("pneu_fornecedor_id", escolhas["pneu_fornecedor_id"])
+        escolhas["combustivel_fornecedor_id"] = _int("combustivel_fornecedor_id", escolhas["combustivel_fornecedor_id"])
+
+        try:
+            litros = float(request.form.get("combustivel_litros", 30.0))
+        except (TypeError, ValueError):
+            litros = 30.0
+        litros = min(TANQUE_MAXIMO_LITROS, max(1.0, litros))
+        escolhas["combustivel_litros"] = litros
+
+        modelo_cambio = _int("modelo_cambio", None)
+        modelo_suspensao = _int("modelo_suspensao", None)
+        modelo_pneu_raw = request.form.get("modelo_pneu")
+        modelo_pneu = (
+            int(modelo_pneu_raw)
+            if (modelo_pneu_raw and modelos_componente.modelo_valido(modelo_pneu_raw))
+            else None
+        )
+        escolhas["modelo_cambio"] = modelo_cambio or ""
+        escolhas["modelo_suspensao"] = modelo_suspensao or ""
+        escolhas["modelo_pneu"] = modelo_pneu or ""
+
+        pneu_db = FornecedorPneu.query.get(escolhas["pneu_fornecedor_id"]) or (pneus[0] if pneus else None)
+        combustivel_db = FornecedorCombustivel.query.get(escolhas["combustivel_fornecedor_id"]) or (combustiveis[0] if combustiveis else None)
+        pista = obter_pista_real(escolhas["pista_id"]) if escolhas["pista_id"] else None
+
+        if not pneu_db or not combustivel_db:
+            mensagem = "Cadastre fornecedores de pneu e combustível antes de treinar."
+        else:
+            resultado = simular_treino_livre_real(
+                equipe, pneu_db, combustivel_db, litros,
+                pista=pista,
+                modelo_cambio=modelo_cambio,
+                modelo_suspensao=modelo_suspensao,
+                modelo_pneu=modelo_pneu,
+            )
+            _, novo_recorde = ResultadoTreinoLivre.registrar_se_melhor(equipe.id, resultado)
+
+            # Compatibilidade: mantém o fluxo Treino Oficial / Estratégia funcionando.
+            # Aquelas telas dependem de session["treino_livre_salvo"]. setdefault não
+            # sobrescreve um setup já existente; só cria um padrão se ainda não houver.
+            session.setdefault("treino_livre_salvo", {
+                "ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
+                "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50,
+            })
+
+            if novo_recorde:
+                mensagem = "Treino concluído — novo recorde salvo no ranking!"
+            else:
+                mensagem = "Treino concluído. Não superou seu melhor tempo; o recorde anterior foi mantido."
+
+    meu_resultado = ResultadoTreinoLivre.query.filter_by(equipe_id=equipe.id).first()
+
+    return render_template(
+        "treino_livre.html",
+        equipe=equipe, pistas=pistas, pneus=pneus, combustiveis=combustiveis,
+        modelos_disponiveis=modelos_componente.MODELOS,
+        escolhas=escolhas, resultado=resultado, mensagem=mensagem,
+        novo_recorde=novo_recorde, meu_resultado=meu_resultado,
+    )
+
+
+@app.route("/treino-livre/ranking")
+@login_requerido
+def treino_livre_ranking_view():
+    """Ranking de treino livre: melhor volta de cada equipe, do mais rápido
+    pro mais lento."""
+    usuario = Usuario.query.get(session["usuario_id"])
+    resultados = (
+        ResultadoTreinoLivre.query
+        .filter(ResultadoTreinoLivre.melhor_volta_tempo.isnot(None))
+        .order_by(ResultadoTreinoLivre.melhor_volta_tempo.asc())
+        .all()
+    )
+    minha_equipe_id = usuario.equipe.id if usuario.equipe else None
+    return render_template(
+        "treino_livre_ranking.html",
+        resultados=resultados, minha_equipe_id=minha_equipe_id,
+    )
 
 
 @app.route("/treino-oficial", methods=["GET", "POST"])
@@ -548,9 +658,31 @@ def estrategia_corrida_view():
         outro_pit = request.form.get("outro_pit") == "on"
         resultado = montar_estrategia_corrida(ajustes, pneu or pneus[0], combustivel or combustiveis[0], volta_primeiro_pit, outro_pit)
         sugestao = sugerir_estrategia_estrategista(ajustes)
+
+        # REFACTOR xx-50/xx-900: salva os modelos escolhidos pra próxima corrida.
+        # Cada campo é um número 50..900; valores inválidos/vazios são ignorados.
+        # Campo vazio "" limpa a escolha (volta ao comportamento antigo).
+        campos_modelo = {
+            "modelo_motor": request.form.get("modelo_motor"),
+            "modelo_combustivel": request.form.get("modelo_combustivel"),
+            "modelo_pneu": request.form.get("modelo_pneu"),
+            "modelo_cambio": request.form.get("modelo_cambio"),
+            "modelo_suspensao": request.form.get("modelo_suspensao"),
+        }
+        for campo, valor in campos_modelo.items():
+            if valor is None:
+                continue
+            if valor == "":
+                setattr(usuario.equipe, campo, None)
+            elif modelos_componente.modelo_valido(valor):
+                setattr(usuario.equipe, campo, int(valor))
+        db.session.commit()
+
         mensagem = "Estratégia definida."
     return render_template("estrategia_corrida.html", ajustes=ajustes, treino_oficial=treino_oficial,
-                           pneus=pneus, combustiveis=combustiveis, resultado=resultado, sugestao=sugestao, mensagem=mensagem)
+                           pneus=pneus, combustiveis=combustiveis, resultado=resultado, sugestao=sugestao,
+                           mensagem=mensagem, equipe=usuario.equipe,
+                           modelos_disponiveis=modelos_componente.MODELOS)
 
 
 @app.route("/minha-equipe/treinamento", methods=["GET", "POST"])

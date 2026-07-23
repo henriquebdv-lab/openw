@@ -29,6 +29,13 @@ def garantir_colunas_fornecedores():
                 ("desenvolvimentos", "aero_percentual_em_construcao", "REAL DEFAULT 0.0"),
                 ("desenvolvimentos", "nivel_engenheiro_projetista", "INTEGER DEFAULT 1"),
                 # CarroJogador: chassi_fornecedor_id vira opcional (legado)
+                # REFACTOR xx-50/xx-900: modelo escolhido por corrida (50..900),
+                # NULL = nenhum modelo escolhido = comportamento antigo.
+                ("carros_jogadores", "modelo_motor", "INTEGER"),
+                ("carros_jogadores", "modelo_combustivel", "INTEGER"),
+                ("carros_jogadores", "modelo_pneu", "INTEGER"),
+                ("carros_jogadores", "modelo_cambio", "INTEGER"),
+                ("carros_jogadores", "modelo_suspensao", "INTEGER"),
             ]:
                 try:
                     conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
@@ -41,6 +48,14 @@ def garantir_colunas_fornecedores():
                         and "no such table" not in mensagem
                     ):
                         raise
+    except Exception:
+        pass
+
+    # Cria tabelas novas que ainda não existam no banco (ex.: resultados_treino_livre).
+    # create_all() NÃO altera nem apaga tabelas existentes: só cria as que faltam.
+    # Assim o banco atual continua 100% compatível.
+    try:
+        db.create_all()
     except Exception:
         pass
 
@@ -251,6 +266,12 @@ class CarroJogador(db.Model):
       (legado, mantido pra bancos antigos).
     - A performance do chassi vem do Desenvolvimento + nível do
       engenheiro que projetou.
+
+    REFACTOR xx-50/xx-900:
+    - O jogador contrata 1 fornecedor por temporada (igual antes).
+    - A CADA CORRIDA, escolhe qual MODELO (50 a 900) usar de cada
+      componente. Guardamos essa escolha nas colunas modelo_*.
+      NULL = nenhum modelo escolhido = comportamento antigo.
     """
     __tablename__ = "carros_jogadores"
 
@@ -271,6 +292,14 @@ class CarroJogador(db.Model):
     combustivel_carregado = db.Column(db.Float, default=110.0)
     cor_primaria = db.Column(db.String(7), default="#cc0000")
     cor_secundaria = db.Column(db.String(7), default="#ffffff")
+
+    # REFACTOR xx-50/xx-900: modelo escolhido pra próxima corrida (50..900).
+    # NULL = usa o comportamento antigo (sem modificador de modelo).
+    modelo_motor = db.Column(db.Integer, nullable=True)
+    modelo_combustivel = db.Column(db.Integer, nullable=True)
+    modelo_pneu = db.Column(db.Integer, nullable=True)
+    modelo_cambio = db.Column(db.Integer, nullable=True)
+    modelo_suspensao = db.Column(db.Integer, nullable=True)
 
     def montar_carro(self):
         from equipamentos import Motor, Combustivel, Pneu, Chassi, Cambio, Suspensao, Engenheiro
@@ -341,6 +370,16 @@ class CarroJogador(db.Model):
             (desenvolvimento.aero_percentual_aplicado or 0) / 100.0
         )
 
+        # REFACTOR xx-50/xx-900: aplica os modelos escolhidos pra corrida.
+        # Se todos forem NULL, definir_modelos não faz nada (comportamento antigo).
+        carro_obj.definir_modelos(
+            motor=self.modelo_motor,
+            combustivel=self.modelo_combustivel,
+            pneu=self.modelo_pneu,
+            cambio=self.modelo_cambio,
+            suspensao=self.modelo_suspensao,
+        )
+
         return carro_obj
 
     def custo_total_montagem(self):
@@ -402,3 +441,62 @@ class ResultadoCorrida(db.Model):
     posicao_final = db.Column(db.Integer)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     equipe = db.relationship("CarroJogador")
+
+
+class ResultadoTreinoLivre(db.Model):
+    """Melhor resultado de TREINO LIVRE de cada equipe.
+
+    Regra: só o MELHOR resultado da equipe fica salvo (1 linha por equipe,
+    garantido por equipe_id unique). Se um novo treino não bater o melhor
+    tempo de volta anterior, o registro antigo é mantido.
+
+    'melhor' = menor melhor_volta_tempo (volta mais rápida do stint).
+    """
+    __tablename__ = "resultados_treino_livre"
+
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
+    pneu_nome = db.Column(db.String(100))
+    combustivel_nome = db.Column(db.String(100))
+    total_voltas = db.Column(db.Integer, default=0)
+    melhor_volta_numero = db.Column(db.Integer, default=0)
+    melhor_volta_tempo = db.Column(db.Float)
+    tempo_medio = db.Column(db.Float)
+    erro_setup = db.Column(db.Float, default=0.0)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador")
+
+    @classmethod
+    def registrar_se_melhor(cls, equipe_id, resultado):
+        """Salva o resultado se ele for melhor que o atual da equipe.
+
+        Retorna (registro, novo_recorde: bool).
+        - Se não havia registro -> cria e salva (novo_recorde=True).
+        - Se o novo melhor_volta_tempo for MENOR que o guardado -> substitui.
+        - Caso contrário -> mantém o antigo (novo_recorde=False).
+        """
+        novo_tempo = resultado.get("melhor_volta_tempo")
+        existente = cls.query.filter_by(equipe_id=equipe_id).first()
+
+        # Sem melhor tempo válido (stint sem voltas) -> não mexe.
+        if not novo_tempo or novo_tempo <= 0:
+            return existente, False
+
+        if existente and existente.melhor_volta_tempo and novo_tempo >= existente.melhor_volta_tempo:
+            return existente, False  # não superou -> mantém o anterior
+
+        if not existente:
+            existente = cls(equipe_id=equipe_id)
+            db.session.add(existente)
+
+        existente.pneu_nome = resultado.get("pneu_nome")
+        existente.combustivel_nome = resultado.get("combustivel_nome")
+        existente.total_voltas = int(resultado.get("total_voltas") or 0)
+        existente.melhor_volta_numero = int(resultado.get("melhor_volta_numero") or 0)
+        existente.melhor_volta_tempo = float(novo_tempo)
+        existente.tempo_medio = float(resultado.get("tempo_medio") or 0.0)
+        existente.erro_setup = float(resultado.get("erro_setup") or 0.0)
+        existente.criado_em = datetime.utcnow()
+        db.session.commit()
+        return existente, True

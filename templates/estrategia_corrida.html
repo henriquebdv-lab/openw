@@ -35,6 +35,51 @@
             <label class="form-check-label ms-2" for="outro_pit">Sim</label>
         </div>
     </div>
+
+    {# ------------------------------------------------------------------ #}
+    {#  REFACTOR xx-50/xx-900: escolha do MODELO de cada componente        #}
+    {#  Modelo baixo (50) = mais rápido, dura/rende menos                  #}
+    {#  Modelo alto (900) = mais lento, dura/rende mais                    #}
+    {#  Câmbio/Suspensão: o modelo define a letra (A=50 ... J=900)         #}
+    {#  Pneu: 50-500 seco, 600-700 molhada, 800-900 encharcada            #}
+    {# ------------------------------------------------------------------ #}
+    <div class="card mt-4">
+        <div class="card-header">
+            Modelo dos componentes (50 a 900)
+        </div>
+        <div class="card-body">
+            <p class="text-muted">
+                Escolha por corrida. <strong>Modelo baixo (50)</strong> = mais rápido, mas
+                gasta/desgasta mais. <strong>Modelo alto (900)</strong> = mais lento, porém
+                mais econômico e durável. Deixe em <em>"Padrão"</em> pra não usar modelo.
+            </p>
+            <div class="row g-3">
+                {% set campos_modelo = [
+                    ('modelo_motor', 'Motor', 'velocidade x consumo'),
+                    ('modelo_combustivel', 'Combustível', 'velocidade x consumo'),
+                    ('modelo_pneu', 'Pneu', '50-500 seco / 600-700 molhada / 800-900 encharcada'),
+                    ('modelo_cambio', 'Câmbio', 'letra A=50 ... J=900 (case com a pista)'),
+                    ('modelo_suspensao', 'Suspensão', 'letra A=50 ... J=900 (case com a pista)')
+                ] %}
+                {% for campo, titulo, dica in campos_modelo %}
+                <div class="col-md-4">
+                    <label for="{{ campo }}" class="form-label">{{ titulo }}</label>
+                    <select id="{{ campo }}" name="{{ campo }}" class="form-select">
+                        <option value="">Padrão (sem modelo)</option>
+                        {% for m in modelos_disponiveis %}
+                        <option value="{{ m }}"
+                            {% if equipe and equipe[campo] == m %}selected{% endif %}>
+                            {{ titulo[:2]|upper }}-{{ m }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">{{ dica }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
     <button type="submit" class="btn btn-primary mt-3">Salvar estratégia</button>
 </form>
 

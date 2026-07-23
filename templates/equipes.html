@@ -50,6 +50,7 @@
         <p class="ows-muted" style="margin-top: 4px;">
             O desempenho técnico de cada fornecedor não aparece: escolha pelo custo,
             categoria e o nome. Alguns fornecedores baratos entregam mais do que parecem.
+            Ordenados do mais barato ao mais caro.
         </p>
 
         <div class="ows-grid-2" style="margin-top: 16px;">
@@ -57,7 +58,7 @@
                 <label for="motor_fornecedor_id">Motor</label>
                 <select id="motor_fornecedor_id" name="motor_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in motores %}
+                    {% for m in motores|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
                         {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp.
                     </option>
@@ -69,7 +70,7 @@
                 <label for="combustivel_fornecedor_id">Combustível</label>
                 <select id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in combustiveis %}
+                    {% for m in combustiveis|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
                         {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp.
                     </option>
@@ -81,7 +82,7 @@
                 <label for="pneu_fornecedor_id">Pneu</label>
                 <select id="pneu_fornecedor_id" name="pneu_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in pneus %}
+                    {% for m in pneus|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
                         {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — {{ m.categoria_chuva|default('seco') }}
                     </option>
@@ -93,7 +94,7 @@
                 <label for="cambio_fornecedor_id">Câmbio</label>
                 <select id="cambio_fornecedor_id" name="cambio_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in cambios %}
+                    {% for m in cambios|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
                         {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — Cat. {{ m.categoria_pista|default('A') }}
                     </option>
@@ -105,7 +106,7 @@
                 <label for="suspensao_fornecedor_id">Suspensão</label>
                 <select id="suspensao_fornecedor_id" name="suspensao_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in suspensoes %}
+                    {% for m in suspensoes|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
                         {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — Cat. {{ m.categoria_pista|default('A') }}
                     </option>
@@ -127,7 +128,7 @@
             <label for="engenheiro_fornecedor_id">Engenheiro</label>
             <select id="engenheiro_fornecedor_id" name="engenheiro_fornecedor_id">
                 <option value="">Sem engenheiro (economiza agora, mas trava desenvolvimento)</option>
-                {% for m in engenheiros %}
+                {% for m in engenheiros|sort(attribute='custo_temporada') %}
                 <option value="{{ m.id }}">
                     {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — Nível {{ m.nivel|default(1) }}
                 </option>

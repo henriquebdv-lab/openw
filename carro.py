@@ -4,6 +4,19 @@ Classe Carro - junta equipe + equipamentos + Engenheiro (opcional).
 Chassi e Aerodinâmica não são fornecedores contratados. São projetados
 pelo Engenheiro que a equipe contratou, e a performance vem do nível
 desse engenheiro + percentual de desenvolvimento aplicado.
+
+REFACTOR xx-50/xx-900 (Etapa 3):
+- Cada corrida, o jogador pode escolher qual MODELO (50 a 900) usar de
+  cada componente. Isso é um MODIFICADOR calculado, não muda o banco.
+- Como aplicamos cada modelo (pra NÃO contar efeito duas vezes):
+    * Motor/Combustível: delta de velocidade + fator de consumo
+    * Pneu: delta de velocidade + fator de desgaste + define a condição
+      (seco/molhada/encharcada) usada no casamento com a pista
+    * Câmbio/Suspensão: o modelo APENAS define a letra A-J usada no
+      casamento com a categoria ideal da pista (o efeito no tempo já vem
+      de _fator_categoria_pista, então NÃO somamos delta aqui)
+- Se nenhum modelo for escolhido, o carro se comporta IGUAL a antes
+  (100% retrocompatível).
 """
 
 import random
@@ -19,6 +32,7 @@ from constantes import (
     TEMPERATURA_REFERENCIA,
     DESGASTE_POR_GRAU_FRACAO,
 )
+import modelos_componente
 
 
 class Carro:
@@ -37,6 +51,70 @@ class Carro:
         # Performance da aerodinâmica (setado pelo CarroJogador.montar_carro)
         self.performance_aero = 0.0
 
+        # REFACTOR: modelos escolhidos pra ESTA corrida (50 a 900).
+        # Vazio = nenhum modelo escolhido = comportamento antigo.
+        # Chaves possíveis: "motor", "combustivel", "pneu", "cambio", "suspensao"
+        self.modelos_corrida = {}
+
+    # -----------------------------------------------------
+    # REFACTOR: helpers dos modelos xx-50/xx-900
+    # -----------------------------------------------------
+    def definir_modelos(self, motor=None, combustivel=None, pneu=None,
+                        cambio=None, suspensao=None):
+        """Define os modelos (50-900) escolhidos pra esta corrida.
+        Passe só os que quiser; os demais ficam sem modificador.
+        Ignora valores inválidos silenciosamente."""
+        escolhidos = {
+            "motor": motor, "combustivel": combustivel, "pneu": pneu,
+            "cambio": cambio, "suspensao": suspensao,
+        }
+        for componente, numero in escolhidos.items():
+            if numero is not None and modelos_componente.modelo_valido(numero):
+                self.modelos_corrida[componente] = int(numero)
+
+    def _mod(self, componente):
+        """Retorna o dict de modificadores do modelo escolhido pro
+        componente, ou None se não houver escolha."""
+        numero = self.modelos_corrida.get(componente)
+        if numero is None:
+            return None
+        return modelos_componente.modificadores(numero, componente)
+
+    def _delta_velocidade_modelos(self):
+        """Soma o delta de velocidade dos modelos que afetam o tempo
+        DIRETAMENTE: motor, combustível e pneu.
+        Câmbio/suspensão NÃO entram aqui (efeito vem do casamento de letra)."""
+        delta = 0.0
+        for componente in ("motor", "combustivel", "pneu"):
+            mod = self._mod(componente)
+            if mod:
+                delta += mod["velocidade_delta_s"]
+        return delta
+
+    def _categoria_cambio_efetiva(self):
+        """Letra do câmbio: se um modelo foi escolhido, ele manda;
+        senão usa a categoria fixa do fornecedor."""
+        mod = self._mod("cambio")
+        if mod:
+            return mod["letra"]
+        return (self.cambio.categoria_pista or "A").upper()
+
+    def _categoria_suspensao_efetiva(self):
+        mod = self._mod("suspensao")
+        if mod:
+            return mod["letra"]
+        return (self.suspensao.categoria_pista or "A").upper()
+
+    def _condicao_pneu_efetiva(self):
+        """Condição do pneu (seco/molhada/encharcada): modelo manda se
+        escolhido; senão usa a categoria_chuva do fornecedor."""
+        mod = self._mod("pneu")
+        if mod:
+            # normaliza "molhada" -> mesma família de "intermediario"/"chuva"
+            return mod["condicao_pista"]
+        return (self.pneu.categoria_chuva or "seco").lower()
+
+    # -----------------------------------------------------
     def potencia_efetiva_motor(self):
         return self.motor.potencia * (1 + self.combustivel.aumento_potencia_motor)
 
@@ -45,8 +123,8 @@ class Carro:
         return (valor or INFLUENCIA_ESCALA) / INFLUENCIA_ESCALA
 
     def _fator_categoria_pista(self):
-        categoria_cambio_carro = (self.cambio.categoria_pista or "A").upper()
-        categoria_suspensao_carro = (self.suspensao.categoria_pista or "A").upper()
+        categoria_cambio_carro = self._categoria_cambio_efetiva()
+        categoria_suspensao_carro = self._categoria_suspensao_efetiva()
 
         categoria_cambio_ideal = getattr(self, "categoria_cambio_ideal_pista", None)
         categoria_suspensao_ideal = getattr(self, "categoria_suspensao_ideal_pista", None)
@@ -67,7 +145,12 @@ class Carro:
         return diff_cambio + diff_suspensao
 
     def _fator_categoria_chuva(self):
-        categoria_pneu = (self.pneu.categoria_chuva or "seco").lower()
+        categoria_pneu = self._condicao_pneu_efetiva()
+        # "molhada" (nome usado pelos modelos) conta como "intermediario"
+        if categoria_pneu == "molhada":
+            categoria_pneu = "intermediario"
+        elif categoria_pneu == "encharcada":
+            categoria_pneu = "chuva"
         categoria_pista = (getattr(self, "categoria_chuva", "seco") or "seco").lower()
         mapa = {
             "seco":         {"seco": 0.0, "intermediario": 1.0, "chuva": 2.0},
@@ -115,6 +198,9 @@ class Carro:
         tempo += self._fator_categoria_pista() * 0.3
         tempo += self._fator_categoria_chuva() * 1.0
 
+        # REFACTOR: delta de velocidade dos modelos (motor/combustível/pneu)
+        tempo += self._delta_velocidade_modelos()
+
         return tempo
 
     def tempo_com_variacao(self, desgaste_atual=0.0):
@@ -132,6 +218,13 @@ class Carro:
         if self.engenheiro:
             consumo *= (1 - self.engenheiro.bonus_eficiencia)
         consumo *= self._fator_influencia("combustivel")
+
+        # REFACTOR: fator de consumo dos modelos de motor e combustível
+        for componente in ("motor", "combustivel"):
+            mod = self._mod(componente)
+            if mod:
+                consumo *= mod["fator_consumo"]
+
         return consumo
 
     def desgaste_por_volta(self):
@@ -143,6 +236,12 @@ class Carro:
             temperatura = TEMPERATURA_REFERENCIA
         fator_temp = 1.0 + (temperatura - TEMPERATURA_REFERENCIA) * DESGASTE_POR_GRAU_FRACAO
         desgaste *= max(0.1, fator_temp)
+
+        # REFACTOR: fator de desgaste do modelo de pneu
+        mod = self._mod("pneu")
+        if mod:
+            desgaste *= mod["fator_desgaste"]
+
         return desgaste
 
     def __repr__(self):

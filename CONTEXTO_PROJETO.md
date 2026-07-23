@@ -1,337 +1,262 @@
-# Open Wheel Strategy — Contexto do Projeto
+# Open Wheel Strategy — Contexto do Projeto (dia 7 de dev)
 
-> **Se você está começando um chat novo com uma IA, cole este arquivo inteiro
-> na primeira mensagem. Ele contém tudo que a IA precisa saber pra continuar
-> de onde paramos, sem perder decisões e sem quebrar código existente.**
+**Se você está começando um chat novo com uma IA, cole este arquivo inteiro
+na primeira mensagem. Ele contém tudo que a IA precisa saber pra continuar
+de onde paramos.**
+
+> DICA IMPORTANTE PRA COLAR ARQUIVOS: anexar arquivo grande às vezes chega
+> CORTADO pra IA. Colar o texto direto no chat vem inteiro. Pra arquivos
+> grandes (models.py, app.py, seeds), prefira copiar/colar o texto.
+
+## ⚠️ Regra de propriedade intelectual
+
+O nome do jogo é **Open Wheel Strategy** — referência genérica à categoria de
+monopostos, não a marca registrada.
+**A IA NÃO PODE usar:**
+- Nomes de outros jogos por nome
+- Nomes canônicos herdados (ZIPADNOR, POKGAST, MIDILU, JOVOLT, xx-50 até xx-900)
+- Nomes de pilotos, engenheiros ou frases de feedback específicas herdados de outros jogos
+- Nomes de autores de planilhas de referência
+- Referências a "F1" ou similares (usar "monoposto", "openwheel")
+**A IA PODE usar:**
+- Sistemas de pontos e valores (padrões públicos)
+- Fórmulas matemáticas
+- Estruturas de dados (níveis, categorias A-J, etc)
+- Nomes de pistas de corrida reais (fatos históricos)
+- Dados técnicos objetivos de pistas reais
+
+## Sobre o projeto
+- **Nome:** Open Wheel Strategy
+- **Tipo:** Jogo de gerenciamento de equipes de monopostos, jogado no navegador
+- **Stack:** Python + Flask + SQLAlchemy + SQLite + Flask-Migrate
+- **Local:** E:\openwheel\
+- **Desenvolvedor:** Henrique (Curitiba, PR)
+- **Referências locais:** manual (como.txt) + planilhas de referência técnica
+
+## Arquitetura de bancos (IMPORTANTE)
+São DOIS bancos SQLite separados:
+- **jogo.db** — dados dinâmicos do jogo (usuários, equipes, fornecedores,
+  resultados). Acessado via SQLAlchemy (models.py).
+- **pistas_reais.db** — dados estáticos das 25 pistas reais (SVG, comprimento,
+  influências). Acessado via sqlite3 PURO (pistas_reais_db.py), NÃO usa
+  SQLAlchemy. Tabela: `pistas_reais`. Origem dos dados: TUMFTM
+  racetrack-database (LGPL-3.0), importado via importar_todas_pistas.py.
+
+## Regra de ouro do banco
+
+**NUNCA APAGAR o jogo.db SEM AUTORIZAÇÃO.** Migrações via Flask-Migrate.
+Seeds de fornecedor NUNCA apagam fornecedor em uso: deletam só os não-usados
+e DESATIVAM (ativo=False) os que estão em uso por algum jogador.
+
+## Preferências do desenvolvedor
+- Prefere arquivos completos, não trechos pra editar manualmente
+- Não gosta de caçar linha pra colar; quer o arquivo inteiro pronto
+- Plain text, sem HTML no meio, sem negrito excessivo
+- Objetivo e direto, respostas rápidas e completas
+- Passo-a-passo pra troubleshooting
+- Português brasileiro
+- Aceita quando IA admite erro, se frustra com repetição de erros
 
 ---
 
-## Sobre o projeto
+## ✅ O QUE FOI FEITO HOJE (dia 7 — as 4 prioridades imediatas fechadas)
 
-- **Nome:** Open Wheel Strategy
-- **Tipo:** Jogo de gerenciamento de F1, jogado no navegador
-- **Stack:** Python + Flask + SQLAlchemy + SQLite + Flask-Migrate
-- **Inspiração:** Jogo antigo "Estratégia F1" (manual guardado em `como.txt`)
-- **Fonte de dados canônicos:** Planilha do jogador "AYRES" (`Planilha Ayres (v5.12).xls`) - documenta cálculos originais
-- **Desenvolvedor:** Henrique (Curitiba, PR)
-- **Local do projeto no PC:** `E:\openwheel\`
+### ✅ A) Range de influência das pistas corrigido
+- Formulário admin_pista_editar.html: validação mudou de min=1/max=30
+  para **min=7/max=15** nos 6 campos de influência
+- Cabeçalho do card atualizado explicando a escala 7-15
+- Mantidos os 6 componentes M/C/S/P/G/E (sem Freio)
 
-## Regra de ouro do banco de dados
+### ✅ B) Fornecedores ordenados por custo no formulário criar equipe
+- equipes.html: adicionado `|sort(attribute='custo_temporada')` nos 6
+  selects (motor, combustível, pneu, câmbio, suspensão, engenheiro)
+- Dropdown agora sai do mais barato ao mais caro
+- Resolvido só no template, sem tocar no app.py
 
-**NUNCA APAGAR O `jogo.db` SEM AUTORIZAÇÃO.** Ele tem usuários reais.
-Toda alteração de schema deve ser feita via `flask db migrate` + `flask db upgrade`,
-que preservam os dados. A única exceção foi hoje, quando o próprio Henrique
-autorizou apagar pra fazer o rename de `EquipeDB` → `CarroJogador`.
+### ✅ C) Renumeração dos 100 fornecedores por custo + 2 bugs corrigidos
+- **Bug 1 corrigido:** gerar_nome_item/gerar_nome_pessoa terminavam em "#"
+  SEM número (todos os fornecedores ficavam sem número). Agora o nome sai
+  correto: "TurboRacing #1", "PowerMotors #2", etc.
+- **Bug 2 corrigido:** numeração agora é aplicada DEPOIS de ordenar por
+  custo (função _renumerar_por_custo), então o número bate com o preço.
+- **Regra confirmada:** número reflete APENAS o custo (#1 = mais barato,
+  #100 = mais caro). NÃO indica qualidade. Furadas/achados continuam
+  embaralhadas de propósito — a graça de escolher no escuro fica intacta.
+- **popular_banco() reescrito** (o final do arquivo original tinha vindo
+  cortado): deleta não-usados, desativa em uso, insere os novos, commit.
 
-## Preferências do desenvolvedor (do usuário)
+### ✅ D) Influências canônicas gravadas nas pistas
+- Pistas já estavam importadas no pistas_reais.db (25 pistas, nomes de
+  exibição oficiais tipo "Red Bull Ring", não "Spielberg").
+- Script seed_influencias_pistas.py grava só os valores da planilha:
+  **Red Bull Ring (= A1-Ring): M9 C8 S7 P11 G12 E14**
+- Demais 24 pistas ficam neutras (10 em tudo). Ajuste manual no admin.
+- Script NÃO cria nem apaga pistas, só atualiza influências via as
+  funções do próprio pistas_reais_db.py.
 
-- Prefere baixar arquivos completos, não trechos pra colar manualmente
-- Prefere plain text — sem HTML no meio de texto, sem negrito excessivo
-- Prefere respostas objetivas e diretas
-- Prefere passo-a-passo claro pra troubleshooting técnico
-- Sem familiaridade forte com Linux/SSH
-- Aceita quando a IA admite erro, fica frustrado com repetição de erros
-- Só português brasileiro
+### ✅ DECISÃO DO FREIO (resolvida — era a pendência do dia anterior)
+- Freio fica como **expansão futura ("DLC")**, NÃO entra no MVP.
+- MVP continua com 6 componentes: M/C/S/P/G/E.
+- Pistas NÃO têm coluna F por enquanto.
+- **Design da versão simples do freio (pra quando for implementar):**
+  - 1 fornecedor de freio por temporada (contrato anual, igual motor/pneu)
+  - Influência F por pista, faixa 7-15 (só mais uma coluna)
+  - Nível 1-10, afeta o tempo de volta como os outros
+  - Entra na chance de quebra (soma no cálculo de 10% base)
+  - Custo de temporada debita ao contratar
+  - SEM temperatura/categoria térmica (isso é coisa de jogo 3D, não texto)
+  - Quando o refactor xx-50/xx-900 acontecer, freio entra junto
+  - O que muda quando virar DLC:
+    1. Novo model FornecedorFreio (cópia do FornecedorMotor)
+    2. Coluna influencia_freio na Pista
+    3. Campo fornecedor_freio_id na Equipe
+    4. Freio entra no loop de cálculo de tempo de volta e quebra
 
-## Arquitetura atual do projeto
+### Arquivos entregues HOJE
+- admin_pista_editar.html (prioridade A)
+- equipes.html (prioridade B)
+- seed_fornecedores.py (prioridade C — reescrito completo)
+- seed_influencias_pistas.py (prioridade D — script novo)
 
-### Bancos de dados (2)
+---
 
-1. **`jogo.db`** — banco principal, gerenciado pelo Flask-Migrate/Alembic
-2. **`pistas_reais.db`** — banco separado, gerenciado por SQL cru
-   Contém as 50+ pistas reais importadas via `importar_todas_pistas.py`
-
-### Arquivos Python principais (raiz)
-
-- `app.py`, `models.py`, `models_temporada.py`, `equipamentos.py`, `carro.py`
-- `corrida.py`, `classificacao.py`, `estrategia.py`, `progressao.py`
-- `pistas_reais_db.py`, `converter_pista_real.py`, `importar_todas_pistas.py`
-- `pontuacao.py`, `seed_fornecedores.py`, `constantes.py`, `config.py`
-
-### Tabelas do banco principal
-
-- `Usuario` (com `grupo` e `classe`)
-- `CarroJogador` (antes `EquipeDB`) — 1 por usuário
-- `Fornecedor{Motor,Combustivel,Pneu,Chassi,Cambio,Suspensao,Engenheiro}`
-- `Configuracao` (singleton com `orcamento_inicial`)
-- `Desenvolvimento`, `TreinamentoBox`
-- `ResultadoClassificacao`, `ResultadoCorrida`
-- `Temporada`, `CorridaAgendada`
-
-## O que já está funcionando ✅
+## O que já estava funcionando (dias anteriores)
 
 ### Autenticação
-- Login/registro por email/senha ou Google OAuth
+- Login/registro email/senha ou Google OAuth (.env + python-dotenv)
 - Sistema de admin
-- Rota `/admin/usuarios` pra grupo/classe
 
 ### Jogador
-- Criar/editar equipe
-- Treino livre (5 sliders) — simulado, não fica no banco
-- Treino oficial (depende do livre)
+- Criar/editar equipe (sem chassi — chassi é do engenheiro)
+- Treino livre (5 sliders) — versão simplificada, precisa refazer
+- Treino oficial
 - Estratégia da corrida (rudimentar)
-- Desenvolvimento e Treinamento de Box (0-100%)
+- Desenvolvimento (2 barras: chassi + aero)
+- Treinamento de Box
 
 ### Corrida
 - Simulação volta a volta
 - Pit stop com tempo específico da pista
 - 4 trechos de temperatura
 - Volta de qualifying descontando tanque
-- DL e DF (diferença líder / carro da frente)
+- DL e DF
 - Consumo L/km × tamanho da pista
 - Categorias A-J de câmbio/suspensão
-- Categoria de chuva do pneu (seco/interm/chuva)
-- Influências M/C/S/P/G/E por pista (falta F de Freio)
-- Pneu que passa desgaste → abandono (deveria só ficar lento)
+- Categoria de chuva do pneu
+- Influências M/C/S/P/G/E por pista
 - Tanque máx 150L
-- Formato `1:30.234`
+- Formato 1:30.234
+- Curva suave de desgaste do pneu (começa a perder a partir de 70%)
+- Chance de quebra de peças (10% base, 2% mínimo com treino de box)
 
 ### Temporada
-- Admin cria com calendário
-- Só 1 ativa por vez
-- Ranking com pontos (25/18/... hoje - INCORRETO)
-- Custo_montagem debitado por corrida
-- Custo_temporada debitado ao contratar
+- Admin cria com calendário; 1 ativa por vez
+- Ranking com pontos e prêmios
+- Custo_montagem debitado por corrida; custo_temporada ao contratar
+- Fim de temporada aplica chassi/aero desenvolvido
 
 ### Fornecedores
-- 100 fornecedores em 10 tiers
-- Furadas/achados dentro do tier
-- Categorias A-J e chuva distribuídas
-- Nomes #1 (pior) a #100 (melhor)
-- Não apaga em uso, só desativa
-- Orçamento inicial R$ 55.000 configurável
+- 100 por categoria (motor, combustível, pneu, câmbio, suspensão, engenheiro)
+- FornecedorChassi mantido no banco por legado (não usado)
+- 10 tiers × 10 fornecedores por tier
+- Nomes gerados aleatoriamente (não canônicos), numerados #1-#100 por custo
 
 ### Admin
-- Painel com sidebar fixa (CONFLITO com base.html pendente)
+- Sidebar fixa
 - CRUD fornecedores, pistas, temporadas, configurações
-- Gerencia usuários
+- Gerencia usuários (grupo, classe, admin)
+- Desativar temporada aplica desenvolvimento
 
-## Decisões tomadas
+### Chassi/Aero
+- Projetados pelo Engenheiro (NÃO é fornecedor)
+- Jogador novo recebe chassi + aero nível 1 grátis
+- 2 barras separadas de desenvolvimento (chassi e aero)
+- Só passa a valer na PRÓXIMA temporada
+- Requisitos p/ próxima temporada: engenheiro + chassi 100% + aero 100%
 
-### Equipe vs Dupla
-- "Equipe" hoje = carro individual de 1 jogador (`CarroJogador`)
-- "Dupla" = 2 jogadores humanos que se juntam (a implementar)
-- Cada jogador da dupla continua individual
-- Único vínculo: nome + soma dos pontos pra ranking de duplas
-- Vínculo termina no fim da temporada
-- Prêmio final dividido em 2
+---
 
-### Convite de dupla
-- Só entre mesmo grupo + mesma classe
-- Nome proposto por quem convida
-- Se não roda 3 corridas → parceiro desfaz
-- Admin desfaz manualmente
-- Solo permitido (só perde prêmio de equipe)
+## Sistemas numéricos definidos
 
-### Trocar fornecedor
-- Durante temporada ativa: BLOQUEADO
-- Entre temporadas: livre, pagando custo_temporada de novo
+### Pontuação (individual)
+40/35/32/29/26/24/22/20/18/16/14/12/10/8/6/5/4/3/2/1
 
-### Reset de conta
-- Rota `/minha-equipe/resetar` (backend feito)
-- Permitido durante temporada com aviso forte
+### Prêmio em R$ (individual)
+1º R$12.000 → 20º R$5.500
 
-### Pontuação (CORRIGIR - hoje está errada)
-- **HOJE**: 25/18/15/12/10/8/6/4/2/1 (F1 atual — errado)
-- **CORRETO (do como.txt E confirmado pela planilha AYRES)**:
-  - Individual: 40/35/32/29/26/24/22/20/18/16/14/12/10/8/6/5/4/3/2/1
-  - Equipe: 20/19/18/17/16/15/14/13/12/11/10/9/8/7/6/5/4/3/2/1
-  - Todos os 20 pontuam
+### Chassi/Aero
+- Nível 1: chassi -0.2s / aero -0.1s
+- Nível 10: chassi -2.0s / aero -1.0s
+- Escala linear
 
-### Premiação em R$ (nova - da planilha AYRES)
-**Individual (piloto):**
-- 1º: R$12.000, 2º: R$11.000, 3º: R$10.500, 4º: R$10.000
-- 5º: R$9.500, 6º: R$9.200, 7º: R$8.900, 8º: R$8.600
-- 9º: R$8.300, 10º: R$8.000, 11º: R$7.700, 12º: R$7.400
-- 13º: R$7.100, 14º: R$6.800, 15º: R$6.500, 16º: R$6.200
-- 17º: R$6.000, 18º: R$5.800, 19º: R$5.650, 20º: R$5.500
+### Orçamento inicial
+- R$ 55.000 configurável
 
-**Equipa (só top 10 recebem):**
-- 1º: R$4.000, 2º: R$3.000, 3º: R$2.500, 4º: R$1.500
-- 5º: R$1.250, 6º: R$1.000, 7º: R$750, 8º: R$500
-- 9º: R$400, 10º: R$250, 11º-20º: R$0
+### Quebra mecânica
+- 10% base, 2% mínimo (com treino de box 100%)
 
-## Descobertas da Planilha AYRES (fonte canônica)
+### Influência das pistas
+- Faixa 7-15 (10 = neutro). Baixo = componente importa pouco.
+- Red Bull Ring canônico: M9 C8 S7 P11 G12 E14. Resto neutro (10).
 
-### 1. FREIO é fornecedor separado! (NOVO)
-- Hoje freio é só um ajuste do treino livre
-- Deveria ser um contrato como motor/pneu/etc
-- Nomes canônicos: SAMUVE, TABOTE, JOVOLT, NERIFO...
-- Custo nível 1: R$13.856, nível 100: R$1.429.294
-- 10 categorias A-J: Extra Baixa, Super Baixa, Baixa, Média Baixa, Média,
-  Média Alta, Alta, Super Alta, Extra Alta, "Não Existe"
-- Precisa criar `FornecedorFreio` + `CarroJogador.freio_fornecedor_id`
-- Precisa adicionar coluna `influencia_freio` (F) na tabela de pistas
+---
 
-### 2. Sistema de fornecedores por níveis
-- Estrutura real: 100 níveis, cada nível tem 10 modelos xx-50 até xx-900
-- Ex: Motor nível 1 = "ZIPADNOR" com modelos:
-  xx-50 (0.698 HP), xx-100 (0.749), xx-200 (0.811), ..., xx-900 (1.3 HP)
-- Motor nível 100 = "JESONHOS" xx-50 (1.3) até xx-900 (2.75)
-- Custos crescem exponencialmente por nível
+## O que está para fazer na PRÓXIMA SESSÃO
 
-### 3. Nomes canônicos dos fornecedores
-Ver arquivos anexos. Alguns exemplos:
-- **Motores (níveis 1-10)**: ZIPADNOR, POKGAST, VOECONO, ZURK, JOFUIONT,
-  KIKELOV, GEDUCA, DOMUJA, LAIKA, NINDEC
-- **Câmbios**: CEXUQE, VULOSA, COVIXO, LEDAQU, ZOKECE, BOJUNA, FOPILU...
-- **Suspensões**: WOVADA, JEJIFO, KOCOBA, BUJANU, QEDEWI, BICOTI, LEFUMA...
-- **Pneus**: MIDILU, BONUQI, FAKOJO, KAMOFU, BUCUGE, KITOVI, CELAJE...
-- **Combustíveis**: COTASU, DAWIDA, FUQAQI, BOTIVI, BEWOGA...
-- **Freios**: SAMUVE, TABOTE, JOVOLT, NERIFO, WUZWUZ, JENIHU...
-- **Engenheiros (pessoas)**: Carlos Afonso, Conceição Silva, Mendes Souza...
+### 🟡 Feature grande pendente: Treino Livre real
+- Jogador escolhe pneu + gasolina no início
+- Sistema calcula quantas voltas dá
+- Sistema simula cada volta com feedback (frases genéricas nossas)
+- Persiste no banco (ResultadoTreinoLivre)
+- Tela pública tipo ranking do treino livre por grupo+classe
 
-### 4. Aderência de pneu por temperatura
-- Tabela matriz enorme na planilha
-- Cada tipo de pneu (Extra Macio, Duro, Chuva Normal, etc) tem curva
-- Vira fator multiplicativo no tempo de volta
-- Categorias reais de pneu (10, não 3 como hoje):
-  1. Extra Macio, 2. Super Macio, 3. Macio, 4. Duro, 5. Super Duro,
-  6. Extra Duro, 7. Macio Chuva Normal, 8. Duro Chuva Normal,
-  9. Macio Chuva Forte, 10. Duro Chuva Forte
+### 🟢 Regras confirmadas mas não implementadas
+- **FornecedorFreio** como componente separado (design já definido acima)
+- **Xx-50 a xx-900**: cada fornecedor tem 10 modelos (jogador escolhe por corrida)
+  - Modelo baixo = rápido mas dura menos; alto = lento mas dura mais
+  - Contrato anual = 1 fornecedor; compra por corrida = 1 modelo
+  - Este é o PRÓXIMO GRANDE REFACTOR
+- **Categorias A-J = modelos 50-900** literalmente (câmbio/suspensão)
+- **Frases de feedback do piloto** (criar do zero, ~20 faixas por componente)
+- **Aderência de pneu por temperatura** (10 categorias, matriz)
+- **Sistema de duplas** (fase inteira)
+- **Prêmio final de campeonato** (bonus no ranking final da temporada)
+- **Popular influências das outras 24 pistas** conforme forem saindo da
+  planilha (hoje só Red Bull Ring tem valor canônico)
 
-### 5. Curva suave de desgaste do pneu
-- Volta 1-20: 1x tempo
-- Volta 30: 1.01x
-- Volta 40: 1.04x
-- Volta 60: 1.15x
-- Depois disso: pneu estoura
-
-### 6. Treinamento de PILOTO (separado do treino de box!)
-- Existe além do treinamento de boxes
-- Custos exponenciais: nível 1 = R$250, nível 50 = R$290.977, nível 100 = R$34.449.030
-- Tem 4 componentes: Seca Prático (27%), Seca Teórico (16%),
-  Molhada Prático (14%), Molhada Teórico (8%)
-
-### 7. Treinamento de BOXES com 5 componentes
-- Reabastecimento
-- Retirada do Pneu
-- Colocação do Pneu
-- Levantar o Carro
-- Abaixar o Carro
-- Média dos 5 = tempo total do pit stop
-- Custos: nível 1 = R$50, nível 100 = R$252.500
-
-### 8. Estratégia com até 8 pit stops planejáveis
-- Cada pit: qual pneu + em qual volta
-- Estratégia de combustível separada
-
-### 9. Frases de feedback do piloto (>100!)
-Piloto/engenheiro fala com jogador após treino livre. Exemplos:
-- "A suspensão está quase ideal, só firmar um pouco mais!" (0.09)
-- "Nem Schumacher conseguiria guiar o carro com esse ajuste!" (0.65)
-- "Freios? Que Freios?!" (0.28)
-- "Está bem próximo do ideal, da próxima você consegue!" (0.03)
-- "Este ajuste está cômico!" (0.32)
-Cada frase tem um "peso" que representa distância do ideal
-
-### 10. 47 pistas com dados canônicos completos
-Cada pista tem: nome, país, tamanho (m), voltas ideais, câmbio ideal (letra),
-suspensão ideal (letra), tempo pit (segundos), influências M/C/S/P/G/E/F
-
-Exemplos:
-- A1-Ring, Áustria: 307.1 km, 71 voltas, câmbio A, susp B, pit 14s, infl 9/8/7/11/12/14/5
-- Sepang, Malásia: 310.4 km, 55 voltas, câmbio H, susp A, pit 16s, infl 9/6/15/10/11/10/6
-- Interlagos: 305.9 km, 71 voltas, câmbio B, susp E, pit 12s, infl 11/13/11/11/6/8/12
-- Monaco: 262.8 km, 78 voltas, câmbio E, susp G, pit 12s, infl 6/9/8/13/15/10/13
-- Monza: 306.7 km, 53 voltas, câmbio A, susp B, pit 17s, infl 14/14/8/11/6/8/9
-- Spa, Bélgica: 306.6 km, 44 voltas, câmbio E, susp G, pit 9s, infl 6/7/13/14/11/9/11
-
-## Pendências pra próxima sessão
-
-### 🔴 Prioridade máxima (visual bloqueado)
-
-1. **Conflito de sidebar admin** — precisa ver `base.html` do jogador. Decidir:
-   esconde sidebar principal em telas admin, ou junta tudo?
-
-2. **Templates do jogador**:
-   - `equipes.html`: remover campo orçamento, mostrar contratos/sobra
-   - `minha_equipe.html`: botão editar (só entre temporadas), botão reset
-   - `editar_equipe.html`: bloqueado se temporada ativa
-
-### 🔴 Corrigir sistema de pontuação e prêmios
-
-3. **Trocar `pontuacao.py`** pra 40/35/32/29/26/24/22/20/18/16/14/12/10/8/6/5/4/3/2/1
-4. **Adicionar prêmios em R$** por corrida (individual + equipe)
-5. **Adicionar ranking de equipe** separado do ranking individual
-
-### 🟡 Novidades da planilha AYRES
-
-6. **Adicionar FornecedorFreio** — nova tabela, novo FK em CarroJogador
-7. **Adicionar coluna `influencia_freio`** (F) em pistas_reais
-8. **Popular pistas_reais.db** com os dados exatos das 47 pistas AYRES
-9. **Curva suave de desgaste do pneu** (lento antes de estourar)
-10. **Frases de feedback do piloto** pós-treino livre (>100 frases)
-
-### 🟢 Regras novas do como.txt
-
-11. **Chance de quebra de peças** (10% inicial, reduz com treino)
-12. **Desenvolvimento vale só pra PRÓXIMA temporada**
-13. **Chassis desenvolvido = requisito pra próxima temporada**
-14. **Motor definido pela estratégia** (estoque de peças por corrida)
-15. **Multa proporcional ao rescindir patrocínio** (futuro)
-
-### 🟢 Sistema de Duplas (fase inteira)
-
-16. Criar tabelas `Dupla`, `MembroDupla`, `ConviteDupla`
-17. Rotas: `/dupla/convidar`, `/dupla/convites`, `/dupla`
-18. Rota admin pra desfazer qualquer dupla
-19. Contador `corridas_nao_rodadas` (regra do 3)
-20. Integrar no ranking da temporada
-21. Prêmio final dividido em 2
-
-### 🔵 Roadmap longo (candidatos futuros)
-
-- Sistema fornecedor 100 níveis × 10 modelos xx-50 a xx-900 (grande refactor)
-- Nomes canônicos AYRES em vez de "PowerSystems #47"
-- Categorias reais de pneu (10, não 3): Extra Macio, Super Macio... Chuva Forte
-- Aderência de pneu por temperatura (matriz)
-- Reparo/devolução de peças (só associados)
-- Empréstimo bancário (6% juros por corrida, R$40k)
-- Agiota (20% juros, R$10k)
-- Poupança (3% rendimento por corrida)
-- Patrocinadores (até 5, R$ por corrida)
-- Estrategista contratado (R$200/corrida)
-- Bolsa de valores (preços variam entre corridas)
-- Sistema associado vs comum
-- Coordenadas C:G:N (classe:grupo:número)
+### 🔵 Roadmap longo
 - Estratégia com 8 pit stops planejáveis
-- Tela treino livre estilo Estratégia F1 (tabela todos pilotos + DL/DF)
-- Sistema automático de subir/descer divisões
-- Item 3 do escopo antigo: Pit stop planejado
-- Treinamento de PILOTO separado do de boxes (com 4 componentes)
-- Treinamento de boxes com 5 componentes (Reabast/Retirar/Colocar/Levantar/Abaixar)
+- Poupança (3%/corrida)
+- Empréstimo bancário
+- Patrocinadores
+- Estrategista contratado
+- Bolsa de valores
+- Sistema associado
+- Sistema divisões automático (subir/descer entre temporadas)
 
-### 🐛 Pequenos ajustes
+---
 
-- Substituir texto "Gerar 500" no botão do painel admin — gera 100 agora
-- Confirmar selects em ordem crescente de custo
-- Filtro Jinja `dinheiro` já existe, usar em todos os lugares
+## Arquivos-chave do projeto (E:\openwheel\)
+- app.py (47 KB) — rotas Flask
+- models.py (18 KB) — models SQLAlchemy do jogo.db
+- pistas_reais_db.py (9 KB) — acesso sqlite3 puro ao pistas_reais.db
+- importar_todas_pistas.py — importa CSVs do TUMFTM pro pistas_reais.db
+- converter_pista_real.py — converte coordenadas CSV em SVG path
+- seed_fornecedores.py — gera os 100 fornecedores por categoria
+- seed_influencias_pistas.py — grava influências canônicas nas pistas
+- corrida.py, pontuacao.py, progressao.py, constantes.py — lógica de jogo
+- equipamentos.py, equipe.py, carro.py, carro_visual.py — modelo de domínio
+- jogo.db (284 KB) — banco principal
+- pistas_reais.db (420 KB) — banco de pistas (25 pistas importadas)
 
-## Como voltar aqui
+## Como voltar aqui amanhã
+- Cola este arquivo na primeira mensagem
+- "Este é o contexto do Open Wheel Strategy. Vamos continuar de onde
+  paramos. Prioridade: [Treino Livre real / refactor xx-50-900 / etc]"
+- Cola (copiar/colar, não anexar) os arquivos que a IA pedir
 
-Se você (Henrique) está lendo isso num chat novo:
-
-1. Cola este arquivo inteiro na primeira mensagem
-2. Diz: "Este é o contexto do meu projeto. Podemos continuar do item X."
-3. Prepara pra colar arquivos que a IA pedir:
-   - `models.py` (mais atualizado)
-   - `app.py` (mais atualizado)
-   - `templates/base.html` (nunca foi visto)
-   - `templates/minha_equipe.html` (se modificado)
-   - `como.txt` (o manual)
-   - `Planilha Ayres (v5.12).xls` (fonte canônica)
-
-## Arquivos entregues nas últimas sessões
-
-**Última sessão (20/07/2026):**
-- Raiz: `models.py`, `seed_fornecedores.py`, `app.py`
-- Templates: `admin_base.html` (NOVO), `admin_dashboard.html`,
-  `admin_configuracoes.html`, `admin_usuarios.html`, `admin_pistas_reais.html`,
-  `admin_pista_editar.html`, `admin_temporadas.html`, `admin_temporada_editar.html`,
-  `admin_fornecedor_lista.html`, `admin_fornecedor_editar.html`
-
-**Sessões anteriores:**
-- `constantes.py`, `pistas_reais_db.py`, `carro.py`, `corrida.py`
-- `models_temporada.py`, `pontuacao.py`
-- `temporada.html`, `editar_equipe.html`, `corrida.html`, `classificacao.html`
+## Estado do projeto
+Dia 7. As 4 prioridades imediatas foram fechadas. Backend sólido,
+frontend com identidade visual, regras do manual quase todas corretas.
+Próximo foco recomendado: Treino Livre real (feature grande, fazer com
+calma) OU o refactor dos modelos xx-50/xx-900 (o maior pendente).
