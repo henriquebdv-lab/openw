@@ -1,0 +1,4640 @@
+]633;E;for f in *.py;e80a9c6d-fc55-42e1-9fe2-d3676b4d1bc9]633;C===== app.py =====
+import functools
+from datetime import datetime
+import click
+from dotenv import load_dotenv
+load_dotenv()
+
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+from authlib.integrations.flask_client import OAuth
+from flask_migrate import Migrate
+import config
+from constantes import TANQUE_MAXIMO_LITROS
+from models import (
+    db, Usuario, CarroJogador, ResultadoClassificacao, ResultadoCorrida,
+    ResultadoTreinoLivre,
+    FornecedorMotor, FornecedorCombustivel, FornecedorPneu,
+    FornecedorChassi, FornecedorCambio, FornecedorSuspensao,
+    FornecedorEngenheiro,
+    Configuracao, Desenvolvimento, TreinamentoBox, garantir_colunas_fornecedores,
+)
+EquipeDB = CarroJogador
+from models_temporada import Temporada, CorridaAgendada
+from pontuacao import pontos_por_posicao, premio_por_posicao, ranking_temporada
+from progressao import (
+    calcular_custo_proximo_avanco, calcular_tempo_proximo_avanco_horas,
+    verificar_conclusao, avancar, aplicar_desenvolvimento_da_temporada,
+)
+from classificacao import Classificacao
+from corrida import Corrida, calcular_tempo_pit_stop
+from estrategia import montar_estrategia_corrida, sugerir_estrategia_estrategista
+from treino_livre_sim import simular_treino_livre_real
+import modelos_componente
+
+
+def simular_treino_livre(ajustes):
+    total = sum(ajustes.values())
+    erro = abs(total - 250)
+    tempo_volta = 90.0 + (erro / 10.0)
+    if erro < 20:
+        resumo = "Setup muito bom para esse treino."
+        dicas = "Ajustes próximos do ideal; mantenha a consistência."
+    elif erro < 60:
+        resumo = "Setup razoável, ainda há margem para melhorar."
+        dicas = "Aumente o câmbio e a suspensão em pequenas etapas."
+    else:
+        resumo = "Setup ainda longe do ideal."
+        dicas = "Reduza o excesso de ajuste e busque equilíbrio entre freio e aerodinâmica."
+    return {"tempo_volta": round(tempo_volta, 3), "resumo": resumo, "dicas": dicas}
+
+
+def simular_treino_oficial(ajustes, pneu, combustivel, volta_primeiro_pit, outro_pit):
+    total = sum(ajustes.values())
+    equilibrio = max(0, 250 - abs(total - 250))
+    tempo_volta = 82.0 + (abs(total - 250) / 20.0) - (pneu.performance / 120.0) - (combustivel.eficiencia / 30.0) + (equilibrio / 100.0)
+    if volta_primeiro_pit <= 8:
+        estrategia = "Estratégia agressiva: primeiro pit cedo."
+    elif volta_primeiro_pit <= 18:
+        estrategia = "Estratégia equilibrada: primeiro pit no meio da corrida."
+    else:
+        estrategia = "Estratégia conservadora: primeiro pit mais tarde."
+    if outro_pit:
+        estrategia += " Um segundo pit também foi previsto."
+    else:
+        estrategia += " A corrida deve terminar com um único pit stop."
+    return {"tempo_volta": round(tempo_volta, 3), "estrategia": estrategia,
+            "pneu": pneu.nome, "combustivel": combustivel.nome}
+
+
+from seed_fornecedores import popular_banco
+from pistas_reais_db import (
+    criar_banco as criar_banco_pistas_reais,
+    listar_pistas_reais, obter_pista_real, calcular_numero_voltas,
+    atualizar_pista_real,
+)
+CATEGORIAS_PISTA = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+CATEGORIAS_CHUVA = ["seco", "intermediario", "chuva"]
+app = Flask(__name__)
+app.config.from_object(config)
+if not app.config.get("SECRET_KEY"):
+    app.config["SECRET_KEY"] = "dev-secret-key-troque-em-producao"
+db.init_app(app)
+migrate = Migrate(app, db)
+with app.app_context():
+    garantir_colunas_fornecedores()
+    criar_banco_pistas_reais()
+
+
+@app.template_filter("tempo_min")
+def _filtro_tempo_min(segundos):
+    if segundos is None or segundos == "":
+        return "-"
+    try:
+        segundos = float(segundos)
+    except (TypeError, ValueError):
+        return "-"
+    sinal = "-" if segundos < 0 else ""
+    segundos = abs(segundos)
+    minutos = int(segundos // 60)
+    segs = segundos - (minutos * 60)
+    return f"{sinal}{minutos}:{segs:06.3f}"
+
+
+@app.template_filter("tempo_dif")
+def _filtro_tempo_dif(segundos):
+    if segundos is None:
+        return "-"
+    try:
+        segundos = float(segundos)
+    except (TypeError, ValueError):
+        return "-"
+    if segundos == 0:
+        return "-"
+    if abs(segundos) >= 60:
+        minutos = int(abs(segundos) // 60)
+        s = abs(segundos) - (minutos * 60)
+        sinal = "-" if segundos < 0 else "+"
+        return f"{sinal}{minutos}:{s:06.3f}"
+    return f"+{segundos:.3f}s"
+
+
+@app.template_filter("dinheiro")
+def _filtro_dinheiro(valor):
+    if valor is None:
+        return "-"
+    try:
+        valor = float(valor)
+    except (TypeError, ValueError):
+        return "-"
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+oauth = OAuth(app)
+google = oauth.register(
+    name="google",
+    client_id=app.config["GOOGLE_CLIENT_ID"],
+    client_secret=app.config["GOOGLE_CLIENT_SECRET"],
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
+
+# NOTE: FornecedorChassi mantido no admin (LEGADO) mas não aparece mais
+# no formulário de criar equipe. Fica visível pra admin ver o histórico.
+FORNECEDORES_CONFIG = {
+    "motor": {"model": FornecedorMotor, "titulo": "Motor", "campo_equipe": "motor_fornecedor_id",
+              "campos": [{"nome": "potencia", "label": "Potência", "tipo": "float"},
+                         {"nome": "eficiencia_combustivel", "label": "Eficiência de Combustível", "tipo": "float"}]},
+    "combustivel": {"model": FornecedorCombustivel, "titulo": "Combustível", "campo_equipe": "combustivel_fornecedor_id",
+                    "campos": [{"nome": "eficiencia", "label": "Eficiência", "tipo": "float"},
+                               {"nome": "aumento_potencia_motor", "label": "% Aumento Potência Motor", "tipo": "float"}]},
+    "pneu": {"model": FornecedorPneu, "titulo": "Pneu", "campo_equipe": "pneu_fornecedor_id",
+             "campos": [{"nome": "performance", "label": "Performance", "tipo": "float"},
+                        {"nome": "desgaste", "label": "Desgaste", "tipo": "float"},
+                        {"nome": "categoria_chuva", "label": "Faixa de chuva", "tipo": "string"}]},
+    "cambio": {"model": FornecedorCambio, "titulo": "Câmbio", "campo_equipe": "cambio_fornecedor_id",
+               "campos": [{"nome": "performance", "label": "Performance", "tipo": "float"},
+                          {"nome": "categoria_pista", "label": "Categoria (A-J)", "tipo": "string"}]},
+    "suspensao": {"model": FornecedorSuspensao, "titulo": "Suspensão", "campo_equipe": "suspensao_fornecedor_id",
+                  "campos": [{"nome": "performance", "label": "Performance", "tipo": "float"},
+                             {"nome": "categoria_pista", "label": "Categoria (A-J)", "tipo": "string"}]},
+    "engenheiro": {"model": FornecedorEngenheiro, "titulo": "Engenheiro", "campo_equipe": "engenheiro_fornecedor_id",
+                   "campos": [{"nome": "nivel", "label": "Nível", "tipo": "int"},
+                              {"nome": "eficiencia_exata", "label": "Eficiência exata", "tipo": "float"}]},
+}
+
+
+@app.context_processor
+def injetar_globais():
+    usuario_id = session.get("usuario_id")
+    usuario = Usuario.query.get(usuario_id) if usuario_id else None
+    return {
+        "usuario_logado": usuario,
+        "categorias_fornecedor": FORNECEDORES_CONFIG,
+        "temporada_ativa": Temporada.ativa_atual(),
+    }
+
+
+def login_requerido(view_func):
+    @functools.wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("usuario_id"):
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+
+def admin_requerido(view_func):
+    @functools.wraps(view_func)
+    def wrapper(*args, **kwargs):
+        usuario_id = session.get("usuario_id")
+        if not usuario_id:
+            return redirect(url_for("login"))
+        usuario = Usuario.query.get(usuario_id)
+        if not usuario or not usuario.eh_admin:
+            return render_template("acesso_negado.html"), 403
+        return view_func(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/registrar", methods=["GET", "POST"])
+def registrar():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        senha = request.form["senha"]
+        if Usuario.query.filter_by(email=email).first():
+            return render_template("registrar.html", erro="Esse e-mail já está cadastrado.")
+        usuario = Usuario(email=email)
+        usuario.definir_senha(senha)
+        db.session.add(usuario)
+        db.session.commit()
+        session["usuario_id"] = usuario.id
+        return redirect(url_for("minha_equipe"))
+    return render_template("registrar.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        senha = request.form["senha"]
+        usuario = Usuario.query.filter_by(email=email).first()
+        if usuario and usuario.verificar_senha(senha):
+            session["usuario_id"] = usuario.id
+            return redirect(url_for("home"))
+        return render_template("login.html", erro="E-mail ou senha inválidos.")
+    return render_template("login.html")
+
+
+@app.route("/login/google")
+def login_google():
+    redirect_uri = url_for("auth_google_callback", _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+
+@app.route("/login/google/callback")
+def auth_google_callback():
+    token = google.authorize_access_token()
+    userinfo = token.get("userinfo")
+    email = userinfo["email"]
+    google_id = userinfo["sub"]
+    usuario = Usuario.query.filter_by(google_id=google_id).first()
+    if not usuario:
+        usuario = Usuario.query.filter_by(email=email).first()
+        if usuario:
+            usuario.google_id = google_id
+        else:
+            usuario = Usuario(email=email, google_id=google_id)
+            db.session.add(usuario)
+    db.session.commit()
+    session["usuario_id"] = usuario.id
+    return redirect(url_for("home"))
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+
+@app.route("/")
+def home():
+    return render_template("home.html")
+
+
+@app.route("/minha-equipe", methods=["GET", "POST"])
+@login_requerido
+def minha_equipe():
+    usuario = Usuario.query.get(session["usuario_id"])
+    config_jogo = Configuracao.obter()
+    if usuario.equipe:
+        carro = usuario.equipe.montar_carro()
+        return render_template("minha_equipe.html", equipe=usuario.equipe, carro=carro,
+                               custo_montagem=usuario.equipe.custo_total_montagem())
+    if request.method == "POST":
+        engenheiro_id = request.form.get("engenheiro_fornecedor_id") or None
+        combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
+        # Chassi NÃO vem mais do formulário (é projetado pelo engenheiro nível 1)
+        nova_equipe = CarroJogador(
+            usuario_id=usuario.id,
+            nome=request.form["nome"],
+            orcamento=float(config_jogo.orcamento_inicial),
+            motor_fornecedor_id=int(request.form["motor_fornecedor_id"]),
+            combustivel_fornecedor_id=int(request.form["combustivel_fornecedor_id"]),
+            pneu_fornecedor_id=int(request.form["pneu_fornecedor_id"]),
+            chassi_fornecedor_id=None,  # legado, sempre nulo em contas novas
+            cambio_fornecedor_id=int(request.form["cambio_fornecedor_id"]),
+            suspensao_fornecedor_id=int(request.form["suspensao_fornecedor_id"]),
+            engenheiro_fornecedor_id=int(engenheiro_id) if engenheiro_id else None,
+            combustivel_carregado=combustivel_carregado,
+        )
+        db.session.add(nova_equipe)
+        db.session.flush()
+
+        # Cria registro de desenvolvimento com nível 1 (chassi/aero grátis)
+        desenvolvimento = Desenvolvimento(
+            equipe_id=nova_equipe.id,
+            chassi_percentual_aplicado=100.0,
+            aero_percentual_aplicado=100.0,
+            chassi_percentual_em_construcao=0.0,
+            aero_percentual_em_construcao=0.0,
+            nivel_engenheiro_projetista=1,
+        )
+        db.session.add(desenvolvimento)
+
+        custo_contratos = float(nova_equipe.custo_total_contratos() or 0)
+        nova_equipe.orcamento = nova_equipe.orcamento - custo_contratos
+
+        custo_montagem_prevista = float(nova_equipe.custo_total_montagem() or 0)
+        if nova_equipe.orcamento < custo_montagem_prevista:
+            db.session.rollback()
+            flash(
+                f"Saldo insuficiente. Contratos custaram R$ {custo_contratos:,.2f}, "
+                f"mas você precisa de R$ {custo_montagem_prevista:,.2f} pra montar o carro "
+                f"pra 1ª corrida. Escolha fornecedores mais baratos.",
+                "danger",
+            )
+            return redirect(url_for("minha_equipe"))
+
+        db.session.commit()
+        flash(
+            f"Equipe criada! Contratos: R$ {custo_contratos:,.2f}. "
+            f"Saldo restante: R$ {nova_equipe.orcamento:,.2f}. "
+            f"Você começa com chassi e aerodinâmica de nível 1 (grátis).",
+            "success",
+        )
+        return redirect(url_for("minha_equipe"))
+    return render_template(
+        "equipes.html",
+        orcamento_inicial=config_jogo.orcamento_inicial,
+        motores=FornecedorMotor.query.filter_by(ativo=True).order_by(FornecedorMotor.custo_temporada).all(),
+        combustiveis=FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all(),
+        pneus=FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all(),
+        cambios=FornecedorCambio.query.filter_by(ativo=True).order_by(FornecedorCambio.custo_temporada).all(),
+        suspensoes=FornecedorSuspensao.query.filter_by(ativo=True).order_by(FornecedorSuspensao.custo_temporada).all(),
+        engenheiros=FornecedorEngenheiro.query.filter_by(ativo=True).order_by(FornecedorEngenheiro.custo_temporada).all(),
+    )
+
+
+@app.route("/minha-equipe/editar", methods=["GET", "POST"])
+@login_requerido
+def editar_equipe():
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    equipe = usuario.equipe
+
+    if Temporada.ativa_atual():
+        flash("Você não pode trocar fornecedores durante uma temporada ativa. Contratos são anuais.", "warning")
+        return redirect(url_for("minha_equipe"))
+
+    if request.method == "POST":
+        custo_troca_total = 0.0
+        trocas_feitas = []
+        for chave, cfg in FORNECEDORES_CONFIG.items():
+            campo = cfg["campo_equipe"]
+            valor_novo = request.form.get(campo)
+            if not valor_novo:
+                if chave == "engenheiro" and getattr(equipe, campo) is not None:
+                    setattr(equipe, campo, None)
+                    trocas_feitas.append(f"{cfg['titulo']} removido")
+                continue
+            valor_novo = int(valor_novo)
+            valor_atual = getattr(equipe, campo)
+            if valor_novo != valor_atual:
+                novo_fornecedor = cfg["model"].query.get(valor_novo)
+                if novo_fornecedor:
+                    custo_troca_total += float(novo_fornecedor.custo_temporada or 0)
+                    setattr(equipe, campo, valor_novo)
+                    trocas_feitas.append(f"{cfg['titulo']}: {novo_fornecedor.nome}")
+        try:
+            combustivel_carregado = float(request.form.get("combustivel_carregado", equipe.combustivel_carregado))
+            equipe.combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, combustivel_carregado))
+        except (ValueError, TypeError):
+            pass
+        if trocas_feitas:
+            if float(equipe.orcamento) < custo_troca_total:
+                db.session.rollback()
+                flash(f"Saldo insuficiente pra novos contratos (R$ {custo_troca_total:,.2f}).", "danger")
+                return redirect(url_for("editar_equipe"))
+            equipe.orcamento = float(equipe.orcamento) - custo_troca_total
+            db.session.commit()
+            flash(f"Trocas: {'; '.join(trocas_feitas)}. Custo dos novos contratos: R$ {custo_troca_total:,.2f}", "success")
+        else:
+            flash("Nenhuma troca feita.", "info")
+        return redirect(url_for("minha_equipe"))
+
+    return render_template(
+        "editar_equipe.html", equipe=equipe,
+        motores=FornecedorMotor.query.filter_by(ativo=True).order_by(FornecedorMotor.custo_temporada).all(),
+        combustiveis=FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all(),
+        pneus=FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all(),
+        cambios=FornecedorCambio.query.filter_by(ativo=True).order_by(FornecedorCambio.custo_temporada).all(),
+        suspensoes=FornecedorSuspensao.query.filter_by(ativo=True).order_by(FornecedorSuspensao.custo_temporada).all(),
+        engenheiros=FornecedorEngenheiro.query.filter_by(ativo=True).order_by(FornecedorEngenheiro.custo_temporada).all(),
+    )
+
+
+@app.route("/minha-equipe/resetar", methods=["POST"])
+@login_requerido
+def resetar_equipe():
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    equipe_id = usuario.equipe.id
+    Desenvolvimento.query.filter_by(equipe_id=equipe_id).delete()
+    TreinamentoBox.query.filter_by(equipe_id=equipe_id).delete()
+    ResultadoClassificacao.query.filter_by(equipe_id=equipe_id).delete()
+    ResultadoCorrida.query.filter_by(equipe_id=equipe_id).delete()
+    ResultadoTreinoLivre.query.filter_by(equipe_id=equipe_id).delete()
+    db.session.delete(usuario.equipe)
+    db.session.commit()
+    flash("Conta resetada. Você pode montar sua equipe do zero.", "info")
+    return redirect(url_for("minha_equipe"))
+
+
+@app.route("/minha-equipe/desenvolvimento", methods=["GET", "POST"])
+@login_requerido
+def desenvolvimento_view():
+    """Nova versão: desenvolve chassi + aero separadamente (em construção
+    pra próxima temporada)."""
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    equipe = usuario.equipe
+    registro = Desenvolvimento.obter_ou_criar(equipe.id)
+    config = Configuracao.obter()
+
+    # Verifica se algum trabalho em progresso concluiu
+    # Detecta qual peça está sendo trabalhada pela flag em_progresso + em_construcao
+    if registro.em_progresso and registro.horario_conclusao and datetime.utcnow() >= registro.horario_conclusao:
+        # Aplica ao alvo correspondente (salvo em outro campo? simples: só um por vez)
+        # Aqui a gente aplica em "peça em construção" pendente. Como só temos 1 timer,
+        # o alvo vem da form (session ou campo em progresso). Simplificação: usa
+        # verificar_conclusao no atributo em pauta - guardamos qual é em `alvo_em_progresso`.
+        alvo = getattr(registro, "alvo_em_progresso", None) or "chassi_percentual_em_construcao"
+        # Aplica manualmente
+        atual = float(getattr(registro, alvo, 0) or 0)
+        novo = min(100.0, atual + config.dev_incremento_percentual)
+        setattr(registro, alvo, novo)
+        registro.em_progresso = False
+        registro.inicio_em = None
+        registro.horario_conclusao = None
+        db.session.commit()
+
+    mensagem = None
+    if request.method == "POST":
+        peca = request.form.get("peca", "chassi")  # chassi ou aero
+        if peca not in ("chassi", "aero"):
+            peca = "chassi"
+
+        alvo_atributo = f"{peca}_percentual_em_construcao"
+        _, mensagem = avancar(
+            registro, equipe,
+            config.dev_custo_base, config.dev_custo_fator,
+            config.dev_tempo_base_horas, config.dev_tempo_fator_horas,
+            config.dev_incremento_percentual,
+            alvo_atributo=alvo_atributo,
+        )
+        # Marca qual peça está em progresso pra recuperar depois
+        if not hasattr(registro, "alvo_em_progresso"):
+            pass  # não tem coluna, é atributo em memória - salva na sessão
+        session[f"desenvolvimento_alvo_{equipe.id}"] = alvo_atributo
+
+    proximo_custo_chassi = calcular_custo_proximo_avanco(
+        registro.chassi_percentual_em_construcao or 0, config.dev_custo_base, config.dev_custo_fator
+    )
+    proximo_custo_aero = calcular_custo_proximo_avanco(
+        registro.aero_percentual_em_construcao or 0, config.dev_custo_base, config.dev_custo_fator
+    )
+    proximo_tempo_chassi = calcular_tempo_proximo_avanco_horas(
+        registro.chassi_percentual_em_construcao or 0, config.dev_tempo_base_horas, config.dev_tempo_fator_horas
+    )
+    proximo_tempo_aero = calcular_tempo_proximo_avanco_horas(
+        registro.aero_percentual_em_construcao or 0, config.dev_tempo_base_horas, config.dev_tempo_fator_horas
+    )
+
+    return render_template("desenvolvimento.html",
+        equipe=equipe, registro=registro,
+        proximo_custo_chassi=proximo_custo_chassi,
+        proximo_custo_aero=proximo_custo_aero,
+        proximo_tempo_chassi=proximo_tempo_chassi,
+        proximo_tempo_aero=proximo_tempo_aero,
+        mensagem=mensagem)
+
+
+@app.route("/treino-livre", methods=["GET", "POST"])
+@login_requerido
+def treino_livre_view():
+    """TREINO LIVRE REAL (stint de teste, volta a volta).
+
+    O jogador escolhe pista, pneu, combustível e quanto combustível carregar
+    (define o número de voltas), além do setup de teste (modelos 50-900 de
+    câmbio/suspensão/pneu). A simulação roda volta a volta com feedback do
+    piloto e salva apenas o MELHOR resultado da equipe (ResultadoTreinoLivre).
+    """
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    equipe = usuario.equipe
+
+    criar_banco_pistas_reais()
+    pistas = listar_pistas_reais()
+    pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
+    combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+
+    resultado = None
+    mensagem = None
+    novo_recorde = False
+
+    # Valores padrão do formulário (pré-preenchidos com o que a equipe já usa).
+    escolhas = {
+        "pista_id": (pistas[0]["id"] if pistas else None),
+        "pneu_fornecedor_id": equipe.pneu_fornecedor_id,
+        "combustivel_fornecedor_id": equipe.combustivel_fornecedor_id,
+        "combustivel_litros": 30.0,
+        "modelo_cambio": equipe.modelo_cambio or 500,
+        "modelo_suspensao": equipe.modelo_suspensao or 500,
+        "modelo_pneu": equipe.modelo_pneu or "",
+    }
+
+    if request.method == "POST":
+        def _int(nome, padrao=None):
+            valor = request.form.get(nome)
+            try:
+                return int(valor)
+            except (TypeError, ValueError):
+                return padrao
+
+        escolhas["pista_id"] = _int("pista_id", escolhas["pista_id"])
+        escolhas["pneu_fornecedor_id"] = _int("pneu_fornecedor_id", escolhas["pneu_fornecedor_id"])
+        escolhas["combustivel_fornecedor_id"] = _int("combustivel_fornecedor_id", escolhas["combustivel_fornecedor_id"])
+
+        try:
+            litros = float(request.form.get("combustivel_litros", 30.0))
+        except (TypeError, ValueError):
+            litros = 30.0
+        litros = min(TANQUE_MAXIMO_LITROS, max(1.0, litros))
+        escolhas["combustivel_litros"] = litros
+
+        modelo_cambio = _int("modelo_cambio", None)
+        modelo_suspensao = _int("modelo_suspensao", None)
+        modelo_pneu_raw = request.form.get("modelo_pneu")
+        modelo_pneu = (
+            int(modelo_pneu_raw)
+            if (modelo_pneu_raw and modelos_componente.modelo_valido(modelo_pneu_raw))
+            else None
+        )
+        escolhas["modelo_cambio"] = modelo_cambio or ""
+        escolhas["modelo_suspensao"] = modelo_suspensao or ""
+        escolhas["modelo_pneu"] = modelo_pneu or ""
+
+        pneu_db = FornecedorPneu.query.get(escolhas["pneu_fornecedor_id"]) or (pneus[0] if pneus else None)
+        combustivel_db = FornecedorCombustivel.query.get(escolhas["combustivel_fornecedor_id"]) or (combustiveis[0] if combustiveis else None)
+        pista = obter_pista_real(escolhas["pista_id"]) if escolhas["pista_id"] else None
+
+        if not pneu_db or not combustivel_db:
+            mensagem = "Cadastre fornecedores de pneu e combustível antes de treinar."
+        else:
+            resultado = simular_treino_livre_real(
+                equipe, pneu_db, combustivel_db, litros,
+                pista=pista,
+                modelo_cambio=modelo_cambio,
+                modelo_suspensao=modelo_suspensao,
+                modelo_pneu=modelo_pneu,
+            )
+            _, novo_recorde = ResultadoTreinoLivre.registrar_se_melhor(equipe.id, resultado)
+
+            # Compatibilidade: mantém o fluxo Treino Oficial / Estratégia funcionando.
+            # Aquelas telas dependem de session["treino_livre_salvo"]. setdefault não
+            # sobrescreve um setup já existente; só cria um padrão se ainda não houver.
+            session.setdefault("treino_livre_salvo", {
+                "ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
+                "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50,
+            })
+
+            if novo_recorde:
+                mensagem = "Treino concluído — novo recorde salvo no ranking!"
+            else:
+                mensagem = "Treino concluído. Não superou seu melhor tempo; o recorde anterior foi mantido."
+
+    meu_resultado = ResultadoTreinoLivre.query.filter_by(equipe_id=equipe.id).first()
+
+    return render_template(
+        "treino_livre.html",
+        equipe=equipe, pistas=pistas, pneus=pneus, combustiveis=combustiveis,
+        modelos_disponiveis=modelos_componente.MODELOS,
+        escolhas=escolhas, resultado=resultado, mensagem=mensagem,
+        novo_recorde=novo_recorde, meu_resultado=meu_resultado,
+    )
+
+
+@app.route("/treino-livre/ranking")
+@login_requerido
+def treino_livre_ranking_view():
+    """Ranking de treino livre: melhor volta de cada equipe, do mais rápido
+    pro mais lento."""
+    usuario = Usuario.query.get(session["usuario_id"])
+    resultados = (
+        ResultadoTreinoLivre.query
+        .filter(ResultadoTreinoLivre.melhor_volta_tempo.isnot(None))
+        .order_by(ResultadoTreinoLivre.melhor_volta_tempo.asc())
+        .all()
+    )
+    minha_equipe_id = usuario.equipe.id if usuario.equipe else None
+    return render_template(
+        "treino_livre_ranking.html",
+        resultados=resultados, minha_equipe_id=minha_equipe_id,
+    )
+
+
+@app.route("/treino-oficial", methods=["GET", "POST"])
+@login_requerido
+def treino_oficial_view():
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
+                                                     "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
+    pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
+    combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+    resultado = None
+    mensagem = None
+    if not session.get("treino_livre_salvo"):
+        mensagem = "Complete primeiro o treino livre."
+    if request.method == "POST":
+        if not session.get("treino_livre_salvo"):
+            return render_template("treino_oficial.html", ajustes=ajustes, pneus=pneus, combustiveis=combustiveis, resultado=None, mensagem=mensagem)
+        pneu = FornecedorPneu.query.get(int(request.form.get("pneu_fornecedor_id")))
+        combustivel = FornecedorCombustivel.query.get(int(request.form.get("combustivel_fornecedor_id")))
+        volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
+        outro_pit = request.form.get("outro_pit") == "on"
+        resultado = simular_treino_oficial(ajustes, pneu or pneus[0], combustivel or combustiveis[0], volta_primeiro_pit, outro_pit)
+        session["treino_oficial_salvo"] = {
+            "pneu_fornecedor_id": request.form.get("pneu_fornecedor_id"),
+            "combustivel_fornecedor_id": request.form.get("combustivel_fornecedor_id"),
+            "volta_primeiro_pit": volta_primeiro_pit, "outro_pit": outro_pit,
+        }
+        mensagem = "Treino oficial concluído."
+    return render_template("treino_oficial.html", ajustes=ajustes, pneus=pneus, combustiveis=combustiveis, resultado=resultado, mensagem=mensagem)
+
+
+@app.route("/estrategia-corrida", methods=["GET", "POST"])
+@login_requerido
+def estrategia_corrida_view():
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
+                                                     "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
+    treino_oficial = session.get("treino_oficial_salvo") or {}
+    pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
+    combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+    resultado = None
+    mensagem = None
+    sugestao = None
+    if request.method == "POST":
+        pneu = FornecedorPneu.query.get(int(request.form.get("pneu_fornecedor_id")))
+        combustivel = FornecedorCombustivel.query.get(int(request.form.get("combustivel_fornecedor_id")))
+        volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
+        outro_pit = request.form.get("outro_pit") == "on"
+        resultado = montar_estrategia_corrida(ajustes, pneu or pneus[0], combustivel or combustiveis[0], volta_primeiro_pit, outro_pit)
+        sugestao = sugerir_estrategia_estrategista(ajustes)
+
+        # REFACTOR xx-50/xx-900: salva os modelos escolhidos pra próxima corrida.
+        # Cada campo é um número 50..900; valores inválidos/vazios são ignorados.
+        # Campo vazio "" limpa a escolha (volta ao comportamento antigo).
+        campos_modelo = {
+            "modelo_motor": request.form.get("modelo_motor"),
+            "modelo_combustivel": request.form.get("modelo_combustivel"),
+            "modelo_pneu": request.form.get("modelo_pneu"),
+            "modelo_cambio": request.form.get("modelo_cambio"),
+            "modelo_suspensao": request.form.get("modelo_suspensao"),
+        }
+        for campo, valor in campos_modelo.items():
+            if valor is None:
+                continue
+            if valor == "":
+                setattr(usuario.equipe, campo, None)
+            elif modelos_componente.modelo_valido(valor):
+                setattr(usuario.equipe, campo, int(valor))
+        db.session.commit()
+
+        mensagem = "Estratégia definida."
+    return render_template("estrategia_corrida.html", ajustes=ajustes, treino_oficial=treino_oficial,
+                           pneus=pneus, combustiveis=combustiveis, resultado=resultado, sugestao=sugestao,
+                           mensagem=mensagem, equipe=usuario.equipe,
+                           modelos_disponiveis=modelos_componente.MODELOS)
+
+
+@app.route("/minha-equipe/treinamento", methods=["GET", "POST"])
+@login_requerido
+def treinamento_view():
+    usuario = Usuario.query.get(session["usuario_id"])
+    if not usuario.equipe:
+        return redirect(url_for("minha_equipe"))
+    equipe = usuario.equipe
+    registro = TreinamentoBox.obter_ou_criar(equipe.id)
+    config = Configuracao.obter()
+    verificar_conclusao(registro, config.treino_incremento_percentual)
+    mensagem = None
+    if request.method == "POST":
+        _, mensagem = avancar(registro, equipe, config.treino_custo_base, config.treino_custo_fator,
+                              config.treino_tempo_base_horas, config.treino_tempo_fator_horas, config.treino_incremento_percentual)
+    proximo_custo = calcular_custo_proximo_avanco(registro.percentual, config.treino_custo_base, config.treino_custo_fator)
+    proximo_tempo = calcular_tempo_proximo_avanco_horas(registro.percentual, config.treino_tempo_base_horas, config.treino_tempo_fator_horas)
+    tempo_pit_atual = config.pit_tempo_sem_treino - ((config.pit_tempo_sem_treino - config.pit_tempo_treino_completo) * (registro.percentual / 100))
+    return render_template("treinamento.html", equipe=equipe, registro=registro,
+                           proximo_custo=proximo_custo, proximo_tempo=proximo_tempo, mensagem=mensagem,
+                           tempo_pit_atual=round(tempo_pit_atual, 1))
+
+
+@app.route("/pistas-reais")
+def pistas_reais_view():
+    criar_banco_pistas_reais()
+    pistas = listar_pistas_reais()
+    return render_template("pistas_reais.html", pistas=pistas)
+
+
+@app.route("/temporada")
+def temporada_view():
+    temporada = Temporada.ativa_atual()
+    if not temporada:
+        return render_template("temporada.html", temporada=None, ranking=[], pistas_por_id={})
+    ranking = ranking_temporada(temporada)
+    pistas_por_id = {p["id"]: p for p in listar_pistas_reais()}
+    return render_template("temporada.html", temporada=temporada, ranking=ranking, pistas_por_id=pistas_por_id)
+
+
+@app.route("/classificacao", methods=["GET", "POST"])
+@login_requerido
+def classificacao_view():
+    resultado = None
+    if request.method == "POST":
+        usuario = Usuario.query.get(session["usuario_id"])
+        if not usuario.eh_admin:
+            return render_template("acesso_negado.html"), 403
+        todas_equipes = CarroJogador.query.all()
+        carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+        grid = Classificacao(carros).gerar_grid_largada()
+        for posicao_info, equipe_db in zip(grid, todas_equipes):
+            db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
+                tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
+        db.session.commit()
+        resultado = grid
+    return render_template("classificacao.html", resultado=resultado)
+
+
+def _aplicar_dados_pista_no_carro(carro, pista):
+    cat_cambio = (pista.get("categoria_cambio_ideal") or "A").upper()
+    cat_suspensao = (pista.get("categoria_suspensao_ideal") or "A").upper()
+    carro.categoria_cambio_ideal_pista = cat_cambio[0] if cat_cambio else "A"
+    carro.categoria_suspensao_ideal_pista = cat_suspensao[0] if cat_suspensao else "A"
+    carro.categoria_chuva = "seco"
+    carro.temperatura_pista = pista.get("temperatura_trecho_1") or pista.get("temperatura_ambiente") or 20.0
+    carro.tamanho_volta_km = pista.get("extensao_km") or 0.0
+    carro.influencia_pista_motor = pista.get("influencia_motor") or 10
+    carro.influencia_pista_cambio = pista.get("influencia_cambio") or 10
+    carro.influencia_pista_suspensao = pista.get("influencia_suspensao") or 10
+    carro.influencia_pista_pneu = pista.get("influencia_pneu") or 10
+    carro.influencia_pista_combustivel = pista.get("influencia_combustivel") or 10
+    carro.influencia_pista_engenheiro = pista.get("influencia_engenheiro") or 10
+
+
+def _executar_corrida_e_persistir(pista, corrida_agendada=None):
+    numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
+    config = Configuracao.obter()
+    todas_equipes = CarroJogador.query.all()
+    carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+
+    percentuais_treino_box = []
+    for carro, equipe_db in zip(carros, todas_equipes):
+        treinamento = TreinamentoBox.obter_ou_criar(equipe_db.id)
+        carro.tempo_pit_stop = calcular_tempo_pit_stop(pista["tempo_pit_stop_segundos"], config, treinamento.percentual)
+        _aplicar_dados_pista_no_carro(carro, pista)
+        percentuais_treino_box.append(float(treinamento.percentual or 0.0))
+
+    temp_fallback = pista.get("temperatura_ambiente") or 20.0
+    temperaturas_trechos = [
+        pista.get("temperatura_trecho_1") or temp_fallback,
+        pista.get("temperatura_trecho_2") or temp_fallback,
+        pista.get("temperatura_trecho_3") or temp_fallback,
+        pista.get("temperatura_trecho_4") or temp_fallback,
+    ]
+
+    resultado = Corrida(
+        carros,
+        total_voltas=numero_voltas,
+        temperaturas_trechos=temperaturas_trechos,
+        consumo_qualifying=True,
+        percentuais_treino_box=percentuais_treino_box,
+    ).simular()
+    resultado["pista"] = pista
+    resultado["distancia_total"] = distancia_total
+    resultado["temperaturas_trechos"] = temperaturas_trechos
+
+    equipes_por_nome = {e.nome: e for e in todas_equipes}
+    resultados_para_temporada = []
+
+    for posicao_info in resultado["classificacao_final"]:
+        equipe_db = equipes_por_nome[posicao_info["equipe"]]
+        db.session.add(ResultadoCorrida(
+            equipe_id=equipe_db.id,
+            tempo_total_segundos=posicao_info["tempo_total_segundos"],
+            pit_stops=posicao_info["pit_stops"],
+            posicao_final=posicao_info["posicao"],
+        ))
+
+        custo_montagem = float(equipe_db.custo_total_montagem() or 0)
+        equipe_db.orcamento = float(equipe_db.orcamento or 0) - custo_montagem
+
+        premio = premio_por_posicao(
+            posicao_info["posicao"],
+            posicao_info.get("abandonou", False),
+        )
+        equipe_db.orcamento = float(equipe_db.orcamento or 0) + premio
+
+        if corrida_agendada is not None:
+            pontos = pontos_por_posicao(
+                posicao_info["posicao"],
+                posicao_info.get("abandonou", False),
+            )
+            resultados_para_temporada.append({
+                "equipe_id": equipe_db.id,
+                "equipe_nome": equipe_db.nome,
+                "posicao": posicao_info["posicao"],
+                "pontos": pontos,
+                "premio": premio,
+                "abandonou": posicao_info.get("abandonou", False),
+                "motivo_abandono": posicao_info.get("motivo_abandono"),
+                "tempo_total": posicao_info["tempo_total_segundos"],
+                "custo_montagem": custo_montagem,
+            })
+
+    if corrida_agendada is not None:
+        corrida_agendada.salvar_resultados(resultados_para_temporada)
+        corrida_agendada.executada = True
+        corrida_agendada.data_execucao = datetime.utcnow()
+    db.session.commit()
+    return resultado
+
+
+@app.route("/corrida", methods=["GET", "POST"])
+@login_requerido
+def corrida_view():
+    resultado = None
+    criar_banco_pistas_reais()
+    pistas = listar_pistas_reais()
+    temporada = Temporada.ativa_atual()
+    proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
+    pistas_por_id = {p["id"]: p for p in pistas}
+    pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
+
+    if request.method == "POST":
+        usuario = Usuario.query.get(session["usuario_id"])
+        if not usuario.eh_admin:
+            return render_template("acesso_negado.html"), 403
+        modo_temporada = request.form.get("modo") == "temporada"
+        if modo_temporada and proxima_corrida_temporada and pista_proxima_temporada:
+            resultado = _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
+            flash(f"Corrida da temporada: {pista_proxima_temporada['nome']}.", "success")
+        else:
+            pista_id = int(request.form["pista_id"])
+            pista = obter_pista_real(pista_id)
+            resultado = _executar_corrida_e_persistir(pista, corrida_agendada=None)
+            flash(f"Corrida: {pista['nome']}.", "success")
+        temporada = Temporada.ativa_atual()
+        proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
+        pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
+
+    return render_template("corrida.html", resultado=resultado, pistas=pistas,
+                           temporada=temporada,
+                           proxima_corrida_temporada=proxima_corrida_temporada,
+                           pista_proxima_temporada=pista_proxima_temporada)
+
+
+# ---------- ADMIN ----------
+@app.route("/admin")
+@admin_requerido
+def admin_dashboard():
+    contagens = {chave: cfg["model"].query.count() for chave, cfg in FORNECEDORES_CONFIG.items()}
+    return render_template("admin_dashboard.html",
+                           categorias=FORNECEDORES_CONFIG, contagens=contagens,
+                           total_temporadas=Temporada.query.count(),
+                           total_usuarios=Usuario.query.count())
+
+
+@app.route("/admin/gerar-fornecedores", methods=["POST"])
+@admin_requerido
+def admin_gerar_fornecedores():
+    popular_banco()
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/fornecedores/<categoria>", methods=["GET", "POST"])
+@admin_requerido
+def admin_fornecedores(categoria):
+    cfg = FORNECEDORES_CONFIG[categoria]
+    Model = cfg["model"]
+    if request.method == "POST":
+        dados = {"nome": request.form["nome"], "custo_temporada": float(request.form["custo_temporada"]),
+                 "custo_montagem": float(request.form["custo_montagem"]), "ativo": True}
+        for campo in cfg["campos"]:
+            valor = request.form[campo["nome"]]
+            tipo = campo.get("tipo", "string")
+            if tipo == "int": dados[campo["nome"]] = int(valor)
+            elif tipo == "float": dados[campo["nome"]] = float(valor)
+            else: dados[campo["nome"]] = valor
+        db.session.add(Model(**dados))
+        db.session.commit()
+        return redirect(url_for("admin_fornecedores", categoria=categoria))
+    pagina = int(request.args.get("pagina", 1))
+    por_pagina = 50
+    total = Model.query.count()
+    itens = Model.query.order_by(Model.custo_temporada).offset((pagina - 1) * por_pagina).limit(por_pagina).all()
+    total_paginas = max(1, (total + por_pagina - 1) // por_pagina)
+    return render_template("admin_fornecedor_lista.html", categoria=categoria, cfg=cfg, itens=itens,
+                           pagina=pagina, total_paginas=total_paginas, total=total,
+                           categorias_pista=CATEGORIAS_PISTA, categorias_chuva=CATEGORIAS_CHUVA,
+                           categoria_fornecedor_atual=categoria)
+
+
+@app.route("/admin/fornecedores/<categoria>/<int:item_id>/editar", methods=["GET", "POST"])
+@admin_requerido
+def admin_fornecedor_editar(categoria, item_id):
+    cfg = FORNECEDORES_CONFIG[categoria]
+    Model = cfg["model"]
+    item = Model.query.get_or_404(item_id)
+    if request.method == "POST":
+        item.nome = request.form["nome"]
+        item.custo_temporada = float(request.form["custo_temporada"])
+        item.custo_montagem = float(request.form["custo_montagem"])
+        item.ativo = "ativo" in request.form
+        for campo in cfg["campos"]:
+            valor = request.form[campo["nome"]]
+            tipo = campo.get("tipo", "string")
+            if tipo == "int": setattr(item, campo["nome"], int(valor))
+            elif tipo == "float": setattr(item, campo["nome"], float(valor))
+            else: setattr(item, campo["nome"], valor)
+        db.session.commit()
+        return redirect(url_for("admin_fornecedores", categoria=categoria))
+    return render_template("admin_fornecedor_editar.html", categoria=categoria, cfg=cfg, item=item,
+                           categorias_pista=CATEGORIAS_PISTA, categorias_chuva=CATEGORIAS_CHUVA,
+                           categoria_fornecedor_atual=categoria)
+
+
+@app.route("/admin/pistas-reais")
+@admin_requerido
+def admin_pistas_reais():
+    criar_banco_pistas_reais()
+    return render_template("admin_pistas_reais.html", pistas=listar_pistas_reais())
+
+
+@app.route("/admin/pistas-reais/<int:pista_id>/editar", methods=["GET", "POST"])
+@admin_requerido
+def admin_pista_editar(pista_id):
+    criar_banco_pistas_reais()
+    pista = obter_pista_real(pista_id)
+    if not pista:
+        return redirect(url_for("admin_pistas_reais"))
+    if request.method == "POST":
+        cat_cambio = (request.form.get("categoria_cambio_ideal") or "A").upper()
+        cat_suspensao = (request.form.get("categoria_suspensao_ideal") or "A").upper()
+        campos = {
+            "tempo_pit_stop_segundos": float(request.form["tempo_pit_stop_segundos"]),
+            "categoria_cambio_ideal": cat_cambio[0] if cat_cambio else "A",
+            "categoria_suspensao_ideal": cat_suspensao[0] if cat_suspensao else "A",
+            "influencia_motor": int(request.form["influencia_motor"]),
+            "influencia_cambio": int(request.form["influencia_cambio"]),
+            "influencia_suspensao": int(request.form["influencia_suspensao"]),
+            "influencia_pneu": int(request.form["influencia_pneu"]),
+            "influencia_combustivel": int(request.form["influencia_combustivel"]),
+            "influencia_engenheiro": int(request.form["influencia_engenheiro"]),
+            "temperatura_trecho_1": float(request.form["temperatura_trecho_1"]),
+            "temperatura_trecho_2": float(request.form["temperatura_trecho_2"]),
+            "temperatura_trecho_3": float(request.form["temperatura_trecho_3"]),
+            "temperatura_trecho_4": float(request.form["temperatura_trecho_4"]),
+        }
+        atualizar_pista_real(pista_id, **campos)
+        return redirect(url_for("admin_pistas_reais"))
+    return render_template("admin_pista_editar.html", pista=pista, categorias_pista=CATEGORIAS_PISTA)
+
+
+@app.route("/admin/temporadas", methods=["GET", "POST"])
+@admin_requerido
+def admin_temporadas():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        if nome:
+            nova = Temporada(nome=nome, ativa=False)
+            db.session.add(nova)
+            db.session.commit()
+            flash(f"Temporada '{nome}' criada.", "success")
+            return redirect(url_for("admin_temporada_editar", temporada_id=nova.id))
+    temporadas = Temporada.query.order_by(Temporada.data_criacao.desc()).all()
+    return render_template("admin_temporadas.html", temporadas=temporadas)
+
+
+@app.route("/admin/temporadas/<int:temporada_id>/editar", methods=["GET", "POST"])
+@admin_requerido
+def admin_temporada_editar(temporada_id):
+    temporada = Temporada.query.get_or_404(temporada_id)
+    criar_banco_pistas_reais()
+    pistas = listar_pistas_reais()
+    pistas_por_id = {p["id"]: p for p in pistas}
+    if request.method == "POST":
+        acao = request.form.get("acao")
+        if acao == "adicionar_pista":
+            pista_id = int(request.form["pista_id"])
+            pista = pistas_por_id.get(pista_id)
+            if pista:
+                proxima_ordem = max((c.ordem for c in temporada.corridas_agendadas), default=0) + 1
+                db.session.add(CorridaAgendada(temporada_id=temporada.id, pista_real_id=pista_id,
+                                                pista_nome=pista["nome"], ordem=proxima_ordem))
+                db.session.commit()
+                flash(f"Pista '{pista['nome']}' adicionada.", "success")
+        elif acao == "renomear":
+            novo_nome = request.form.get("nome", "").strip()
+            if novo_nome:
+                temporada.nome = novo_nome
+                db.session.commit()
+                flash("Nome atualizado.", "success")
+        return redirect(url_for("admin_temporada_editar", temporada_id=temporada.id))
+    return render_template("admin_temporada_editar.html", temporada=temporada, pistas=pistas, pistas_por_id=pistas_por_id)
+
+
+@app.route("/admin/temporadas/<int:temporada_id>/ativar", methods=["POST"])
+@admin_requerido
+def admin_temporada_ativar(temporada_id):
+    Temporada.query.update({"ativa": False})
+    temporada = Temporada.query.get_or_404(temporada_id)
+    temporada.ativa = True
+    db.session.commit()
+    flash(f"Temporada '{temporada.nome}' ativa.", "success")
+    return redirect(url_for("admin_temporadas"))
+
+
+@app.route("/admin/temporadas/<int:temporada_id>/desativar", methods=["POST"])
+@admin_requerido
+def admin_temporada_desativar(temporada_id):
+    """Desativa a temporada E aplica o desenvolvimento (chassi+aero em construção)
+    de todos os jogadores. Quem não completou os requisitos fica sem carro
+    pra próxima temporada."""
+    temporada = Temporada.query.get_or_404(temporada_id)
+    temporada.ativa = False
+
+    # Aplicar desenvolvimento pra todos os jogadores
+    equipes = CarroJogador.query.all()
+    aplicados = 0
+    bloqueados = 0
+    for equipe in equipes:
+        desenvolvimento = Desenvolvimento.obter_ou_criar(equipe.id)
+        engenheiro = None
+        if equipe.engenheiro_fornecedor_id:
+            engenheiro = FornecedorEngenheiro.query.get(equipe.engenheiro_fornecedor_id)
+        resultado_dev = aplicar_desenvolvimento_da_temporada(desenvolvimento, engenheiro)
+        if resultado_dev["aplicado"]:
+            aplicados += 1
+        else:
+            bloqueados += 1
+
+    db.session.commit()
+    flash(
+        f"Temporada '{temporada.nome}' desativada. "
+        f"Chassi/aero aplicado em {aplicados} equipe(s). "
+        f"{bloqueados} equipe(s) não completou os requisitos (chassi/aero em construção zerado, começam próxima temporada com o que tinham).",
+        "info",
+    )
+    return redirect(url_for("admin_temporadas"))
+
+
+@app.route("/admin/temporadas/corrida/<int:corrida_id>/remover", methods=["POST"])
+@admin_requerido
+def admin_temporada_remover_corrida(corrida_id):
+    corrida = CorridaAgendada.query.get_or_404(corrida_id)
+    if corrida.executada:
+        flash("Não é possível remover corrida executada.", "warning")
+        return redirect(url_for("admin_temporada_editar", temporada_id=corrida.temporada_id))
+    temporada_id = corrida.temporada_id
+    db.session.delete(corrida)
+    db.session.commit()
+    flash("Corrida removida.", "info")
+    return redirect(url_for("admin_temporada_editar", temporada_id=temporada_id))
+
+
+@app.route("/admin/usuarios", methods=["GET"])
+@admin_requerido
+def admin_usuarios():
+    filtro_grupo = request.args.get("grupo", "").strip()
+    filtro_classe = request.args.get("classe", "").strip()
+    filtro_email = request.args.get("email", "").strip()
+    query = Usuario.query
+    if filtro_grupo: query = query.filter(Usuario.grupo == filtro_grupo)
+    if filtro_classe: query = query.filter(Usuario.classe == filtro_classe)
+    if filtro_email: query = query.filter(Usuario.email.ilike(f"%{filtro_email}%"))
+    usuarios = query.order_by(Usuario.email).all()
+    grupos_existentes = sorted({u.grupo for u in Usuario.query.all() if u.grupo})
+    classes_existentes = sorted({u.classe for u in Usuario.query.all() if u.classe})
+    return render_template("admin_usuarios.html", usuarios=usuarios,
+                           grupos_existentes=grupos_existentes, classes_existentes=classes_existentes,
+                           filtro_grupo=filtro_grupo, filtro_classe=filtro_classe, filtro_email=filtro_email)
+
+
+@app.route("/admin/usuarios/<int:usuario_id>/editar", methods=["POST"])
+@admin_requerido
+def admin_usuario_editar(usuario_id):
+    usuario = Usuario.query.get_or_404(usuario_id)
+    usuario.grupo = (request.form.get("grupo") or "").strip() or None
+    usuario.classe = (request.form.get("classe") or "").strip() or None
+    if "eh_admin" in request.form:
+        usuario.eh_admin = request.form.get("eh_admin") == "1"
+    db.session.commit()
+    flash(f"Usuário {usuario.email} atualizado.", "success")
+    return redirect(url_for("admin_usuarios", grupo=request.args.get("grupo", ""),
+                            classe=request.args.get("classe", ""), email=request.args.get("email", "")))
+
+
+@app.route("/admin/configuracoes", methods=["GET", "POST"])
+@admin_requerido
+def admin_configuracoes():
+    config = Configuracao.obter()
+    if request.method == "POST":
+        campos_float = [
+            "orcamento_inicial",
+            "dev_incremento_percentual", "dev_tempo_base_horas", "dev_tempo_fator_horas",
+            "dev_custo_base", "dev_custo_fator",
+            "treino_incremento_percentual", "treino_tempo_base_horas", "treino_tempo_fator_horas",
+            "treino_custo_base", "treino_custo_fator",
+            "pit_tempo_sem_treino", "pit_tempo_treino_completo",
+        ]
+        for campo in campos_float:
+            setattr(config, campo, float(request.form[campo]))
+        db.session.commit()
+        flash("Configurações salvas.", "success")
+        return redirect(url_for("admin_configuracoes"))
+    return render_template("admin_configuracoes.html", config=config)
+
+
+@app.cli.command("init-db")
+def init_db():
+    db.create_all()
+    print("Banco inicializado!")
+
+
+@app.cli.command("tornar-admin")
+@click.argument("email")
+def tornar_admin(email):
+    usuario = Usuario.query.filter_by(email=email.strip().lower()).first()
+    if not usuario:
+        print(f"Nenhum usuário com {email}.")
+        return
+    usuario.eh_admin = True
+    db.session.commit()
+    print(f"{email} agora é admin!")
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+===== carro.py =====
+"""
+Classe Carro - junta equipe + equipamentos + Engenheiro (opcional).
+
+Chassi e Aerodinâmica não são fornecedores contratados. São projetados
+pelo Engenheiro que a equipe contratou, e a performance vem do nível
+desse engenheiro + percentual de desenvolvimento aplicado.
+
+REFACTOR xx-50/xx-900 (Etapa 3):
+- Cada corrida, o jogador pode escolher qual MODELO (50 a 900) usar de
+  cada componente. Isso é um MODIFICADOR calculado, não muda o banco.
+- Como aplicamos cada modelo (pra NÃO contar efeito duas vezes):
+    * Motor/Combustível: delta de velocidade + fator de consumo
+    * Pneu: delta de velocidade + fator de desgaste + define a condição
+      (seco/molhada/encharcada) usada no casamento com a pista
+    * Câmbio/Suspensão: o modelo APENAS define a letra A-J usada no
+      casamento com a categoria ideal da pista (o efeito no tempo já vem
+      de _fator_categoria_pista, então NÃO somamos delta aqui)
+- Se nenhum modelo for escolhido, o carro se comporta IGUAL a antes
+  (100% retrocompatível).
+"""
+
+import random
+
+from constantes import (
+    TEMPO_VOLTA_BASE_SEGUNDOS,
+    VARIACAO_ALEATORIA_DESVIO_PADRAO,
+    CONSUMO_BASE_MOTOR,
+    CONSUMO_BASE_LITROS_POR_KM,
+    BONUS_DESIGNER_ESCALA,
+    PIT_STOP_SEGUNDOS,
+    INFLUENCIA_ESCALA,
+    TEMPERATURA_REFERENCIA,
+    DESGASTE_POR_GRAU_FRACAO,
+)
+import modelos_componente
+
+
+class Carro:
+    def __init__(self, equipe, motor, combustivel, pneu, chassi, cambio, suspensao,
+                 engenheiro=None, combustivel_carregado=110.0, tempo_pit_stop=None):
+        self.equipe = equipe
+        self.motor = motor
+        self.combustivel = combustivel
+        self.pneu = pneu
+        self.chassi = chassi          # chassi projetado pelo engenheiro (não é fornecedor)
+        self.cambio = cambio
+        self.suspensao = suspensao
+        self.engenheiro = engenheiro
+        self.combustivel_carregado = combustivel_carregado
+        self.tempo_pit_stop = tempo_pit_stop if tempo_pit_stop is not None else PIT_STOP_SEGUNDOS
+        # Performance da aerodinâmica (setado pelo CarroJogador.montar_carro)
+        self.performance_aero = 0.0
+
+        # REFACTOR: modelos escolhidos pra ESTA corrida (50 a 900).
+        # Vazio = nenhum modelo escolhido = comportamento antigo.
+        # Chaves possíveis: "motor", "combustivel", "pneu", "cambio", "suspensao"
+        self.modelos_corrida = {}
+
+    # -----------------------------------------------------
+    # REFACTOR: helpers dos modelos xx-50/xx-900
+    # -----------------------------------------------------
+    def definir_modelos(self, motor=None, combustivel=None, pneu=None,
+                        cambio=None, suspensao=None):
+        """Define os modelos (50-900) escolhidos pra esta corrida.
+        Passe só os que quiser; os demais ficam sem modificador.
+        Ignora valores inválidos silenciosamente."""
+        escolhidos = {
+            "motor": motor, "combustivel": combustivel, "pneu": pneu,
+            "cambio": cambio, "suspensao": suspensao,
+        }
+        for componente, numero in escolhidos.items():
+            if numero is not None and modelos_componente.modelo_valido(numero):
+                self.modelos_corrida[componente] = int(numero)
+
+    def _mod(self, componente):
+        """Retorna o dict de modificadores do modelo escolhido pro
+        componente, ou None se não houver escolha."""
+        numero = self.modelos_corrida.get(componente)
+        if numero is None:
+            return None
+        return modelos_componente.modificadores(numero, componente)
+
+    def _delta_velocidade_modelos(self):
+        """Soma o delta de velocidade dos modelos que afetam o tempo
+        DIRETAMENTE: motor, combustível e pneu.
+        Câmbio/suspensão NÃO entram aqui (efeito vem do casamento de letra)."""
+        delta = 0.0
+        for componente in ("motor", "combustivel", "pneu"):
+            mod = self._mod(componente)
+            if mod:
+                delta += mod["velocidade_delta_s"]
+        return delta
+
+    def _categoria_cambio_efetiva(self):
+        """Letra do câmbio: se um modelo foi escolhido, ele manda;
+        senão usa a categoria fixa do fornecedor."""
+        mod = self._mod("cambio")
+        if mod:
+            return mod["letra"]
+        return (self.cambio.categoria_pista or "A").upper()
+
+    def _categoria_suspensao_efetiva(self):
+        mod = self._mod("suspensao")
+        if mod:
+            return mod["letra"]
+        return (self.suspensao.categoria_pista or "A").upper()
+
+    def _condicao_pneu_efetiva(self):
+        """Condição do pneu (seco/molhada/encharcada): modelo manda se
+        escolhido; senão usa a categoria_chuva do fornecedor."""
+        mod = self._mod("pneu")
+        if mod:
+            # normaliza "molhada" -> mesma família de "intermediario"/"chuva"
+            return mod["condicao_pista"]
+        return (self.pneu.categoria_chuva or "seco").lower()
+
+    # -----------------------------------------------------
+    def potencia_efetiva_motor(self):
+        return self.motor.potencia * (1 + self.combustivel.aumento_potencia_motor)
+
+    def _fator_influencia(self, nome):
+        valor = getattr(self, f"influencia_pista_{nome}", INFLUENCIA_ESCALA)
+        return (valor or INFLUENCIA_ESCALA) / INFLUENCIA_ESCALA
+
+    def _fator_categoria_pista(self):
+        categoria_cambio_carro = self._categoria_cambio_efetiva()
+        categoria_suspensao_carro = self._categoria_suspensao_efetiva()
+
+        categoria_cambio_ideal = getattr(self, "categoria_cambio_ideal_pista", None)
+        categoria_suspensao_ideal = getattr(self, "categoria_suspensao_ideal_pista", None)
+
+        if not categoria_cambio_ideal or not categoria_suspensao_ideal:
+            return 0.0
+
+        try:
+            diff_cambio = abs(
+                ord(categoria_cambio_carro[0]) - ord(categoria_cambio_ideal.upper()[0])
+            )
+            diff_suspensao = abs(
+                ord(categoria_suspensao_carro[0]) - ord(categoria_suspensao_ideal.upper()[0])
+            )
+        except (IndexError, TypeError):
+            return 0.0
+
+        return diff_cambio + diff_suspensao
+
+    def _fator_categoria_chuva(self):
+        categoria_pneu = self._condicao_pneu_efetiva()
+        # "molhada" (nome usado pelos modelos) conta como "intermediario"
+        if categoria_pneu == "molhada":
+            categoria_pneu = "intermediario"
+        elif categoria_pneu == "encharcada":
+            categoria_pneu = "chuva"
+        categoria_pista = (getattr(self, "categoria_chuva", "seco") or "seco").lower()
+        mapa = {
+            "seco":         {"seco": 0.0, "intermediario": 1.0, "chuva": 2.0},
+            "intermediario": {"seco": 1.0, "intermediario": 0.0, "chuva": 1.0},
+            "chuva":        {"seco": 2.0, "intermediario": 1.0, "chuva": 0.0},
+        }
+        return mapa.get(categoria_pneu, {}).get(categoria_pista, 0.0)
+
+    def penalidade_desgaste_pneu(self, desgaste_atual):
+        """Perda de tempo em segundos por causa do desgaste do pneu.
+        Curva progressiva:
+        - 0-70%: sem penalidade
+        - 70-85%: leve (até 1.5s)
+        - 85-95%: médio (até 5s)
+        - 95-100%: pesado (até 12s)
+        - >=100%: pneu estoura (15s + abandono)
+        """
+        if desgaste_atual is None or desgaste_atual < 70:
+            return 0.0
+        if desgaste_atual < 85:
+            return (desgaste_atual - 70) * (1.5 / 15)
+        if desgaste_atual < 95:
+            return 1.5 + (desgaste_atual - 85) * (3.5 / 10)
+        if desgaste_atual < 100:
+            return 5.0 + (desgaste_atual - 95) * (7.0 / 5)
+        return 15.0
+
+    def tempo_base(self):
+        tempo = TEMPO_VOLTA_BASE_SEGUNDOS
+
+        tempo -= self.potencia_efetiva_motor() * self._fator_influencia("motor")
+        tempo -= self.pneu.performance * self._fator_influencia("pneu")
+        # Chassi: performance já vem calculada com base no nível + %aplicado
+        tempo -= self.chassi.performance
+        # Aerodinâmica: bônus separado calculado no CarroJogador.montar_carro
+        tempo -= (self.performance_aero or 0.0)
+        tempo -= self.cambio.performance * self._fator_influencia("cambio")
+        tempo -= self.suspensao.performance * self._fator_influencia("suspensao")
+
+        if self.engenheiro:
+            tempo -= (self.engenheiro.eficiencia_exata
+                      * BONUS_DESIGNER_ESCALA
+                      * self._fator_influencia("engenheiro"))
+
+        tempo += self._fator_categoria_pista() * 0.3
+        tempo += self._fator_categoria_chuva() * 1.0
+
+        # REFACTOR: delta de velocidade dos modelos (motor/combustível/pneu)
+        tempo += self._delta_velocidade_modelos()
+
+        return tempo
+
+    def tempo_com_variacao(self, desgaste_atual=0.0):
+        variacao = random.gauss(0, VARIACAO_ALEATORIA_DESVIO_PADRAO)
+        penalidade_pneu = self.penalidade_desgaste_pneu(desgaste_atual)
+        return self.tempo_base() + variacao + penalidade_pneu
+
+    def consumo_por_volta(self):
+        eficiencia_total = min(self.motor.eficiencia_combustivel + self.combustivel.eficiencia, 0.9)
+        tamanho_volta_km = getattr(self, "tamanho_volta_km", None)
+        if tamanho_volta_km and tamanho_volta_km > 0:
+            consumo = CONSUMO_BASE_LITROS_POR_KM * (1 - eficiencia_total) * tamanho_volta_km
+        else:
+            consumo = CONSUMO_BASE_MOTOR * (1 - eficiencia_total)
+        if self.engenheiro:
+            consumo *= (1 - self.engenheiro.bonus_eficiencia)
+        consumo *= self._fator_influencia("combustivel")
+
+        # REFACTOR: fator de consumo dos modelos de motor e combustível
+        for componente in ("motor", "combustivel"):
+            mod = self._mod(componente)
+            if mod:
+                consumo *= mod["fator_consumo"]
+
+        return consumo
+
+    def desgaste_por_volta(self):
+        desgaste = self.pneu.desgaste
+        if self.engenheiro:
+            desgaste *= (1 - self.engenheiro.bonus_eficiencia)
+        temperatura = getattr(self, "temperatura_pista", TEMPERATURA_REFERENCIA)
+        if temperatura is None:
+            temperatura = TEMPERATURA_REFERENCIA
+        fator_temp = 1.0 + (temperatura - TEMPERATURA_REFERENCIA) * DESGASTE_POR_GRAU_FRACAO
+        desgaste *= max(0.1, fator_temp)
+
+        # REFACTOR: fator de desgaste do modelo de pneu
+        mod = self._mod("pneu")
+        if mod:
+            desgaste *= mod["fator_desgaste"]
+
+        return desgaste
+
+    def __repr__(self):
+        return f"Carro({self.equipe.nome}: {self.motor.nome}/{self.pneu.nome})"
+
+===== carro_visual.py =====
+"""
+Gera uma imagem SVG de carro (vista de cima) com cor customizável.
+Determinístico por seed para variações visuais.
+"""
+
+import random
+
+
+def _limitar(valor, minimo, maximo):
+    return max(minimo, min(valor, maximo))
+
+
+def gerar_svg_carro(cor_hex="#FF0000", largura=120, altura=160):
+    """
+    Gera SVG de carro com a cor especificada.
+    
+    Args:
+        cor_hex: cor em formato hexadecimal (ex: "#FF0000" para vermelho)
+        largura: largura do SVG
+        altura: altura do SVG
+    
+    Returns:
+        String SVG do carro
+    """
+    
+    cx = largura / 2
+    cy = altura / 2
+    
+    # Componentes do carro
+    # Corpo principal (chassis)
+    chassis_width = 35
+    chassis_height = 75
+    
+    # Rodas
+    roda_raio = 6
+    roda_front_y = cy - 25
+    roda_rear_y = cy + 28
+    roda_left_x = cx - 18
+    roda_right_x = cx + 18
+    
+    # Cockpit
+    cockpit_width = 25
+    cockpit_height = 20
+    cockpit_y = cy - 15
+    
+    # Asa traseira (DRS)
+    wing_width = 50
+    wing_height = 8
+    wing_y = cy + 32
+    
+    return f'''<svg viewBox="0 0 {largura} {altura}" xmlns="http://www.w3.org/2000/svg">
+    <!-- Fundo -->
+    <rect width="{largura}" height="{altura}" fill="#f5f5f5"/>
+    
+    <!-- Chassi/Corpo principal -->
+    <ellipse cx="{cx}" cy="{cy - 5}" rx="{chassis_width}" ry="{chassis_height * 0.4}" fill="{cor_hex}" stroke="#333" stroke-width="1"/>
+    <rect x="{cx - chassis_width}" y="{cy - 20}" width="{chassis_width * 2}" height="{chassis_height * 0.6}" fill="{cor_hex}" stroke="#333" stroke-width="1" rx="3"/>
+    
+    <!-- Cockpit/Cabine -->
+    <ellipse cx="{cx}" cy="{cockpit_y}" rx="{cockpit_width * 0.5}" ry="{cockpit_height * 0.5}" fill="#222" stroke="#111" stroke-width="0.5"/>
+    <rect x="{cx - cockpit_width * 0.4}" y="{cockpit_y - 6}" width="{cockpit_width * 0.8}" height="12" fill="#333" stroke="#111" stroke-width="0.5" rx="2"/>
+    
+    <!-- Asa dianteira (pequena) -->
+    <rect x="{cx - wing_width * 0.4}" y="{cy - 32}" width="{wing_width * 0.8}" height="{wing_height * 0.6}" fill="#666" stroke="#333" stroke-width="0.5" rx="1"/>
+    
+    <!-- Asa traseira (DRS) -->
+    <rect x="{cx - wing_width * 0.5}" y="{wing_y}" width="{wing_width}" height="{wing_height}" fill="#888" stroke="#333" stroke-width="0.5" rx="1"/>
+    <line x1="{cx - wing_width * 0.3}" y1="{wing_y}" x2="{cx - wing_width * 0.3}" y2="{wing_y + wing_height}" stroke="#333" stroke-width="0.5"/>
+    <line x1="{cx + wing_width * 0.3}" y1="{wing_y}" x2="{cx + wing_width * 0.3}" y2="{wing_y + wing_height}" stroke="#333" stroke-width="0.5"/>
+    
+    <!-- Rodas dianteiras -->
+    <circle cx="{roda_left_x}" cy="{roda_front_y}" r="{roda_raio}" fill="#222" stroke="#111" stroke-width="0.5"/>
+    <circle cx="{roda_left_x}" cy="{roda_front_y}" r="{roda_raio * 0.6}" fill="#555"/>
+    
+    <circle cx="{roda_right_x}" cy="{roda_front_y}" r="{roda_raio}" fill="#222" stroke="#111" stroke-width="0.5"/>
+    <circle cx="{roda_right_x}" cy="{roda_front_y}" r="{roda_raio * 0.6}" fill="#555"/>
+    
+    <!-- Rodas traseiras (um pouco maiores) -->
+    <circle cx="{roda_left_x}" cy="{roda_rear_y}" r="{roda_raio * 1.2}" fill="#222" stroke="#111" stroke-width="0.5"/>
+    <circle cx="{roda_left_x}" cy="{roda_rear_y}" r="{roda_raio * 0.7}" fill="#555"/>
+    
+    <circle cx="{roda_right_x}" cy="{roda_rear_y}" r="{roda_raio * 1.2}" fill="#222" stroke="#111" stroke-width="0.5"/>
+    <circle cx="{roda_right_x}" cy="{roda_rear_y}" r="{roda_raio * 0.7}" fill="#555"/>
+    
+    <!-- Detalhes: Farol dianteiro -->
+    <circle cx="{cx - 8}" cy="{cy - 35}" r="2" fill="#ffff00" stroke="#ffa500" stroke-width="0.5"/>
+    <circle cx="{cx + 8}" cy="{cy - 35}" r="2" fill="#ffff00" stroke="#ffa500" stroke-width="0.5"/>
+    
+    <!-- Número da equipe (espaço vazio para número) -->
+    <rect x="{cx - 8}" y="{cy + 5}" width="16" height="16" fill="#fff" stroke="#333" stroke-width="0.5" rx="1"/>
+    <text x="{cx}" y="{cy + 15}" font-size="10" font-weight="bold" font-family="Arial" fill="#333" text-anchor="middle">1</text>
+</svg>'''
+
+
+def cores_sugeridas():
+    """Retorna cores padrão que podem ser usadas."""
+    return [
+        {"nome": "Vermelho Ferrari", "hex": "#DC0000"},
+        {"nome": "Amarelo Renault", "hex": "#FFD700"},
+        {"nome": "Azul McLaren", "hex": "#0066FF"},
+        {"nome": "Verde Jaguar", "hex": "#004225"},
+        {"nome": "Branco Mercedes", "hex": "#FFFFFF"},
+        {"nome": "Preto AlphaTauri", "hex": "#2D826D"},
+        {"nome": "Laranja Alpine", "hex": "#FF6600"},
+        {"nome": "Vermelho Claro", "hex": "#FF4444"},
+        {"nome": "Roxo Custom", "hex": "#9933FF"},
+        {"nome": "Ciano Neon", "hex": "#00FFFF"},
+        {"nome": "Magenta Neon", "hex": "#FF00FF"},
+        {"nome": "Ouro Clássico", "hex": "#FFD700"},
+    ]
+
+===== classificacao.py =====
+"""
+Classificação (qualifying) - 1 volta rápida por equipe, sem desgaste.
+"""
+
+
+class Classificacao:
+    def __init__(self, carros):
+        self.carros = carros
+
+    def gerar_grid_largada(self):
+        resultados = [
+            {
+                "equipe": carro.equipe.nome,
+                "carro": carro,
+                "tempo_classificacao": round(carro.tempo_com_variacao(), 3),
+            }
+            for carro in self.carros
+        ]
+
+        resultados.sort(key=lambda r: r["tempo_classificacao"])
+
+        for posicao, resultado in enumerate(resultados, start=1):
+            resultado["posicao_grid"] = posicao
+
+        return resultados
+===== config.py =====
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ---------------------------------------------------------
+# BANCO DE DADOS - SQLite (arquivo único, zero configuração)
+# ---------------------------------------------------------
+# Não precisa instalar servidor nenhum. O arquivo "jogo.db" é criado
+# automaticamente na primeira vez que você rodar "flask init-db".
+SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(BASE_DIR, 'jogo.db')}"
+SQLALCHEMY_TRACK_MODIFICATIONS = False
+SECRET_KEY = "troque-essa-chave-depois"
+
+# ---------------------------------------------------------
+# LOGIN COM GOOGLE
+# ---------------------------------------------------------
+# Pegue essas credenciais em https://console.cloud.google.com/apis/credentials
+# (veja o passo a passo que te expliquei no chat)
+# Exemplo de boa prática:
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+
+# ---------------------------------------------------------
+# ANTIGO: SQL Server (deixado aqui comentado, caso queira voltar depois)
+# ---------------------------------------------------------
+# import urllib.parse
+# DB_SERVER = "localhost"
+# DB_NAME = "OpenWheelStrategy"
+# DB_USER = "sa"
+# DB_PASSWORD = "sua_senha_aqui"
+# DB_DRIVER = "ODBC Driver 17 for SQL Server"
+# params = urllib.parse.quote_plus(
+#     f"DRIVER={{{DB_DRIVER}}};SERVER={DB_SERVER};DATABASE={DB_NAME};"
+#     f"UID={DB_USER};PWD={DB_PASSWORD};"
+# )
+# SQLALCHEMY_DATABASE_URI = f"mssql+pyodbc:///?odbc_connect={params}"
+
+===== constantes.py =====
+"""
+Todas as constantes de regras do jogo, num lugar só (DRY: se um número
+precisa mudar, muda aqui e só aqui).
+"""
+
+TEMPO_VOLTA_BASE_SEGUNDOS = 90.0
+PIT_STOP_SEGUNDOS = 22.0
+LIMITE_DESGASTE_PNEU = 100.0
+COMBUSTIVEL_MINIMO = 0.0
+VARIACAO_ALEATORIA_DESVIO_PADRAO = 0.15  # segundos - "ruído" natural de cada volta
+
+CONSUMO_BASE_MOTOR = 3.0
+CONSUMO_BASE_LITROS_POR_KM = 0.65
+
+BONUS_DESIGNER_ESCALA = 5.0
+
+TANQUE_MAXIMO_LITROS = 150.0
+
+IMPORTANCIA_FIXA_MOTOR = 5
+IMPORTANCIA_FIXA_CAMBIO = 6
+IMPORTANCIA_FIXA_SUSPENSAO = 7
+IMPORTANCIA_FIXA_PNEU = 8
+IMPORTANCIA_FIXA_COMBUSTIVEL = 9
+IMPORTANCIA_FIXA_ENGENHEIRO = 10
+
+INFLUENCIA_ESCALA = 10.0
+
+TEMPERATURA_REFERENCIA = 20.0
+DESGASTE_POR_GRAU_FRACAO = 0.01
+
+NUMERO_TRECHOS_CORRIDA = 4
+
+# ---------------------------------------------------------
+# QUEBRA MECÂNICA
+# ---------------------------------------------------------
+CHANCE_QUEBRA_BASE = 0.10
+CHANCE_QUEBRA_MINIMA = 0.02
+
+# ---------------------------------------------------------
+# CHASSI E AERODINÂMICA (novo)
+# ---------------------------------------------------------
+# Chassi e aero NÃO são contratos com fornecedor - são projetados
+# pelo Engenheiro que a equipe contrata. O jogador novo recebe
+# chassi + aero de graça, ambos projetados por engenheiro nível 1.
+#
+# O nível do engenheiro afeta a performance máxima do chassi/aero.
+# Escala linear entre nível 1 (fraco) e nível 10 (topo).
+#
+# Efeito no tempo de volta:
+#   chassi_performance = CHASSI_PERFORMANCE_NIVEL_1 + (nivel - 1) * (CHASSI_PERFORMANCE_NIVEL_10 - CHASSI_PERFORMANCE_NIVEL_1) / 9
+# Multiplicado pelo percentual_aplicado (0 a 100%).
+
+# Chassi
+CHASSI_PERFORMANCE_NIVEL_1 = 0.2     # segundos a menos por volta (fraco)
+CHASSI_PERFORMANCE_NIVEL_10 = 2.0    # segundos a menos por volta (topo)
+
+# Aerodinâmica
+AERO_PERFORMANCE_NIVEL_1 = 0.1       # segundos a menos por volta (fraco)
+AERO_PERFORMANCE_NIVEL_10 = 1.0      # segundos a menos por volta (topo)
+
+
+def performance_chassi_do_nivel(nivel_engenheiro):
+    """Retorna a performance máxima do chassi projetado por um
+    engenheiro do nível informado (escala linear entre 1 e 10)."""
+    n = max(1, min(10, int(nivel_engenheiro or 1)))
+    return CHASSI_PERFORMANCE_NIVEL_1 + (n - 1) * (
+        (CHASSI_PERFORMANCE_NIVEL_10 - CHASSI_PERFORMANCE_NIVEL_1) / 9.0
+    )
+
+
+def performance_aero_do_nivel(nivel_engenheiro):
+    """Idem para aerodinâmica."""
+    n = max(1, min(10, int(nivel_engenheiro or 1)))
+    return AERO_PERFORMANCE_NIVEL_1 + (n - 1) * (
+        (AERO_PERFORMANCE_NIVEL_10 - AERO_PERFORMANCE_NIVEL_1) / 9.0
+    )
+
+===== converter_pista_real.py =====
+"""
+Converte o CSV de coordenadas reais (formato do TUMFTM racetrack-database:
+x_m, y_m, w_tr_right_m, w_tr_left_m) num traçado SVG, escalado e centralizado
+pra caber num viewBox do jogo.
+"""
+
+import csv
+import io
+
+
+def ler_coordenadas_csv(conteudo_csv):
+    """
+    conteudo_csv: string com o conteúdo bruto do arquivo .csv
+    Retorna lista de tuplas (x, y) em metros.
+    """
+    linhas = conteudo_csv.strip().splitlines()
+
+    # O arquivo pode ter um cabeçalho tipo "# x_m,y_m,w_tr_right_m,w_tr_left_m" - ignora comentários
+    linhas_dados = [linha for linha in linhas if linha.strip() and not linha.strip().startswith("#")]
+
+    pontos = []
+    leitor = csv.reader(linhas_dados)
+    for linha in leitor:
+        if len(linha) < 2:
+            continue
+        try:
+            x = float(linha[0])
+            y = float(linha[1])
+            pontos.append((x, y))
+        except ValueError:
+            continue  # pula linha de cabeçalho textual, se houver
+
+    return pontos
+
+
+def converter_para_svg_path(pontos, largura_viewbox=460, altura_viewbox=320, margem=25):
+    """
+    Recebe os pontos em metros (coordenadas reais) e devolve:
+    - o atributo 'd' de um <path> SVG, escalado e centralizado
+    - a extensão da pista em km (perímetro aproximado, somando as distâncias entre pontos)
+    """
+    if len(pontos) < 3:
+        raise ValueError("Poucos pontos pra formar um traçado")
+
+    xs = [p[0] for p in pontos]
+    ys = [p[1] for p in pontos]
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+
+    largura_real = x_max - x_min
+    altura_real = y_max - y_min
+
+    area_disponivel_largura = largura_viewbox - 2 * margem
+    area_disponivel_altura = altura_viewbox - 2 * margem
+
+    escala = min(area_disponivel_largura / largura_real, area_disponivel_altura / altura_real)
+
+    largura_final = largura_real * escala
+    altura_final = altura_real * escala
+    offset_x = margem + (area_disponivel_largura - largura_final) / 2
+    offset_y = margem + (area_disponivel_altura - altura_final) / 2
+
+    def transformar(ponto):
+        x, y = ponto
+        px = offset_x + (x - x_min) * escala
+        # inverte Y porque coordenada de mapa cresce pra cima, SVG cresce pra baixo
+        py = offset_y + (altura_real - (y - y_min)) * escala
+        return px, py
+
+    pontos_svg = [transformar(p) for p in pontos]
+
+    comandos = [f"M {pontos_svg[0][0]:.2f} {pontos_svg[0][1]:.2f}"]
+    for px, py in pontos_svg[1:]:
+        comandos.append(f"L {px:.2f} {py:.2f}")
+    comandos.append("Z")
+
+    caminho_svg = " ".join(comandos)
+
+    # extensão aproximada: soma das distâncias reais entre pontos consecutivos (em metros -> km)
+    extensao_m = 0.0
+    for i in range(len(pontos) - 1):
+        x1, y1 = pontos[i]
+        x2, y2 = pontos[i + 1]
+        extensao_m += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+    # fecha o loop
+    x1, y1 = pontos[-1]
+    x2, y2 = pontos[0]
+    extensao_m += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+
+    extensao_km = round(extensao_m / 1000, 3)
+
+    return caminho_svg, extensao_km
+
+
+def gerar_svg_completo(caminho_svg, largura_viewbox, altura_viewbox, nome_pista=""):
+    return f'''<svg viewBox="0 0 {largura_viewbox} {altura_viewbox}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="{largura_viewbox}" height="{altura_viewbox}" fill="#eef7ee"/>
+    <path d="{caminho_svg}" fill="none" stroke="#2b2b2b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="{caminho_svg}" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-dasharray="5,5"/>
+</svg>'''
+
+===== corrida.py =====
+"""
+Classe Corrida - simula vários carros ao mesmo tempo, volta a volta,
+e calcula as posições de cada um a cada volta.
+
+Regras de abandono:
+1. Pneu passou de 100% de desgaste -> pneu estoura -> abandono.
+2. Quebra mecânica aleatória (sorteada no início da corrida).
+   A chance é reduzida pelo Treinamento de Boxes.
+
+Combustível zerado é pit stop automático (não abandono).
+"""
+
+import random
+
+from constantes import (
+    LIMITE_DESGASTE_PNEU,
+    COMBUSTIVEL_MINIMO,
+    NUMERO_TRECHOS_CORRIDA,
+    CHANCE_QUEBRA_BASE,
+    CHANCE_QUEBRA_MINIMA,
+)
+
+
+def calcular_tempo_pit_stop(tempo_pista_base, config, percentual_treinamento):
+    tempo_pista_base = float(tempo_pista_base or 0.0)
+    if config.pit_tempo_sem_treino <= 0:
+        return round(tempo_pista_base, 3)
+    reducao_maxima_fracao = 0.0
+    if config.pit_tempo_sem_treino > 0:
+        reducao_maxima_fracao = (
+            (config.pit_tempo_sem_treino - config.pit_tempo_treino_completo) / config.pit_tempo_sem_treino
+        )
+    tempo_efetivo = tempo_pista_base * (1 - reducao_maxima_fracao * (percentual_treinamento / 100.0))
+    return round(tempo_efetivo, 3)
+
+
+def calcular_chance_quebra(percentual_treinamento_box):
+    """Chance de o carro quebrar durante a corrida.
+    - Treinamento 0%    -> 10% de chance
+    - Treinamento 100%  -> 2% de chance
+    - Escala linear no meio.
+    """
+    p = max(0.0, min(100.0, percentual_treinamento_box or 0.0)) / 100.0
+    return CHANCE_QUEBRA_BASE - (CHANCE_QUEBRA_BASE - CHANCE_QUEBRA_MINIMA) * p
+
+
+class EstadoCarroNaCorrida:
+    """Guarda o estado (combustível, desgaste) de um carro durante a corrida."""
+    def __init__(self, carro, consumo_qualifying=False, chance_quebra=0.0, total_voltas=1):
+        self.carro = carro
+        self.combustivel = carro.combustivel_carregado
+        self.desgaste_pneu = 0.0
+        self.tempo_acumulado = 0.0
+        self.pit_stops = 0
+        self.abandonou = False
+        self.volta_abandono = None
+        self.motivo_abandono = None   # "pneu" ou "quebra"
+        self.historico_voltas = []
+
+        # Consumo da volta de qualifying
+        if consumo_qualifying:
+            consumo_qualifying_litros = self.carro.consumo_por_volta()
+            self.combustivel = max(0.0, self.combustivel - consumo_qualifying_litros)
+            self.combustivel_gasto_qualifying = round(consumo_qualifying_litros, 3)
+        else:
+            self.combustivel_gasto_qualifying = 0.0
+
+        # Sorteio de quebra mecânica no INÍCIO da corrida.
+        # Se vai quebrar, sorteia também em qual volta (aleatória entre 2 e total-1
+        # pra não quebrar logo na largada nem na última volta).
+        self.vai_quebrar = random.random() < chance_quebra
+        if self.vai_quebrar and total_voltas > 2:
+            self.volta_quebra = random.randint(2, total_voltas - 1)
+        else:
+            self.volta_quebra = None
+            self.vai_quebrar = False
+
+    def rodar_volta(self, numero_volta):
+        if self.abandonou:
+            return
+
+        tempo_volta = self.carro.tempo_com_variacao(self.desgaste_pneu)
+
+        self.combustivel -= self.carro.consumo_por_volta()
+        self.desgaste_pneu += self.carro.desgaste_por_volta()
+
+        # --- 1) Verifica quebra mecânica ---
+        if self.vai_quebrar and numero_volta == self.volta_quebra:
+            self.abandonou = True
+            self.motivo_abandono = "quebra"
+            self.volta_abandono = numero_volta
+            self.tempo_acumulado += tempo_volta
+            self.historico_voltas.append({
+                "volta": numero_volta,
+                "tempo_volta": round(tempo_volta, 3),
+                "tempo_acumulado": round(self.tempo_acumulado, 3),
+                "desgaste_pneu": round(self.desgaste_pneu, 1),
+                "pit_stop": False,
+                "abandonou": True,
+                "motivo": "quebra",
+            })
+            return
+
+        # --- 2) Verifica pneu estourado ---
+        if self.desgaste_pneu >= LIMITE_DESGASTE_PNEU:
+            self.abandonou = True
+            self.motivo_abandono = "pneu"
+            self.volta_abandono = numero_volta
+            self.tempo_acumulado += tempo_volta
+            self.historico_voltas.append({
+                "volta": numero_volta,
+                "tempo_volta": round(tempo_volta, 3),
+                "tempo_acumulado": round(self.tempo_acumulado, 3),
+                "desgaste_pneu": round(self.desgaste_pneu, 1),
+                "pit_stop": False,
+                "abandonou": True,
+                "motivo": "pneu",
+            })
+            return
+
+        # --- 3) Pit stop automático se acabou o combustível ---
+        pit_stop_nesta_volta = False
+        if self.combustivel <= COMBUSTIVEL_MINIMO:
+            tempo_volta += self.carro.tempo_pit_stop
+            self.combustivel = self.carro.combustivel_carregado
+            self.pit_stops += 1
+            pit_stop_nesta_volta = True
+
+        self.tempo_acumulado += tempo_volta
+        self.historico_voltas.append({
+            "volta": numero_volta,
+            "tempo_volta": round(tempo_volta, 3),
+            "tempo_acumulado": round(self.tempo_acumulado, 3),
+            "desgaste_pneu": round(self.desgaste_pneu, 1),
+            "pit_stop": pit_stop_nesta_volta,
+            "abandonou": False,
+        })
+
+
+def _calcular_trecho_da_volta(numero_volta, total_voltas, numero_trechos=NUMERO_TRECHOS_CORRIDA):
+    if total_voltas <= 0:
+        return 0
+    trecho = int((numero_volta - 1) * numero_trechos / total_voltas)
+    return max(0, min(numero_trechos - 1, trecho))
+
+
+class Corrida:
+    def __init__(self, carros, total_voltas=60, temperaturas_trechos=None,
+                 consumo_qualifying=True, percentuais_treino_box=None):
+        """
+        carros: lista de instâncias de Carro (um por piloto competindo).
+        temperaturas_trechos: lista opcional de 4 temperaturas por trecho.
+        consumo_qualifying: se True, cada carro perde 1 volta de combustível.
+        percentuais_treino_box: lista opcional (paralela a `carros`) com o
+            percentual de treinamento de box de cada equipe (0 a 100).
+            Se não informado, usa 0 (chance de quebra máxima).
+        """
+        self.total_voltas = total_voltas
+        self.temperaturas_trechos = temperaturas_trechos
+        if temperaturas_trechos:
+            for carro in carros:
+                carro.temperatura_pista = temperaturas_trechos[0]
+
+        percentuais = percentuais_treino_box or [0.0] * len(carros)
+        self.estados = []
+        for carro, pct_treino in zip(carros, percentuais):
+            chance_quebra = calcular_chance_quebra(pct_treino)
+            self.estados.append(EstadoCarroNaCorrida(
+                carro,
+                consumo_qualifying=consumo_qualifying,
+                chance_quebra=chance_quebra,
+                total_voltas=total_voltas,
+            ))
+
+    def simular(self):
+        posicoes_por_volta = []
+        for volta in range(1, self.total_voltas + 1):
+            if self.temperaturas_trechos:
+                trecho = _calcular_trecho_da_volta(volta, self.total_voltas)
+                temperatura_trecho = self.temperaturas_trechos[trecho]
+                for estado in self.estados:
+                    estado.carro.temperatura_pista = temperatura_trecho
+
+            for estado in self.estados:
+                estado.rodar_volta(volta)
+            posicoes_por_volta.append(self._ordem_atual())
+
+        return {
+            "classificacao_final": self._classificacao_final(),
+            "posicoes_por_volta": posicoes_por_volta,
+        }
+
+    def _chave_ordenacao(self, estado):
+        if estado.abandonou:
+            return (1, -estado.volta_abandono)
+        return (0, estado.tempo_acumulado)
+
+    def _ordem_atual(self):
+        ordenados = sorted(self.estados, key=self._chave_ordenacao)
+        finalizados = [e for e in ordenados if not e.abandonou]
+        tempo_lider = finalizados[0].tempo_acumulado if finalizados else 0.0
+        resultado = []
+        for i, e in enumerate(ordenados):
+            if e.abandonou:
+                diferenca_lider = None
+                diferenca_frente = None
+            else:
+                diferenca_lider = e.tempo_acumulado - tempo_lider
+                if i == 0:
+                    diferenca_frente = 0.0
+                else:
+                    carro_da_frente = ordenados[i - 1]
+                    diferenca_frente = (
+                        e.tempo_acumulado - carro_da_frente.tempo_acumulado
+                        if not carro_da_frente.abandonou else None
+                    )
+            resultado.append({
+                "equipe": e.carro.equipe.nome,
+                "posicao": i + 1,
+                "tempo_acumulado": e.tempo_acumulado,
+                "diferenca_lider": diferenca_lider,
+                "diferenca_frente": diferenca_frente,
+                "abandonou": e.abandonou,
+                "desgaste_pneu": round(e.desgaste_pneu, 1),
+            })
+        return resultado
+
+    def _classificacao_final(self):
+        ordenados = sorted(self.estados, key=self._chave_ordenacao)
+        return [
+            {
+                "posicao": posicao,
+                "equipe": e.carro.equipe.nome,
+                "tempo_total_segundos": round(e.tempo_acumulado, 2),
+                "pit_stops": e.pit_stops,
+                "abandonou": e.abandonou,
+                "motivo_abandono": e.motivo_abandono,
+                "volta_abandono": e.volta_abandono,
+                "combustivel_qualifying": e.combustivel_gasto_qualifying,
+                "desgaste_pneu_final": round(e.desgaste_pneu, 1),
+                "historico_voltas": e.historico_voltas,
+            }
+            for posicao, e in enumerate(ordenados, start=1)
+        ]
+
+===== criar_equipe.py =====
+from app import app, db
+from models import EquipeDB, FornecedorMotor, FornecedorCombustivel, FornecedorPneu, FornecedorChassi, Usuario
+
+app.app_context().push()
+
+# Criar usuário se não existir
+usuario = Usuario.query.filter_by(email='teste@example.com').first()
+print(f"Usuário encontrado: {usuario.email if usuario else 'Não encontrado'}")
+
+# Obter fornecedores
+motor = FornecedorMotor.query.first()
+combustivel = FornecedorCombustivel.query.first()
+pneu = FornecedorPneu.query.first()
+chassi = FornecedorChassi.query.first()
+
+print(f"Motor: {motor.nome if motor else 'Não encontrado'}")
+print(f"Combustível: {combustivel.nome if combustivel else 'Não encontrado'}")
+
+# Criar equipe
+if usuario and motor and combustivel and pneu and chassi:
+    equipe = EquipeDB(
+        usuario_id=usuario.id,
+        nome="Meu Time de Corrida",
+        orcamento=1_000_000.0,
+        motor_fornecedor_id=motor.id,
+        combustivel_fornecedor_id=combustivel.id,
+        pneu_fornecedor_id=pneu.id,
+        chassi_fornecedor_id=chassi.id,
+        cor_carro="#DC0000"
+    )
+    db.session.add(equipe)
+    db.session.commit()
+    print(f"✓ Equipe criada: {equipe.nome} com cor {equipe.cor_carro}")
+else:
+    print("✗ Dados insuficientes para criar equipe")
+
+===== equipamentos.py =====
+"""
+Classes de domínio dos equipamentos do carro.
+
+- Motor, Combustível, Pneu, Câmbio, Suspensão: vêm de fornecedores contratados
+- Chassi: projetado pelo Engenheiro contratado (nome+performance conceituais)
+- Engenheiro: pessoa contratada, tem nível e eficiência
+"""
+
+
+class Motor:
+    def __init__(self, nome, custo, potencia, eficiencia_combustivel):
+        self.nome = nome
+        self.custo = custo
+        self.potencia = potencia
+        self.eficiencia_combustivel = eficiencia_combustivel
+
+
+class Combustivel:
+    def __init__(self, nome, custo, eficiencia, aumento_potencia_motor):
+        self.nome = nome
+        self.custo = custo
+        self.eficiencia = eficiencia
+        self.aumento_potencia_motor = aumento_potencia_motor
+
+
+class Pneu:
+    def __init__(self, nome, custo, performance, desgaste, categoria_chuva="seco"):
+        self.nome = nome
+        self.custo = custo
+        self.performance = performance
+        self.desgaste = desgaste
+        self.categoria_chuva = categoria_chuva
+
+
+class Chassi:
+    """Chassi NÃO é fornecedor. É projetado pelo Engenheiro.
+    Custo é sempre 0 (não tem contrato)."""
+    def __init__(self, nome, custo, performance):
+        self.nome = nome
+        self.custo = custo or 0.0
+        self.performance = performance
+
+
+class Cambio:
+    def __init__(self, nome, custo, performance, categoria_pista="A"):
+        self.nome = nome
+        self.custo = custo
+        self.performance = performance
+        self.categoria_pista = categoria_pista
+
+
+class Suspensao:
+    def __init__(self, nome, custo, performance, categoria_pista="A"):
+        self.nome = nome
+        self.custo = custo
+        self.performance = performance
+        self.categoria_pista = categoria_pista
+
+
+class Engenheiro:
+    def __init__(self, nome, custo, nivel, eficiencia_exata):
+        self.nome = nome
+        self.custo = custo
+        self.nivel = nivel
+        self.eficiencia_exata = eficiencia_exata
+        # Bônus de eficiência derivado do nível (usado em consumo/desgaste)
+        # Nível 1 = 0.0, Nível 10 = 0.09 (9% de redução)
+        self.bonus_eficiencia = max(0, (int(nivel or 1) - 1) * 0.01)
+
+===== equipe.py =====
+class Equipe:
+    """Representa o jogador - dono da equipe (sem status de habilidade própria)."""
+
+    def __init__(self, nome, orcamento=1_000_000.0):
+        self.nome = nome
+        self.orcamento = orcamento
+
+    def __repr__(self):
+        return f"Equipe({self.nome})"
+
+===== estrategia.py =====
+def montar_estrategia_corrida(ajustes, pneu, combustivel, volta_primeiro_pit, outro_pit):
+    """Cria uma estratégia simples para a corrida a partir do setup e dos itens escolhidos."""
+    total = sum(ajustes.values())
+    equilibrio = max(0, 250 - abs(total - 250))
+    risco = "conservadora"
+
+    if volta_primeiro_pit <= 8:
+        risco = "agressiva"
+    elif volta_primeiro_pit <= 18:
+        risco = "equilibrada"
+
+    resumo = (
+        f"Estratégia {risco}: primeiro pit stop na volta {volta_primeiro_pit}. "
+        f"Pneu {pneu.nome} e combustível {combustivel.nome} foram selecionados."
+    )
+    if outro_pit:
+        resumo += " Será feito um segundo pit stop durante a corrida."
+    else:
+        resumo += " A corrida seguirá com um único pit stop."
+
+    return {
+        "resumo": resumo,
+        "volta_primeiro_pit": volta_primeiro_pit,
+        "outro_pit": outro_pit,
+        "equilibrio_setup": equilibrio,
+    }
+
+
+def sugerir_estrategia_estrategista(ajustes):
+    """Sugere uma estratégia simplificada como se um estrategista tivesse feito o cálculo."""
+    total = sum(ajustes.values())
+    erro = abs(total - 250)
+
+    if erro < 20:
+        volta = 12
+        resumo = "Estratégia do estrategista: pit stop na volta 12 com ritmo constante e segundo stop opcional."
+    elif erro < 60:
+        volta = 15
+        resumo = "Estratégia do estrategista: pit stop na volta 15 para preservar pneus e combustível."
+    else:
+        volta = 18
+        resumo = "Estratégia do estrategista: pit stop tardio na volta 18, com foco em gestão de desgaste."
+
+    return {
+        "volta_primeiro_pit": volta,
+        "resumo": resumo,
+    }
+
+===== feedback_piloto.py =====
+"""
+Frases de feedback do piloto sobre o acerto (setup) do carro.
+
+Como funciona:
+- Cada componente ajustável (câmbio, suspensão, etc.) tem um valor "ideal"
+  pra pista atual. A "distância do ideal" é quanto o acerto escolhido está
+  longe disso, num range de -98 a +98.
+  - distância NEGATIVA  -> acerto ABAIXO do ideal (curto/mole/baixo demais)
+  - distância POSITIVA  -> acerto ACIMA do ideal  (longo/duro/alto demais)
+  - distância ~zero     -> no ponto
+- Cada faixa de distância tem várias frases equivalentes; o sistema sorteia
+  uma pra não ficar repetitivo.
+- Todas as frases são ORIGINAIS (não copiadas de nenhum outro jogo).
+
+Uso:
+    from feedback_piloto import frase_feedback
+    txt = frase_feedback(distancia=-45, componente="cambio")
+    # -> ex: "A relação tá curta, no fim da reta o carro morre de velocidade."
+
+Componentes suportados (só muda o vocabulário, a lógica é a mesma):
+    "cambio", "suspensao", "generico"
+"""
+
+import random
+
+
+# Direção do erro por componente:
+# (palavra pra ABAIXO do ideal, palavra pra ACIMA do ideal)
+VOCABULARIO = {
+    "cambio":     ("curta",  "longa"),   # relação curta x longa
+    "suspensao":  ("mole",   "dura"),    # suspensão mole x dura
+    "generico":   ("baixo",  "alto"),
+}
+
+
+# Faixas por MAGNITUDE (valor absoluto da distância).
+# Cada faixa tem: (limite_superior, lista_de_frases)
+# {dir} é substituído pela palavra da direção (curta/longa, mole/dura...).
+# As frases valem tanto pra lado negativo quanto positivo — o {dir} resolve.
+
+FAIXAS_MAGNITUDE = [
+    # PERFEITO (0 a 3): setup no ponto
+    (3, [
+        "Tá perfeito, o carro faz exatamente o que eu peço.",
+        "Acerto no ponto. Assim dá pra brigar por tempo.",
+        "Não mexe em nada, esse é o acerto certo pra aqui.",
+        "Carro redondo, entra e sai de curva sem reclamar.",
+    ]),
+    # MUITO PERTO (4 a 12): quase lá
+    (12, [
+        "Quase no ponto, mas ainda sinto o acerto um tico {dir} demais.",
+        "Faltou um cabelo. Tá levemente {dir} pro meu gosto.",
+        "Bom acerto, só ajustaria um pouquinho — ainda tá {dir}.",
+        "Dá pra correr assim, mas mexendo um dedinho fica melhor.",
+    ]),
+    # LEVE (13 a 28)
+    (28, [
+        "Tá {dir} demais, dá pra sentir em algumas curvas.",
+        "Precisa corrigir: o acerto ficou {dir} e me custa tempo.",
+        "Perco um pouco de ritmo, o carro tá {dir} pra essa pista.",
+        "Não tá horrível, mas {dir} desse jeito me atrapalha.",
+    ]),
+    # MÉDIO (29 a 50)
+    (50, [
+        "Bem {dir} demais, o carro fica difícil de colocar na curva.",
+        "Tô sofrendo aqui, o acerto {dir} me tira muito tempo.",
+        "Precisa mexer com firmeza: {dir} desse jeito não dá ritmo.",
+        "O carro reclama em quase toda curva, tá {dir} demais.",
+    ]),
+    # GRANDE (51 a 74)
+    (74, [
+        "Muito {dir}! Assim eu não consigo confiar no carro.",
+        "Tá longe do ponto, {dir} demais — todo giro é uma luta.",
+        "Desse jeito não dá, o acerto {dir} me faz perder tempão.",
+        "O carro tá um perigo, {dir} demais pra andar rápido.",
+    ]),
+    # EXTREMO (75 a 98)
+    (98, [
+        "Tá completamente {dir}! Impossível andar assim.",
+        "Isso tá absurdo de {dir}, mal consigo manter na pista.",
+        "Erramos feio: {dir} pra caramba, o carro é indirigível.",
+        "Joga tudo fora e recomeça, esse acerto {dir} não presta.",
+    ]),
+]
+
+
+def _direcao(distancia, componente):
+    """Retorna a palavra certa (abaixo/acima do ideal) pro componente."""
+    palavra_abaixo, palavra_acima = VOCABULARIO.get(componente, VOCABULARIO["generico"])
+    return palavra_abaixo if distancia < 0 else palavra_acima
+
+
+def frase_feedback(distancia, componente="generico", aleatorio=True):
+    """
+    Retorna uma frase de feedback pro acerto informado.
+
+    distancia: número de -98 a +98 (0 = ideal). Valores fora do range são
+               limitados automaticamente.
+    componente: "cambio", "suspensao" ou "generico".
+    aleatorio: se True, sorteia uma das frases da faixa; se False, pega
+               sempre a primeira (útil pra testes determinísticos).
+    """
+    # Limita ao range válido
+    distancia = max(-98, min(98, int(round(distancia))))
+    magnitude = abs(distancia)
+
+    for limite, frases in FAIXAS_MAGNITUDE:
+        if magnitude <= limite:
+            frase = random.choice(frases) if aleatorio else frases[0]
+            # A faixa "perfeito" não usa {dir}; as outras usam.
+            if "{dir}" in frase:
+                frase = frase.format(dir=_direcao(distancia, componente))
+            return frase
+
+    # Fallback teórico (não deve acontecer por causa do limite de 98)
+    return "Não consigo nem descrever esse acerto."
+
+
+def frase_por_categoria(categoria_ideal, categoria_escolhida, componente="generico", aleatorio=True):
+    """
+    Atalho pra quando você trabalha com as categorias A-J (modelos 50-900).
+    Converte a diferença entre a categoria ideal e a escolhida numa distância
+    e retorna a frase.
+
+    Ex: ideal="E" (400), escolhida="C" (200) -> distância -200 (limitada a -98).
+    Cada letra vale 100 de "passo" (A=0, B=100, ... J=900 na prática, mas aqui
+    usamos o índice A=0..J=9 e multiplicamos por ~22 pra caber no range -98..98).
+    """
+    letras = "ABCDEFGHIJ"
+    try:
+        i_ideal = letras.index(categoria_ideal.upper())
+        i_escolhida = letras.index(categoria_escolhida.upper())
+    except (ValueError, AttributeError):
+        return frase_feedback(0, componente, aleatorio)
+
+    # Diferença em "passos" de letra, escalada pro range -98..98.
+    # 9 passos de diferença (A vs J) -> ~98. Então cada passo ~= 11.
+    passos = i_escolhida - i_ideal
+    distancia = passos * 11
+    return frase_feedback(distancia, componente, aleatorio)
+
+
+if __name__ == "__main__":
+    # Demonstração rápida: mostra uma frase por faixa, pros dois componentes.
+    print("=== CÂMBIO ===")
+    for d in [-90, -60, -35, -20, -8, 0, 8, 20, 35, 60, 90]:
+        print(f"  dist {d:+4d}: {frase_feedback(d, 'cambio', aleatorio=False)}")
+
+    print("\n=== SUSPENSÃO ===")
+    for d in [-90, -60, -35, -20, -8, 0, 8, 20, 35, 60, 90]:
+        print(f"  dist {d:+4d}: {frase_feedback(d, 'suspensao', aleatorio=False)}")
+
+    print("\n=== POR CATEGORIA (ideal=E) ===")
+    for cat in "ABCDEFGHIJ":
+        print(f"  escolhida {cat}: {frase_por_categoria('E', cat, 'cambio', aleatorio=False)}")
+
+===== importar_todas_pistas.py =====
+"""
+Importa TODOS os CSVs de pista real de uma vez, direto da pasta "tracks/"
+do repositório TUMFTM/racetrack-database (baixado como ZIP e extraído).
+
+Como usar:
+    python importar_todas_pistas.py "C:\\caminho\\para\\racetrack-database-master\\tracks"
+"""
+
+import os
+import sys
+import random
+
+from converter_pista_real import ler_coordenadas_csv, converter_para_svg_path
+from pistas_reais_db import criar_banco, inserir_pista_real
+
+# Nome de exibição e país de cada pista (baseado no README do repositório)
+INFO_PISTAS = {
+    "Austin": ("Circuit of the Americas", "Estados Unidos"),
+    "BrandsHatch": ("Brands Hatch", "Reino Unido"),
+    "Budapest": ("Hungaroring", "Hungria"),
+    "Catalunya": ("Circuit de Barcelona-Catalunya", "Espanha"),
+    "Hockenheim": ("Hockenheimring", "Alemanha"),
+    "IMS": ("Indianapolis Motor Speedway", "Estados Unidos"),
+    "Melbourne": ("Albert Park Circuit", "Austrália"),
+    "MexicoCity": ("Autódromo Hermanos Rodríguez", "México"),
+    "Montreal": ("Circuit Gilles Villeneuve", "Canadá"),
+    "Monza": ("Autodromo Nazionale Monza", "Itália"),
+    "MoscowRaceway": ("Moscow Raceway", "Rússia"),
+    "Norisring": ("Norisring", "Alemanha"),
+    "Nuerburgring": ("Nürburgring", "Alemanha"),
+    "Oschersleben": ("Motorsport Arena Oschersleben", "Alemanha"),
+    "Sakhir": ("Bahrain International Circuit", "Bahrein"),
+    "SaoPaulo": ("Autódromo José Carlos Pace (Interlagos)", "Brasil"),
+    "Sepang": ("Sepang International Circuit", "Malásia"),
+    "Shanghai": ("Shanghai International Circuit", "China"),
+    "Silverstone": ("Silverstone Circuit", "Reino Unido"),
+    "Sochi": ("Sochi Autodrom", "Rússia"),
+    "Spa": ("Circuit de Spa-Francorchamps", "Bélgica"),
+    "Spielberg": ("Red Bull Ring", "Áustria"),
+    "Suzuka": ("Suzuka International Racing Course", "Japão"),
+    "YasMarina": ("Yas Marina Circuit", "Emirados Árabes Unidos"),
+    "Zandvoort": ("Circuit Zandvoort", "Holanda"),
+}
+
+
+def importar_pasta(caminho_pasta):
+    criar_banco()
+
+    arquivos_csv = [f for f in os.listdir(caminho_pasta) if f.lower().endswith(".csv")]
+    print(f"Encontrados {len(arquivos_csv)} arquivos .csv em {caminho_pasta}")
+
+    importadas = 0
+    falhas = []
+
+    for arquivo in arquivos_csv:
+        nome_base = arquivo.replace(".csv", "")
+        caminho_completo = os.path.join(caminho_pasta, arquivo)
+
+        try:
+            with open(caminho_completo, "r", encoding="utf-8") as f:
+                conteudo = f.read()
+
+            pontos = ler_coordenadas_csv(conteudo)
+            caminho_svg, extensao_km = converter_para_svg_path(pontos)
+
+            nome_exibicao, pais = INFO_PISTAS.get(nome_base, (nome_base, "Desconhecido"))
+
+            tempo_pit_stop = round(random.uniform(18.0, 26.0), 1)
+            inserir_pista_real(nome_exibicao, pais, extensao_km, caminho_svg, 460, 320, tempo_pit_stop)
+            print(f"  OK: {nome_exibicao} ({pais}) - {extensao_km}km")
+            importadas += 1
+
+        except Exception as erro:
+            falhas.append((arquivo, str(erro)))
+            print(f"  FALHOU: {arquivo} - {erro}")
+
+    print()
+    print(f"Importadas: {importadas}/{len(arquivos_csv)}")
+    if falhas:
+        print("Falhas:", falhas)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Uso: python importar_todas_pistas.py <caminho_da_pasta_tracks>")
+        sys.exit(1)
+
+    importar_pasta(sys.argv[1])
+
+===== inspect_schema.py =====
+from app import app, db
+from sqlalchemy import text
+app.app_context().push()
+conn = db.engine.connect()
+print(conn.execute(text('SELECT name FROM sqlite_master WHERE type="table" AND name="fornecedores_pneu"')).fetchall())
+print(conn.execute(text('PRAGMA table_info(fornecedores_pneu)')).fetchall())
+print(conn.execute(text('PRAGMA table_info(fornecedores_cambio)')).fetchall())
+print(conn.execute(text('PRAGMA table_info(fornecedores_suspensao)')).fetchall())
+
+===== migration_contratos_fornecedor.py =====
+"""cria tabela contratos_fornecedor
+
+MIGRAÇÃO MANUAL (opção B — só use se NÃO for pelo autogenerate).
+
+COMO USAR ESTE ARQUIVO:
+1) Copie este arquivo pra dentro de  migrations/versions/
+2) Abra ele e ajuste a linha  down_revision = "..."  pro ID da sua migração
+   mais recente. Pra descobrir esse ID, rode no terminal:
+       flask db heads
+   (ele mostra algo tipo  a1b2c3d4e5f6 (head)  — cole esse valor em down_revision)
+3) Rode:
+       flask db upgrade
+
+Se você preferir o caminho automático (recomendado pra iniciante), NÃO use este
+arquivo: siga o passo a passo do autogenerate que está na resposta do chat.
+"""
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# ATENÇÃO: troque pelo ID gerado pra ESTA migração (pode manter este, é único).
+revision = "ows_contratos_0001"
+# ATENÇÃO: cole aqui o ID do seu head atual (veja com: flask db heads).
+# Se este for o PRIMEIRO migration do projeto, deixe None.
+down_revision = None
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    op.create_table(
+        "contratos_fornecedor",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("equipe_id", sa.Integer(), nullable=False),
+        sa.Column("temporada_id", sa.Integer(), nullable=False),
+        sa.Column("tipo_peca", sa.String(length=20), nullable=False),
+        sa.Column("fornecedor_id", sa.Integer(), nullable=False),
+        sa.Column("assinado_em", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(["equipe_id"], ["carros_jogadores.id"]),
+        sa.ForeignKeyConstraint(["temporada_id"], ["temporadas.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "equipe_id", "temporada_id", "tipo_peca",
+            name="uq_contrato_equipe_temporada_tipo",
+        ),
+    )
+    op.create_index(
+        "ix_contratos_fornecedor_equipe_id", "contratos_fornecedor", ["equipe_id"]
+    )
+    op.create_index(
+        "ix_contratos_fornecedor_temporada_id", "contratos_fornecedor", ["temporada_id"]
+    )
+
+
+def downgrade():
+    op.drop_index("ix_contratos_fornecedor_temporada_id", table_name="contratos_fornecedor")
+    op.drop_index("ix_contratos_fornecedor_equipe_id", table_name="contratos_fornecedor")
+    op.drop_table("contratos_fornecedor")
+
+===== modelos_componente.py =====
+"""
+Modelos xx-50 a xx-900 de cada componente contratado.
+
+CONCEITO (decisão de arquitetura):
+- O jogador contrata 1 fornecedor por temporada (motor, pneu, combustível,
+  câmbio, suspensão) — isso continua igual, no banco.
+- A CADA CORRIDA, o jogador escolhe qual MODELO do fornecedor usar: um número
+  de 50 a 900. Isso NÃO cria linhas no banco: o modelo é um MODIFICADOR
+  calculado em cima das stats base do fornecedor.
+- Regra geral:
+    * modelo BAIXO (50)  -> mais RÁPIDO, mas dura/rende MENOS (desgasta/consome mais)
+    * modelo ALTO (900)  -> mais LENTO, mas dura/rende MAIS (desgasta/consome menos)
+
+Os 10 modelos (não são igualmente espaçados; segue o padrão do jogo):
+    50, 100, 200, 300, 400, 500, 600, 700, 800, 900
+
+Categorias:
+- Câmbio/Suspensão: cada modelo corresponde a uma letra A-J.
+    A=50, B=100, C=200, D=300, E=400, F=500, G=600, H=700, I=800, J=900
+    (a pista pede uma letra ideal; escolher o modelo certo = acerto perfeito)
+- Pneu: cada modelo tem uma condição de pista:
+    50-500 = seco, 600-700 = molhada, 800-900 = encharcada
+
+Este módulo é PURO (sem banco, sem Flask), fácil de testar e de plugar
+depois no carro.py / corrida.py.
+"""
+
+# Os 10 modelos, na ordem oficial
+MODELOS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+
+# Letra da categoria de pista (câmbio/suspensão) por modelo
+LETRAS = "ABCDEFGHIJ"
+
+# Faixas de intensidade do modificador. Ajuste fino aqui se quiser
+# deixar a diferença entre modelos mais suave ou mais agressiva.
+# velocidade: segundos por volta somados ao tempo (negativo = mais rápido)
+VELOCIDADE_MODELO_50 = -0.40    # modelo mais baixo: ganha tempo
+VELOCIDADE_MODELO_900 = +0.60   # modelo mais alto: perde tempo
+# desgaste/consumo: multiplicador (>1 gasta mais, <1 gasta menos)
+FATOR_MODELO_50 = 1.45          # modelo baixo desgasta/consome bem mais
+FATOR_MODELO_900 = 0.65         # modelo alto economiza
+
+
+def indice_modelo(numero):
+    """Retorna 0..9 pra um número de modelo. Erro se inválido."""
+    return MODELOS.index(int(numero))
+
+
+def fracao_modelo(numero):
+    """Normaliza o modelo pra 0.0 (modelo 50) .. 1.0 (modelo 900)."""
+    return indice_modelo(numero) / (len(MODELOS) - 1)
+
+
+def _lerp(a, b, t):
+    """Interpolação linear simples entre a e b, com t de 0 a 1."""
+    return a + (b - a) * t
+
+
+def letra_do_modelo(numero):
+    """Câmbio/suspensão: A=50 ... J=900."""
+    return LETRAS[indice_modelo(numero)]
+
+
+def modelo_da_letra(letra):
+    """Inverso de letra_do_modelo: 'A' -> 50, 'J' -> 900."""
+    return MODELOS[LETRAS.index(letra.upper())]
+
+
+def condicao_pista_do_modelo(numero):
+    """Pneu: seco / molhada / encharcada, conforme o modelo."""
+    n = int(numero)
+    if n <= 500:
+        return "seco"
+    elif n <= 700:
+        return "molhada"
+    return "encharcada"
+
+
+def modificadores(numero, componente="generico"):
+    """
+    Retorna os modificadores do modelo escolhido.
+
+    Retorno (dict):
+      - velocidade_delta_s: segundos somados ao tempo de volta
+                            (negativo = mais rápido)
+      - fator_desgaste:      multiplicador de desgaste do pneu/componente
+      - fator_consumo:       multiplicador de consumo de combustível
+      - letra:               letra A-J (só útil pra câmbio/suspensão)
+      - condicao_pista:      seco/molhada/encharcada (só útil pra pneu)
+
+    `componente` pode ajustar a intensidade no futuro; por ora todos usam
+    a mesma curva base, o que já dá um jogo equilibrado.
+    """
+    numero = int(numero)
+    frac = fracao_modelo(numero)
+
+    velocidade_delta_s = round(_lerp(VELOCIDADE_MODELO_50, VELOCIDADE_MODELO_900, frac), 3)
+    fator = round(_lerp(FATOR_MODELO_50, FATOR_MODELO_900, frac), 3)
+
+    return {
+        "modelo": numero,
+        "velocidade_delta_s": velocidade_delta_s,
+        "fator_desgaste": fator,
+        "fator_consumo": fator,
+        "letra": letra_do_modelo(numero),
+        "condicao_pista": condicao_pista_do_modelo(numero),
+    }
+
+
+def modelo_valido(numero):
+    """True se o número é um dos 10 modelos oficiais."""
+    try:
+        return int(numero) in MODELOS
+    except (ValueError, TypeError):
+        return False
+
+
+if __name__ == "__main__":
+    print("Modelo | Vel(s) | Fator desg/cons | Letra | Condição pneu")
+    print("-" * 60)
+    for m in MODELOS:
+        mod = modificadores(m)
+        print(f"  {m:4d} | {mod['velocidade_delta_s']:+6.3f} | "
+              f"{mod['fator_desgaste']:>6.3f}          | "
+              f"  {mod['letra']}   | {mod['condicao_pista']}")
+
+===== models_contrato.py =====
+"""
+ContratoFornecedor — vínculo de fornecedor por TEMPORADA (regra do Estrategia F1).
+
+Regra do jogo:
+- O jogador assina 1 contrato de fornecedor por TIPO DE PEÇA
+  (motor, combustível, pneu, câmbio, suspensão, engenheiro) UMA VEZ POR TEMPORADA.
+- O contrato vale a temporada inteira e NÃO pode ser trocado livremente durante
+  a temporada ativa (rescisão com multa fica pra depois — por ora só BLOQUEIA a
+  troca livre).
+
+Este arquivo é SEPARADO do models.py principal de propósito. Ele reaproveita o
+MESMO objeto `db` (SQLAlchemy) do models.py, então tudo fica no mesmo banco e nas
+mesmas migrações — sem duplicar instância.
+
+IMPORTANTE (compatibilidade):
+- NÃO altera nenhuma tabela existente.
+- O campo que aponta pro fornecedor se chama `fornecedor_id` (e NÃO "contrato_id"),
+  pra não confundir com o nome desta tabela nova.
+- Como cada tipo de peça vive numa tabela de fornecedor diferente
+  (fornecedores_motor, fornecedores_combustivel, ...), `fornecedor_id` é um
+  Integer SEM ForeignKey física (FK polimórfica resolvida por `tipo_peca`).
+"""
+
+from datetime import datetime
+
+# Reaproveita a MESMA instância db do models.py (não cria outra!)
+from models import (
+    db,
+    FornecedorMotor,
+    FornecedorCombustivel,
+    FornecedorPneu,
+    FornecedorCambio,
+    FornecedorSuspensao,
+    FornecedorEngenheiro,
+)
+from models_temporada import Temporada
+
+
+# Tipos de peça válidos (é o "tipo_peca" da tabela)
+TIPOS_PECA = ("motor", "combustivel", "pneu", "cambio", "suspensao", "engenheiro")
+
+# Mapa tipo_peca -> classe do fornecedor correspondente, pra resolver a "FK polimórfica"
+MODELO_POR_TIPO = {
+    "motor": FornecedorMotor,
+    "combustivel": FornecedorCombustivel,
+    "pneu": FornecedorPneu,
+    "cambio": FornecedorCambio,
+    "suspensao": FornecedorSuspensao,
+    "engenheiro": FornecedorEngenheiro,
+}
+
+# Mapa tipo_peca -> nome do campo legado no CarroJogador (usado no fallback e na
+# migração dos contratos das temporadas antigas).
+CAMPO_LEGADO_POR_TIPO = {
+    "motor": "motor_fornecedor_id",
+    "combustivel": "combustivel_fornecedor_id",
+    "pneu": "pneu_fornecedor_id",
+    "cambio": "cambio_fornecedor_id",
+    "suspensao": "suspensao_fornecedor_id",
+    "engenheiro": "engenheiro_fornecedor_id",
+}
+
+
+class ContratoFornecedorError(Exception):
+    """Erro de regra de negócio ao assinar/trocar contrato."""
+    pass
+
+
+class ContratoFornecedor(db.Model):
+    """1 contrato = (equipe, temporada, tipo_peca) -> fornecedor.
+
+    Só pode existir UM contrato por (equipe_id, temporada_id, tipo_peca),
+    garantido pela UniqueConstraint abaixo.
+    """
+    __tablename__ = "contratos_fornecedor"
+    __table_args__ = (
+        db.UniqueConstraint(
+            "equipe_id", "temporada_id", "tipo_peca",
+            name="uq_contrato_equipe_temporada_tipo",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False, index=True)
+    temporada_id = db.Column(db.Integer, db.ForeignKey("temporadas.id"), nullable=False, index=True)
+    tipo_peca = db.Column(db.String(20), nullable=False)  # um de TIPOS_PECA
+
+    # FK polimórfica: aponta pra fornecedores_<tipo_peca>.id (sem FK física).
+    fornecedor_id = db.Column(db.Integer, nullable=False)
+
+    assinado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador")
+    temporada = db.relationship("Temporada")
+
+    def __repr__(self):
+        return (f"<ContratoFornecedor equipe={self.equipe_id} "
+                f"temp={self.temporada_id} {self.tipo_peca}=#{self.fornecedor_id}>")
+
+    # ---------------------------------------------------------------
+    # Helpers de instância
+    # ---------------------------------------------------------------
+    def fornecedor(self):
+        """Retorna o objeto Fornecedor* correspondente (ou None)."""
+        modelo = MODELO_POR_TIPO.get(self.tipo_peca)
+        if not modelo:
+            return None
+        return modelo.query.get(self.fornecedor_id)
+
+
+# ===================================================================
+# CRIAÇÃO DA TABELA (atalho sem migração — mesmo padrão db.create_all)
+# ===================================================================
+def garantir_tabela_contratos():
+    """Cria a tabela contratos_fornecedor se ainda não existir.
+
+    Segue o MESMO padrão do seu garantir_colunas_fornecedores(): create_all()
+    só cria o que falta e NUNCA apaga/altera tabela existente. Chame isto dentro
+    do bloco `with app.app_context():` no app.py, logo após garantir_colunas_fornecedores().
+
+    Use isto se você NÃO quiser mexer com Flask-Migrate agora — é à prova de erro.
+    """
+    try:
+        db.create_all()
+    except Exception:
+        pass
+
+
+# ===================================================================
+# REGRAS DE NEGÓCIO
+# ===================================================================
+def _temporada_ativa_ou_erro():
+    temporada = Temporada.ativa_atual()
+    if not temporada:
+        raise ContratoFornecedorError(
+            "Não há temporada ativa. Só é possível assinar contratos com uma temporada ativa."
+        )
+    return temporada
+
+
+def _validar_tipo(tipo_peca):
+    if tipo_peca not in TIPOS_PECA:
+        raise ContratoFornecedorError(
+            f"tipo_peca inválido: {tipo_peca!r}. Use um de {TIPOS_PECA}."
+        )
+
+
+def obter_contrato(equipe_id, tipo_peca, temporada_id=None):
+    """Retorna o ContratoFornecedor de (equipe, temporada, tipo_peca) ou None.
+
+    Se temporada_id não for informado, usa a temporada ATIVA. Se não houver
+    temporada ativa, retorna None (não levanta erro).
+    """
+    _validar_tipo(tipo_peca)
+    if temporada_id is None:
+        temporada = Temporada.ativa_atual()
+        if not temporada:
+            return None
+        temporada_id = temporada.id
+    return ContratoFornecedor.query.filter_by(
+        equipe_id=equipe_id, temporada_id=temporada_id, tipo_peca=tipo_peca
+    ).first()
+
+
+def obter_fornecedor_contratado(equipe_id, tipo_peca, usar_fallback_legado=True):
+    """Retorna o OBJETO Fornecedor* contratado pela equipe na temporada ativa.
+
+    Esta é a função que substitui o uso direto de
+    CarroJogador.motor_fornecedor_id (etc.) no montar_carro() e no treino_livre_sim.
+
+    Ordem de resolução:
+      1) Contrato da temporada ativa (ContratoFornecedor).
+      2) Se não houver contrato E usar_fallback_legado=True, cai no campo antigo
+         do CarroJogador (motor_fornecedor_id, ...). Isso mantém as equipes/temporadas
+         antigas funcionando enquanto você migra tudo pros contratos.
+
+    Retorna o objeto (ex.: FornecedorMotor) ou None.
+    """
+    _validar_tipo(tipo_peca)
+
+    contrato = obter_contrato(equipe_id, tipo_peca)
+    if contrato:
+        return contrato.fornecedor()
+
+    if not usar_fallback_legado:
+        return None
+
+    # Fallback legado: lê o FK direto que ainda existe no CarroJogador.
+    from models import CarroJogador
+    equipe = CarroJogador.query.get(equipe_id)
+    if not equipe:
+        return None
+    campo = CAMPO_LEGADO_POR_TIPO[tipo_peca]
+    fornecedor_id = getattr(equipe, campo, None)
+    if not fornecedor_id:
+        return None
+    modelo = MODELO_POR_TIPO[tipo_peca]
+    return modelo.query.get(fornecedor_id)
+
+
+def obter_id_fornecedor_contratado(equipe_id, tipo_peca, usar_fallback_legado=True):
+    """Igual à função acima, mas retorna só o ID (ou None). Útil pra montar_carro,
+    que hoje trabalha com os *_fornecedor_id."""
+    obj = obter_fornecedor_contratado(equipe_id, tipo_peca, usar_fallback_legado)
+    return obj.id if obj else None
+
+
+def assinar_contrato(equipe_id, tipo_peca, fornecedor_id, temporada_id=None,
+                     permitir_troca=False):
+    """Assina (ou re-assina) o contrato de uma peça pra temporada ativa.
+
+    Regras:
+      - Precisa de temporada ativa (a menos que você passe temporada_id explícito).
+      - Se JÁ existe contrato pra (equipe, temporada, tipo_peca):
+          * mesmo fornecedor -> não faz nada, retorna o contrato existente.
+          * fornecedor diferente -> BLOQUEIA (levanta ContratoFornecedorError),
+            a não ser que permitir_troca=True (reservado pra futura "rescisão com
+            multa"; por enquanto ninguém chama com True no fluxo normal).
+      - Se não existe -> cria.
+
+    Retorna o ContratoFornecedor.
+    """
+    _validar_tipo(tipo_peca)
+
+    if temporada_id is None:
+        temporada_id = _temporada_ativa_ou_erro().id
+
+    # Valida se o fornecedor existe na tabela certa
+    modelo = MODELO_POR_TIPO[tipo_peca]
+    if not modelo.query.get(fornecedor_id):
+        raise ContratoFornecedorError(
+            f"Fornecedor #{fornecedor_id} não existe para tipo_peca={tipo_peca}."
+        )
+
+    contrato = ContratoFornecedor.query.filter_by(
+        equipe_id=equipe_id, temporada_id=temporada_id, tipo_peca=tipo_peca
+    ).first()
+
+    if contrato:
+        if contrato.fornecedor_id == int(fornecedor_id):
+            return contrato  # já é esse, nada a fazer
+        if not permitir_troca:
+            raise ContratoFornecedorError(
+                f"Já existe contrato de {tipo_peca} nesta temporada. "
+                f"Contratos valem a temporada inteira e não podem ser trocados livremente."
+            )
+        # permitir_troca=True: futura rescisão com multa entraria aqui.
+        contrato.fornecedor_id = int(fornecedor_id)
+        contrato.assinado_em = datetime.utcnow()
+        db.session.commit()
+        return contrato
+
+    contrato = ContratoFornecedor(
+        equipe_id=equipe_id,
+        temporada_id=temporada_id,
+        tipo_peca=tipo_peca,
+        fornecedor_id=int(fornecedor_id),
+    )
+    db.session.add(contrato)
+    db.session.commit()
+    return contrato
+
+
+def pode_trocar_contrato(tipo_peca=None):
+    """True se dá pra assinar/trocar contrato agora (fluxo normal).
+
+    Regra simples: só pode assinar/alterar contratos quando NÃO há temporada
+    ativa (pré-temporada). Com temporada ativa, contratos ficam travados.
+    Use isto nas views pra mostrar/esconder o botão de trocar fornecedor.
+    """
+    return Temporada.ativa_atual() is None
+
+
+def contratos_da_equipe(equipe_id, temporada_id=None):
+    """Lista todos os contratos da equipe numa temporada (default: a ativa).
+    Retorna dict { tipo_peca: ContratoFornecedor }."""
+    if temporada_id is None:
+        temporada = Temporada.ativa_atual()
+        if not temporada:
+            return {}
+        temporada_id = temporada.id
+    contratos = ContratoFornecedor.query.filter_by(
+        equipe_id=equipe_id, temporada_id=temporada_id
+    ).all()
+    return {c.tipo_peca: c for c in contratos}
+
+
+def importar_contratos_do_legado(equipe_id, temporada_id):
+    """UTILITÁRIO (opcional): cria contratos a partir dos campos antigos do
+    CarroJogador (motor_fornecedor_id, ...) pra uma temporada.
+
+    Serve pra "migrar" uma equipe que já existia antes dos contratos:
+    lê os FKs diretos e cria 1 ContratoFornecedor por peça, sem duplicar.
+    Ignora peças sem fornecedor (ex.: engenheiro pode ser None).
+
+    Retorna quantos contratos foram criados.
+    """
+    from models import CarroJogador
+    equipe = CarroJogador.query.get(equipe_id)
+    if not equipe:
+        return 0
+
+    criados = 0
+    for tipo_peca, campo in CAMPO_LEGADO_POR_TIPO.items():
+        fornecedor_id = getattr(equipe, campo, None)
+        if not fornecedor_id:
+            continue
+        existe = ContratoFornecedor.query.filter_by(
+            equipe_id=equipe_id, temporada_id=temporada_id, tipo_peca=tipo_peca
+        ).first()
+        if existe:
+            continue
+        db.session.add(ContratoFornecedor(
+            equipe_id=equipe_id,
+            temporada_id=temporada_id,
+            tipo_peca=tipo_peca,
+            fornecedor_id=int(fornecedor_id),
+        ))
+        criados += 1
+
+    if criados:
+        db.session.commit()
+    return criados
+
+===== models.py =====
+"""
+Tabelas do banco de dados.
+"""
+
+from datetime import datetime
+
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+
+db = SQLAlchemy()
+
+
+def garantir_colunas_fornecedores():
+    from sqlalchemy import text
+    try:
+        with db.engine.begin() as conexao:
+            for tabela, coluna, definicao in [
+                ("fornecedores_pneu", "categoria_chuva", "TEXT DEFAULT 'seco'"),
+                ("fornecedores_cambio", "categoria_pista", "TEXT DEFAULT 'A'"),
+                ("fornecedores_suspensao", "categoria_pista", "TEXT DEFAULT 'A'"),
+                ("fornecedores_engenheiro", "eficiencia_exata", "REAL DEFAULT 0.0"),
+                ("usuarios", "grupo", "TEXT"),
+                ("usuarios", "classe", "TEXT"),
+                ("configuracao", "orcamento_inicial", "REAL DEFAULT 55000.0"),
+                # Chassi/Aero: novos campos do Desenvolvimento
+                ("desenvolvimentos", "chassi_percentual_aplicado", "REAL DEFAULT 100.0"),
+                ("desenvolvimentos", "chassi_percentual_em_construcao", "REAL DEFAULT 0.0"),
+                ("desenvolvimentos", "aero_percentual_aplicado", "REAL DEFAULT 100.0"),
+                ("desenvolvimentos", "aero_percentual_em_construcao", "REAL DEFAULT 0.0"),
+                ("desenvolvimentos", "nivel_engenheiro_projetista", "INTEGER DEFAULT 1"),
+                # CarroJogador: chassi_fornecedor_id vira opcional (legado)
+                # REFACTOR xx-50/xx-900: modelo escolhido por corrida (50..900),
+                # NULL = nenhum modelo escolhido = comportamento antigo.
+                ("carros_jogadores", "modelo_motor", "INTEGER"),
+                ("carros_jogadores", "modelo_combustivel", "INTEGER"),
+                ("carros_jogadores", "modelo_pneu", "INTEGER"),
+                ("carros_jogadores", "modelo_cambio", "INTEGER"),
+                ("carros_jogadores", "modelo_suspensao", "INTEGER"),
+            ]:
+                try:
+                    conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
+                except Exception as erro:
+                    mensagem = str(erro).lower()
+                    if (
+                        "duplicate column name" not in mensagem
+                        and "already exists" not in mensagem
+                        and "duplicate column" not in mensagem
+                        and "no such table" not in mensagem
+                    ):
+                        raise
+    except Exception:
+        pass
+
+    # Cria tabelas novas que ainda não existam no banco (ex.: resultados_treino_livre).
+    # create_all() NÃO altera nem apaga tabelas existentes: só cria as que faltam.
+    # Assim o banco atual continua 100% compatível.
+    try:
+        db.create_all()
+    except Exception:
+        pass
+
+
+class Usuario(db.Model):
+    __tablename__ = "usuarios"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    senha_hash = db.Column(db.String(255), nullable=True)
+    google_id = db.Column(db.String(255), unique=True, nullable=True)
+    eh_admin = db.Column(db.Boolean, default=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    grupo = db.Column(db.String(50), nullable=True)
+    classe = db.Column(db.String(50), nullable=True)
+
+    equipe = db.relationship("CarroJogador", backref="usuario", uselist=False)
+
+    def definir_senha(self, senha):
+        self.senha_hash = generate_password_hash(senha)
+
+    def verificar_senha(self, senha):
+        if not self.senha_hash:
+            return False
+        return check_password_hash(self.senha_hash, senha)
+
+
+class FornecedorMotor(db.Model):
+    __tablename__ = "fornecedores_motor"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    potencia = db.Column(db.Float, default=0.0)
+    eficiencia_combustivel = db.Column(db.Float, default=0.0)
+
+
+class FornecedorCombustivel(db.Model):
+    __tablename__ = "fornecedores_combustivel"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    eficiencia = db.Column(db.Float, default=0.0)
+    aumento_potencia_motor = db.Column(db.Float, default=0.0)
+
+
+class FornecedorPneu(db.Model):
+    __tablename__ = "fornecedores_pneu"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    performance = db.Column(db.Float, default=0.0)
+    desgaste = db.Column(db.Float, default=1.8)
+    categoria_chuva = db.Column(db.String(20), default="seco")
+
+
+class FornecedorChassi(db.Model):
+    """LEGADO: mantido no banco por compatibilidade, mas não é mais usado.
+    Chassi agora é projetado pelo Engenheiro contratado (regra do manual)."""
+    __tablename__ = "fornecedores_chassi"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    performance = db.Column(db.Float, default=0.0)
+
+
+class FornecedorCambio(db.Model):
+    __tablename__ = "fornecedores_cambio"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    performance = db.Column(db.Float, default=0.0)
+    categoria_pista = db.Column(db.String(2), default="A")
+
+
+class FornecedorSuspensao(db.Model):
+    __tablename__ = "fornecedores_suspensao"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    performance = db.Column(db.Float, default=0.0)
+    categoria_pista = db.Column(db.String(2), default="A")
+
+
+class FornecedorEngenheiro(db.Model):
+    __tablename__ = "fornecedores_engenheiro"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    nivel = db.Column(db.Integer, default=1)
+    eficiencia_exata = db.Column(db.Float, default=0.0)
+
+
+class Configuracao(db.Model):
+    __tablename__ = "configuracao"
+
+    id = db.Column(db.Integer, primary_key=True)
+    orcamento_inicial = db.Column(db.Float, default=55_000.0)
+
+    dev_incremento_percentual = db.Column(db.Float, default=5.0)
+    dev_tempo_base_horas = db.Column(db.Float, default=1.0)
+    dev_tempo_fator_horas = db.Column(db.Float, default=10.0)
+    dev_custo_base = db.Column(db.Float, default=50_000.0)
+    dev_custo_fator = db.Column(db.Float, default=1.0)
+    treino_incremento_percentual = db.Column(db.Float, default=5.0)
+    treino_tempo_base_horas = db.Column(db.Float, default=1.0)
+    treino_tempo_fator_horas = db.Column(db.Float, default=6.0)
+    treino_custo_base = db.Column(db.Float, default=30_000.0)
+    treino_custo_fator = db.Column(db.Float, default=1.0)
+    pit_tempo_sem_treino = db.Column(db.Float, default=25.0)
+    pit_tempo_treino_completo = db.Column(db.Float, default=9.0)
+
+    @classmethod
+    def obter(cls):
+        config = cls.query.get(1)
+        if not config:
+            config = cls(id=1)
+            db.session.add(config)
+            db.session.commit()
+        return config
+
+
+class Desenvolvimento(db.Model):
+    """Progresso de chassi + aerodinâmica de um jogador.
+
+    Regra do manual:
+    - Chassi e aero são projetados pelo Engenheiro contratado.
+    - Cada um vai de 0 a 100%.
+    - O que está EM CONSTRUÇÃO durante a temporada só passa a valer
+      NA PRÓXIMA temporada, quando o admin fecha a temporada e o
+      sistema aplica os projetos concluídos.
+    - Para participar da próxima temporada, chassi + aero precisam
+      chegar a 100% até o fim da temporada atual.
+    - Jogador novo recebe chassi + aero de nível 1, 100% aplicado.
+    """
+    __tablename__ = "desenvolvimentos"
+
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
+
+    # Campo legado (ainda usado em bancos antigos)
+    percentual = db.Column(db.Float, default=0.0)
+
+    # Chassi
+    chassi_percentual_aplicado = db.Column(db.Float, default=100.0)      # o que o carro USA nas corridas
+    chassi_percentual_em_construcao = db.Column(db.Float, default=0.0)    # o que o engenheiro está construindo
+
+    # Aerodinâmica
+    aero_percentual_aplicado = db.Column(db.Float, default=100.0)
+    aero_percentual_em_construcao = db.Column(db.Float, default=0.0)
+
+    # Nível do engenheiro que projetou o chassi/aero atualmente aplicado.
+    # Define a performance máxima. Jogador novo começa com 1.
+    nivel_engenheiro_projetista = db.Column(db.Integer, default=1)
+
+    em_progresso = db.Column(db.Boolean, default=False)
+    inicio_em = db.Column(db.DateTime, nullable=True)
+    horario_conclusao = db.Column(db.DateTime, nullable=True)
+
+    @classmethod
+    def obter_ou_criar(cls, equipe_id):
+        registro = cls.query.filter_by(equipe_id=equipe_id).first()
+        if not registro:
+            registro = cls(equipe_id=equipe_id)
+            db.session.add(registro)
+            db.session.commit()
+        return registro
+
+
+class TreinamentoBox(db.Model):
+    __tablename__ = "treinamentos_box"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
+    percentual = db.Column(db.Float, default=0.0)
+    em_progresso = db.Column(db.Boolean, default=False)
+    inicio_em = db.Column(db.DateTime, nullable=True)
+    horario_conclusao = db.Column(db.DateTime, nullable=True)
+
+    @classmethod
+    def obter_ou_criar(cls, equipe_id):
+        registro = cls.query.filter_by(equipe_id=equipe_id).first()
+        if not registro:
+            registro = cls(equipe_id=equipe_id)
+            db.session.add(registro)
+            db.session.commit()
+        return registro
+
+
+class CarroJogador(db.Model):
+    """Representa o CARRO INDIVIDUAL de um jogador.
+
+    Regra nova:
+    - Chassi NÃO é mais contrato com fornecedor. É projetado pelo
+      Engenheiro. Por isso `chassi_fornecedor_id` virou opcional
+      (legado, mantido pra bancos antigos).
+    - A performance do chassi vem do Desenvolvimento + nível do
+      engenheiro que projetou.
+
+    REFACTOR xx-50/xx-900:
+    - O jogador contrata 1 fornecedor por temporada (igual antes).
+    - A CADA CORRIDA, escolhe qual MODELO (50 a 900) usar de cada
+      componente. Guardamos essa escolha nas colunas modelo_*.
+      NULL = nenhum modelo escolhido = comportamento antigo.
+    """
+    __tablename__ = "carros_jogadores"
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), unique=True, nullable=False)
+    nome = db.Column(db.String(100), nullable=False)
+    orcamento = db.Column(db.Float, default=55_000.0)
+
+    motor_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_motor.id"), nullable=False)
+    combustivel_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_combustivel.id"), nullable=False)
+    pneu_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_pneu.id"), nullable=False)
+    # Legado: pode ser NULL agora
+    chassi_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_chassi.id"), nullable=True)
+    cambio_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_cambio.id"), nullable=False)
+    suspensao_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_suspensao.id"), nullable=False)
+    engenheiro_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_engenheiro.id"), nullable=True)
+
+    combustivel_carregado = db.Column(db.Float, default=110.0)
+    cor_primaria = db.Column(db.String(7), default="#cc0000")
+    cor_secundaria = db.Column(db.String(7), default="#ffffff")
+
+    # REFACTOR xx-50/xx-900: modelo escolhido pra próxima corrida (50..900).
+    # NULL = usa o comportamento antigo (sem modificador de modelo).
+    modelo_motor = db.Column(db.Integer, nullable=True)
+    modelo_combustivel = db.Column(db.Integer, nullable=True)
+    modelo_pneu = db.Column(db.Integer, nullable=True)
+    modelo_cambio = db.Column(db.Integer, nullable=True)
+    modelo_suspensao = db.Column(db.Integer, nullable=True)
+
+    def montar_carro(self):
+        from equipamentos import Motor, Combustivel, Pneu, Chassi, Cambio, Suspensao, Engenheiro
+        from equipe import Equipe
+        from carro import Carro
+        from constantes import performance_chassi_do_nivel
+
+        motor_db = FornecedorMotor.query.get(self.motor_fornecedor_id)
+        combustivel_db = FornecedorCombustivel.query.get(self.combustivel_fornecedor_id)
+        pneu_db = FornecedorPneu.query.get(self.pneu_fornecedor_id)
+        cambio_db = FornecedorCambio.query.get(self.cambio_fornecedor_id)
+        suspensao_db = FornecedorSuspensao.query.get(self.suspensao_fornecedor_id)
+        engenheiro_db = (
+            FornecedorEngenheiro.query.get(self.engenheiro_fornecedor_id)
+            if self.engenheiro_fornecedor_id else None
+        )
+
+        equipe = Equipe(self.nome, self.orcamento)
+        motor = Motor(motor_db.nome, motor_db.custo_temporada, motor_db.potencia, motor_db.eficiencia_combustivel)
+        combustivel = Combustivel(combustivel_db.nome, combustivel_db.custo_temporada, combustivel_db.eficiencia,
+                                   combustivel_db.aumento_potencia_motor)
+        pneu = Pneu(pneu_db.nome, pneu_db.custo_temporada, pneu_db.performance, pneu_db.desgaste,
+                    categoria_chuva=getattr(pneu_db, "categoria_chuva", "seco") or "seco")
+
+        # Chassi: performance vem do nível do engenheiro projetista + percentual aplicado
+        desenvolvimento = Desenvolvimento.obter_ou_criar(self.id)
+        performance_chassi_base = performance_chassi_do_nivel(desenvolvimento.nivel_engenheiro_projetista or 1)
+        performance_chassi_efetiva = performance_chassi_base * (
+            (desenvolvimento.chassi_percentual_aplicado or 0) / 100.0
+        )
+        chassi = Chassi(
+            nome=f"Chassi nível {desenvolvimento.nivel_engenheiro_projetista or 1}",
+            custo=0.0,
+            performance=performance_chassi_efetiva,
+        )
+
+        cambio = Cambio(cambio_db.nome, cambio_db.custo_temporada, cambio_db.performance,
+                        categoria_pista=getattr(cambio_db, "categoria_pista", "A") or "A")
+        suspensao = Suspensao(suspensao_db.nome, suspensao_db.custo_temporada, suspensao_db.performance,
+                              categoria_pista=getattr(suspensao_db, "categoria_pista", "A") or "A")
+
+        engenheiro = None
+        if engenheiro_db:
+            # Efeito antigo (eficiência exata usada em consumo/desgaste).
+            # A performance do CHASSI já foi aplicada acima usando o nível do
+            # engenheiro projetista, então aqui só passamos a eficiência efetiva
+            # zerada (compat) ou usamos como efeito auxiliar.
+            eficiencia_efetiva = 0.0
+            engenheiro = Engenheiro(engenheiro_db.nome, engenheiro_db.custo_temporada,
+                                     engenheiro_db.nivel, eficiencia_efetiva)
+
+        config = Configuracao.obter()
+        treinamento = TreinamentoBox.obter_ou_criar(self.id)
+        tempo_pit_stop = config.pit_tempo_sem_treino - (
+            (config.pit_tempo_sem_treino - config.pit_tempo_treino_completo) * (treinamento.percentual / 100)
+        )
+
+        carro_obj = Carro(
+            equipe=equipe, motor=motor, combustivel=combustivel, pneu=pneu, chassi=chassi,
+            cambio=cambio, suspensao=suspensao, engenheiro=engenheiro,
+            combustivel_carregado=self.combustivel_carregado, tempo_pit_stop=tempo_pit_stop,
+        )
+
+        # Aero: performance somada como bônus separado no carro
+        from constantes import performance_aero_do_nivel
+        performance_aero_base = performance_aero_do_nivel(desenvolvimento.nivel_engenheiro_projetista or 1)
+        carro_obj.performance_aero = performance_aero_base * (
+            (desenvolvimento.aero_percentual_aplicado or 0) / 100.0
+        )
+
+        # REFACTOR xx-50/xx-900: aplica os modelos escolhidos pra corrida.
+        # Se todos forem NULL, definir_modelos não faz nada (comportamento antigo).
+        carro_obj.definir_modelos(
+            motor=self.modelo_motor,
+            combustivel=self.modelo_combustivel,
+            pneu=self.modelo_pneu,
+            cambio=self.modelo_cambio,
+            suspensao=self.modelo_suspensao,
+        )
+
+        return carro_obj
+
+    def custo_total_montagem(self):
+        total = 0.0
+        for modelo, campo_id in [
+            (FornecedorMotor, self.motor_fornecedor_id),
+            (FornecedorCombustivel, self.combustivel_fornecedor_id),
+            (FornecedorPneu, self.pneu_fornecedor_id),
+            (FornecedorCambio, self.cambio_fornecedor_id),
+            (FornecedorSuspensao, self.suspensao_fornecedor_id),
+        ]:
+            item = modelo.query.get(campo_id)
+            if item:
+                total += item.custo_montagem
+        if self.engenheiro_fornecedor_id:
+            engenheiro = FornecedorEngenheiro.query.get(self.engenheiro_fornecedor_id)
+            if engenheiro:
+                total += engenheiro.custo_montagem
+        return total
+
+    def custo_total_contratos(self):
+        total = 0.0
+        for modelo, campo_id in [
+            (FornecedorMotor, self.motor_fornecedor_id),
+            (FornecedorCombustivel, self.combustivel_fornecedor_id),
+            (FornecedorPneu, self.pneu_fornecedor_id),
+            (FornecedorCambio, self.cambio_fornecedor_id),
+            (FornecedorSuspensao, self.suspensao_fornecedor_id),
+        ]:
+            item = modelo.query.get(campo_id)
+            if item:
+                total += float(item.custo_temporada or 0)
+        if self.engenheiro_fornecedor_id:
+            engenheiro = FornecedorEngenheiro.query.get(self.engenheiro_fornecedor_id)
+            if engenheiro:
+                total += float(engenheiro.custo_temporada or 0)
+        return total
+
+
+EquipeDB = CarroJogador   # alias pra código antigo
+
+
+class ResultadoClassificacao(db.Model):
+    __tablename__ = "resultados_classificacao"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    tempo_classificacao = db.Column(db.Float)
+    posicao_grid = db.Column(db.Integer)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    equipe = db.relationship("CarroJogador")
+
+
+class ResultadoCorrida(db.Model):
+    __tablename__ = "resultados_corrida"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    tempo_total_segundos = db.Column(db.Float)
+    pit_stops = db.Column(db.Integer)
+    posicao_final = db.Column(db.Integer)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    equipe = db.relationship("CarroJogador")
+
+
+class ResultadoTreinoLivre(db.Model):
+    """Melhor resultado de TREINO LIVRE de cada equipe.
+
+    Regra: só o MELHOR resultado da equipe fica salvo (1 linha por equipe,
+    garantido por equipe_id unique). Se um novo treino não bater o melhor
+    tempo de volta anterior, o registro antigo é mantido.
+
+    'melhor' = menor melhor_volta_tempo (volta mais rápida do stint).
+    """
+    __tablename__ = "resultados_treino_livre"
+
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
+    pneu_nome = db.Column(db.String(100))
+    combustivel_nome = db.Column(db.String(100))
+    total_voltas = db.Column(db.Integer, default=0)
+    melhor_volta_numero = db.Column(db.Integer, default=0)
+    melhor_volta_tempo = db.Column(db.Float)
+    tempo_medio = db.Column(db.Float)
+    erro_setup = db.Column(db.Float, default=0.0)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador")
+
+    @classmethod
+    def registrar_se_melhor(cls, equipe_id, resultado):
+        """Salva o resultado se ele for melhor que o atual da equipe.
+
+        Retorna (registro, novo_recorde: bool).
+        - Se não havia registro -> cria e salva (novo_recorde=True).
+        - Se o novo melhor_volta_tempo for MENOR que o guardado -> substitui.
+        - Caso contrário -> mantém o antigo (novo_recorde=False).
+        """
+        novo_tempo = resultado.get("melhor_volta_tempo")
+        existente = cls.query.filter_by(equipe_id=equipe_id).first()
+
+        # Sem melhor tempo válido (stint sem voltas) -> não mexe.
+        if not novo_tempo or novo_tempo <= 0:
+            return existente, False
+
+        if existente and existente.melhor_volta_tempo and novo_tempo >= existente.melhor_volta_tempo:
+            return existente, False  # não superou -> mantém o anterior
+
+        if not existente:
+            existente = cls(equipe_id=equipe_id)
+            db.session.add(existente)
+
+        existente.pneu_nome = resultado.get("pneu_nome")
+        existente.combustivel_nome = resultado.get("combustivel_nome")
+        existente.total_voltas = int(resultado.get("total_voltas") or 0)
+        existente.melhor_volta_numero = int(resultado.get("melhor_volta_numero") or 0)
+        existente.melhor_volta_tempo = float(novo_tempo)
+        existente.tempo_medio = float(resultado.get("tempo_medio") or 0.0)
+        existente.erro_setup = float(resultado.get("erro_setup") or 0.0)
+        existente.criado_em = datetime.utcnow()
+        db.session.commit()
+        return existente, True
+
+===== models_temporada.py =====
+"""
+Novas tabelas do sistema de Temporada.
+
+Ficam num arquivo separado do models.py principal pra não mexer no
+que já está funcionando com equipes reais. Usa o mesmo `db` de lá.
+
+Ao subir o Flask pela 1ª vez com esse arquivo, você precisa rodar:
+    flask db migrate -m "temporadas"
+    flask db upgrade
+
+Isso cria as tabelas novas sem tocar nas antigas.
+"""
+
+from datetime import datetime
+import json
+
+from sqlalchemy.exc import NoSuchTableError, OperationalError, ProgrammingError
+
+from models import db
+
+
+class Temporada(db.Model):
+    """Um "campeonato": um conjunto ordenado de corridas + pontuação."""
+    __tablename__ = "temporadas"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(120), nullable=False)
+    ativa = db.Column(db.Boolean, default=False, nullable=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+
+    corridas_agendadas = db.relationship(
+        "CorridaAgendada", backref="temporada",
+        cascade="all, delete-orphan",
+        order_by="CorridaAgendada.ordem",
+    )
+
+    @classmethod
+    def ativa_atual(cls):
+        """Retorna a temporada marcada como ativa, ou None."""
+        try:
+            return cls.query.filter_by(ativa=True).first()
+        except (OperationalError, ProgrammingError, NoSuchTableError):
+            return None
+
+    def proxima_corrida(self):
+        """Retorna a próxima CorridaAgendada ainda não executada, ou None."""
+        return next((c for c in self.corridas_agendadas if not c.executada), None)
+
+    def total_corridas(self):
+        return len(self.corridas_agendadas)
+
+    def corridas_executadas(self):
+        return sum(1 for c in self.corridas_agendadas if c.executada)
+
+
+class CorridaAgendada(db.Model):
+    """Cada linha do calendário: qual pista, em qual ordem, se já rodou.
+
+    Guarda os resultados numa coluna JSON pra ser autossuficiente
+    (não depende do ResultadoCorrida antigo, e sobrevive a mudanças
+    lá). Cada item do JSON é do formato:
+        {equipe_id, equipe_nome, posicao, pontos, abandonou, tempo_total}
+    """
+    __tablename__ = "corridas_agendadas"
+
+    id = db.Column(db.Integer, primary_key=True)
+    temporada_id = db.Column(db.Integer, db.ForeignKey("temporadas.id"), nullable=False)
+    # Referência à pista no banco separado pistas_reais.db (só o ID).
+    pista_real_id = db.Column(db.Integer, nullable=False)
+    # Nome cacheado pra não depender de consulta cruzada em toda tela.
+    pista_nome = db.Column(db.String(120))
+    ordem = db.Column(db.Integer, nullable=False)
+    executada = db.Column(db.Boolean, default=False, nullable=False)
+    data_execucao = db.Column(db.DateTime)
+    resultado_json = db.Column(db.Text, default="[]")
+
+    def resultados(self):
+        """Lê os resultados salvos como lista de dicts."""
+        try:
+            return json.loads(self.resultado_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def salvar_resultados(self, lista):
+        self.resultado_json = json.dumps(lista, ensure_ascii=False)
+
+===== pistas_reais_db.py =====
+"""
+Banco de dados SEPARADO só pra pistas reais (dado de referência estático,
+baseado no OpenStreetMap via TUMFTM racetrack-database, licença LGPL-3.0).
+
+Fica num arquivo .db diferente do jogo.db principal, sem se misturar com
+os dados dinâmicos do jogo (usuários, equipes, resultados).
+"""
+
+import sqlite3
+import os
+
+CAMINHO_BANCO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pistas_reais.db")
+FONTE_PADRAO = "OpenStreetMap, via TUMFTM racetrack-database (licença LGPL-3.0)"
+
+
+def obter_conexao():
+    conexao = sqlite3.connect(CAMINHO_BANCO)
+    conexao.row_factory = sqlite3.Row
+    return conexao
+
+
+def criar_banco():
+    conexao = obter_conexao()
+    conexao.execute("""
+        CREATE TABLE IF NOT EXISTS pistas_reais (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            pais TEXT NOT NULL,
+            extensao_km REAL NOT NULL,
+            caminho_svg TEXT NOT NULL,
+            largura_viewbox INTEGER NOT NULL,
+            altura_viewbox INTEGER NOT NULL,
+            tempo_pit_stop_segundos REAL NOT NULL DEFAULT 20.0,
+            categoria_cambio_ideal TEXT DEFAULT 'A',
+            categoria_suspensao_ideal TEXT DEFAULT 'A',
+            influencia_motor INTEGER DEFAULT 10,
+            influencia_cambio INTEGER DEFAULT 10,
+            influencia_suspensao INTEGER DEFAULT 10,
+            influencia_pneu INTEGER DEFAULT 10,
+            influencia_combustivel INTEGER DEFAULT 10,
+            influencia_engenheiro INTEGER DEFAULT 10,
+            temperatura_ambiente REAL DEFAULT 20.0,
+            temperatura_trecho_1 REAL DEFAULT 20.0,
+            temperatura_trecho_2 REAL DEFAULT 20.0,
+            temperatura_trecho_3 REAL DEFAULT 20.0,
+            temperatura_trecho_4 REAL DEFAULT 20.0,
+            fonte TEXT DEFAULT '""" + FONTE_PADRAO + """'
+        )
+    """)
+
+    # Compat: em bancos antigos, adiciona colunas novas via ALTER TABLE.
+    # Cada ALTER ignora o erro se a coluna já existir.
+    for coluna, definicao in [
+        ("tempo_pit_stop_segundos", "REAL NOT NULL DEFAULT 20.0"),
+        ("categoria_cambio_ideal", "TEXT DEFAULT 'A'"),
+        ("categoria_suspensao_ideal", "TEXT DEFAULT 'A'"),
+        ("influencia_motor", "INTEGER DEFAULT 10"),
+        ("influencia_cambio", "INTEGER DEFAULT 10"),
+        ("influencia_suspensao", "INTEGER DEFAULT 10"),
+        ("influencia_pneu", "INTEGER DEFAULT 10"),
+        ("influencia_combustivel", "INTEGER DEFAULT 10"),
+        ("influencia_engenheiro", "INTEGER DEFAULT 10"),
+        ("temperatura_ambiente", "REAL DEFAULT 20.0"),
+        ("temperatura_trecho_1", "REAL DEFAULT 20.0"),
+        ("temperatura_trecho_2", "REAL DEFAULT 20.0"),
+        ("temperatura_trecho_3", "REAL DEFAULT 20.0"),
+        ("temperatura_trecho_4", "REAL DEFAULT 20.0"),
+    ]:
+        try:
+            conexao.execute(f"ALTER TABLE pistas_reais ADD COLUMN {coluna} {definicao}")
+        except sqlite3.OperationalError:
+            pass
+
+    # Migração de dado: se as colunas de categoria estão com 2 letras
+    # tipo "AB" (formato antigo), separa em 1 letra cada:
+    #   - categoria_cambio_ideal recebe a 1ª letra (câmbio)
+    #   - categoria_suspensao_ideal recebe a 2ª letra (suspensão)
+    try:
+        conexao.execute("""
+            UPDATE pistas_reais
+            SET categoria_suspensao_ideal = substr(categoria_cambio_ideal, 2, 1),
+                categoria_cambio_ideal = substr(categoria_cambio_ideal, 1, 1)
+            WHERE length(categoria_cambio_ideal) = 2
+        """)
+    except sqlite3.OperationalError:
+        pass
+
+    # Migração: se as 4 temperaturas de trecho estão no default (20) e
+    # temperatura_ambiente foi customizada, copia pra todos os 4 trechos
+    # (assim quem já editou a temp_ambiente antes não perde o valor).
+    try:
+        conexao.execute("""
+            UPDATE pistas_reais
+            SET temperatura_trecho_1 = temperatura_ambiente,
+                temperatura_trecho_2 = temperatura_ambiente,
+                temperatura_trecho_3 = temperatura_ambiente,
+                temperatura_trecho_4 = temperatura_ambiente
+            WHERE temperatura_trecho_1 = 20.0
+              AND temperatura_trecho_2 = 20.0
+              AND temperatura_trecho_3 = 20.0
+              AND temperatura_trecho_4 = 20.0
+              AND temperatura_ambiente != 20.0
+        """)
+    except sqlite3.OperationalError:
+        pass
+
+    conexao.commit()
+    conexao.close()
+
+
+def inserir_pista_real(nome, pais, extensao_km, caminho_svg, largura_viewbox, altura_viewbox,
+                       tempo_pit_stop_segundos=20.0,
+                       categoria_cambio_ideal="A", categoria_suspensao_ideal="B",
+                       influencia_motor=10, influencia_cambio=10, influencia_suspensao=10,
+                       influencia_pneu=10, influencia_combustivel=10, influencia_engenheiro=10,
+                       temperatura_ambiente=20.0,
+                       temperatura_trecho_1=None, temperatura_trecho_2=None,
+                       temperatura_trecho_3=None, temperatura_trecho_4=None):
+    # Se não passou temperatura por trecho, usa a temperatura_ambiente pros 4
+    t1 = temperatura_trecho_1 if temperatura_trecho_1 is not None else temperatura_ambiente
+    t2 = temperatura_trecho_2 if temperatura_trecho_2 is not None else temperatura_ambiente
+    t3 = temperatura_trecho_3 if temperatura_trecho_3 is not None else temperatura_ambiente
+    t4 = temperatura_trecho_4 if temperatura_trecho_4 is not None else temperatura_ambiente
+
+    conexao = obter_conexao()
+    conexao.execute(
+        """INSERT INTO pistas_reais (
+            nome, pais, extensao_km, caminho_svg, largura_viewbox, altura_viewbox,
+            tempo_pit_stop_segundos, categoria_cambio_ideal, categoria_suspensao_ideal,
+            influencia_motor, influencia_cambio, influencia_suspensao,
+            influencia_pneu, influencia_combustivel, influencia_engenheiro,
+            temperatura_ambiente,
+            temperatura_trecho_1, temperatura_trecho_2, temperatura_trecho_3, temperatura_trecho_4
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (nome, pais, extensao_km, caminho_svg, largura_viewbox, altura_viewbox,
+         tempo_pit_stop_segundos, categoria_cambio_ideal, categoria_suspensao_ideal,
+         influencia_motor, influencia_cambio, influencia_suspensao,
+         influencia_pneu, influencia_combustivel, influencia_engenheiro,
+         temperatura_ambiente, t1, t2, t3, t4),
+    )
+    conexao.commit()
+    conexao.close()
+
+
+def atualizar_pista_real(pista_id, **campos):
+    """Atualiza campos específicos de uma pista (usado pela tela admin)."""
+    campos_permitidos = {
+        "tempo_pit_stop_segundos", "categoria_cambio_ideal", "categoria_suspensao_ideal",
+        "influencia_motor", "influencia_cambio", "influencia_suspensao",
+        "influencia_pneu", "influencia_combustivel", "influencia_engenheiro",
+        "temperatura_ambiente",
+        "temperatura_trecho_1", "temperatura_trecho_2",
+        "temperatura_trecho_3", "temperatura_trecho_4",
+    }
+    campos_validos = {k: v for k, v in campos.items() if k in campos_permitidos}
+    if not campos_validos:
+        return
+
+    conexao = obter_conexao()
+    partes_set = ", ".join(f"{k} = ?" for k in campos_validos.keys())
+    valores = list(campos_validos.values()) + [pista_id]
+    conexao.execute(f"UPDATE pistas_reais SET {partes_set} WHERE id = ?", valores)
+    conexao.commit()
+    conexao.close()
+
+
+def calcular_numero_voltas(extensao_km, distancia_minima_km=290, distancia_maxima_km=320, maximo_voltas=79):
+    """
+    Calcula quantas voltas fazem a distância total da corrida ficar entre
+    290km e 320km, respeitando o máximo de 79 voltas. Pistas muito curtas
+    podem não conseguir chegar em 290km sem passar de 79 voltas - nesse
+    caso, usa o máximo de voltas mesmo ficando abaixo da faixa ideal.
+    """
+    distancia_alvo = (distancia_minima_km + distancia_maxima_km) / 2
+    voltas = max(1, min(round(distancia_alvo / extensao_km), maximo_voltas))
+    distancia_total = voltas * extensao_km
+    tentativas = 0
+    while not (distancia_minima_km <= distancia_total <= distancia_maxima_km) and tentativas < 30:
+        if distancia_total < distancia_minima_km and voltas < maximo_voltas:
+            voltas += 1
+        elif distancia_total > distancia_maxima_km and voltas > 1:
+            voltas -= 1
+        else:
+            break
+        distancia_total = voltas * extensao_km
+        tentativas += 1
+    return voltas, round(distancia_total, 2)
+
+
+def listar_pistas_reais():
+    conexao = obter_conexao()
+    linhas = conexao.execute("SELECT * FROM pistas_reais ORDER BY nome").fetchall()
+    conexao.close()
+    return [dict(linha) for linha in linhas]
+
+
+def obter_pista_real(pista_id):
+    conexao = obter_conexao()
+    linha = conexao.execute("SELECT * FROM pistas_reais WHERE id = ?", (pista_id,)).fetchone()
+    conexao.close()
+    return dict(linha) if linha else None
+
+===== pontuacao.py =====
+"""
+Sistema de pontos e premiação por corrida.
+
+Regras (do manual de referência do jogo):
+
+PONTOS INDIVIDUAIS (piloto): todos os 20 primeiros pontuam.
+1º = 40   2º = 35   3º = 32   4º = 29   5º = 26
+6º = 24   7º = 22   8º = 20   9º = 18   10º = 16
+11º = 14  12º = 12  13º = 10  14º = 8   15º = 6
+16º = 5   17º = 4   18º = 3   19º = 2   20º = 1
+
+PRÊMIO INDIVIDUAL EM R$: todos os 20 primeiros ganham.
+1º = R$ 12.000     2º = R$ 11.000    3º = R$ 10.500
+4º = R$ 10.000     5º = R$ 9.500     6º = R$ 9.200
+7º = R$ 8.900      8º = R$ 8.600     9º = R$ 8.300
+10º = R$ 8.000    11º = R$ 7.700    12º = R$ 7.400
+13º = R$ 7.100    14º = R$ 6.800    15º = R$ 6.500
+16º = R$ 6.200    17º = R$ 6.000    18º = R$ 5.800
+19º = R$ 5.650    20º = R$ 5.500
+
+Quem abandona não recebe pontos nem prêmio.
+"""
+
+from collections import defaultdict
+
+
+# ---------------------------------------------------------
+# TABELA DE PONTOS
+# ---------------------------------------------------------
+PONTOS_POR_POSICAO = {
+    1:  40,   2:  35,   3:  32,   4:  29,   5:  26,
+    6:  24,   7:  22,   8:  20,   9:  18,  10:  16,
+    11: 14,  12:  12,  13:  10,  14:   8,  15:   6,
+    16:  5,  17:   4,  18:   3,  19:   2,  20:   1,
+}
+
+
+# ---------------------------------------------------------
+# TABELA DE PRÊMIO EM R$ (individual)
+# ---------------------------------------------------------
+PREMIO_POR_POSICAO = {
+    1:  12000,   2:  11000,   3:  10500,   4:  10000,   5:   9500,
+    6:   9200,   7:   8900,   8:   8600,   9:   8300,  10:   8000,
+    11:  7700,  12:   7400,  13:   7100,  14:   6800,  15:   6500,
+    16:  6200,  17:   6000,  18:   5800,  19:   5650,  20:   5500,
+}
+
+
+def pontos_por_posicao(posicao, abandonou=False):
+    """Pontos individuais do piloto na corrida.
+    Retorna 0 se abandonou ou se ficou fora do top 20."""
+    if abandonou:
+        return 0
+    return PONTOS_POR_POSICAO.get(posicao, 0)
+
+
+def premio_por_posicao(posicao, abandonou=False):
+    """Prêmio em R$ do piloto na corrida.
+    Retorna 0 se abandonou ou se ficou fora do top 20."""
+    if abandonou:
+        return 0
+    return PREMIO_POR_POSICAO.get(posicao, 0)
+
+
+def ranking_temporada(temporada):
+    """Percorre todas as corridas executadas da temporada e soma pontos
+    por equipe. Retorna lista ordenada por (pontos DESC, vitórias DESC).
+
+    Cada entrada: {equipe_id, equipe_nome, pontos_total, vitorias,
+                   corridas, premio_total}
+    """
+    acumulado = defaultdict(lambda: {
+        "pontos_total": 0,
+        "vitorias": 0,
+        "corridas": 0,
+        "premio_total": 0,
+        "equipe_nome": "",
+    })
+    for corrida_agendada in temporada.corridas_agendadas:
+        if not corrida_agendada.executada:
+            continue
+        for r in corrida_agendada.resultados():
+            eid = r.get("equipe_id")
+            if eid is None:
+                continue
+            acumulado[eid]["equipe_nome"] = r.get("equipe_nome", "")
+            acumulado[eid]["pontos_total"] += r.get("pontos", 0)
+            acumulado[eid]["premio_total"] += r.get("premio", 0)
+            acumulado[eid]["corridas"] += 1
+            if r.get("posicao") == 1 and not r.get("abandonou"):
+                acumulado[eid]["vitorias"] += 1
+
+    lista = [{"equipe_id": eid, **dados} for eid, dados in acumulado.items()]
+    lista.sort(key=lambda x: (-x["pontos_total"], -x["vitorias"]))
+    return lista
+
+===== progressao.py =====
+"""
+Progressão do desenvolvimento (chassi/aero) e do treinamento de boxes.
+
+- Desenvolvimento é feito pelo Engenheiro contratado.
+- Cada peça (chassi e aero) tem seu próprio percentual "em construção"
+  que sobe até 100%.
+- O que sobe durante a temporada só passa a valer NA PRÓXIMA temporada.
+- Treinamento de boxes tem efeito imediato (a partir da próxima corrida).
+"""
+
+from datetime import datetime, timedelta
+
+
+def calcular_custo_proximo_avanco(percentual_atual, custo_base, custo_fator):
+    """Custo em R$ do próximo passo de desenvolvimento/treinamento."""
+    incremento_atual = int(percentual_atual // 5)
+    return custo_base * (custo_fator ** incremento_atual)
+
+
+def calcular_tempo_proximo_avanco_horas(percentual_atual, tempo_base, tempo_fator):
+    """Tempo em horas até o próximo passo ficar pronto."""
+    incremento_atual = int(percentual_atual // 5)
+    return tempo_base + (tempo_fator * incremento_atual / 20.0)
+
+
+def verificar_conclusao(registro, incremento_percentual, alvo_atributo="percentual"):
+    """Se o horário de conclusão passou, aplica o incremento no atributo alvo."""
+    if not getattr(registro, "em_progresso", False):
+        return False
+    horario_conclusao = getattr(registro, "horario_conclusao", None)
+    if not horario_conclusao:
+        return False
+    if datetime.utcnow() < horario_conclusao:
+        return False
+    # Aplica incremento
+    valor_atual = float(getattr(registro, alvo_atributo, 0) or 0)
+    novo_valor = min(100.0, valor_atual + incremento_percentual)
+    setattr(registro, alvo_atributo, novo_valor)
+    registro.em_progresso = False
+    registro.inicio_em = None
+    registro.horario_conclusao = None
+    from models import db
+    db.session.commit()
+    return True
+
+
+def avancar(registro, equipe, custo_base, custo_fator, tempo_base, tempo_fator,
+            incremento_percentual, alvo_atributo="percentual"):
+    """Inicia o próximo passo de desenvolvimento/treinamento.
+    Retorna (sucesso, mensagem)."""
+    from models import db
+
+    valor_atual = float(getattr(registro, alvo_atributo, 0) or 0)
+
+    if getattr(registro, "em_progresso", False):
+        return False, "Já existe um trabalho em progresso."
+    if valor_atual >= 100.0:
+        return False, "Já está em 100%."
+
+    custo = calcular_custo_proximo_avanco(valor_atual, custo_base, custo_fator)
+    if float(equipe.orcamento or 0) < custo:
+        return False, f"Saldo insuficiente. Custo: R$ {custo:,.2f}"
+
+    tempo_horas = calcular_tempo_proximo_avanco_horas(valor_atual, tempo_base, tempo_fator)
+
+    equipe.orcamento = float(equipe.orcamento or 0) - custo
+    registro.em_progresso = True
+    registro.inicio_em = datetime.utcnow()
+    registro.horario_conclusao = datetime.utcnow() + timedelta(hours=tempo_horas)
+    db.session.commit()
+
+    return True, f"Iniciado! Conclui em {tempo_horas:.1f}h. Custo: R$ {custo:,.2f}"
+
+
+# ---------------------------------------------------------
+# FIM DE TEMPORADA — aplica chassi/aero em construção
+# ---------------------------------------------------------
+def aplicar_desenvolvimento_da_temporada(desenvolvimento, engenheiro_atual):
+    """Chamado quando a temporada termina. Aplica no carro do jogador
+    o chassi e aero que ele desenvolveu durante a temporada.
+
+    Regra:
+    - Se chassi_em_construcao == 100 E aero_em_construcao == 100 E
+      tem engenheiro contratado → aplica ambos.
+    - Se qualquer um falhar, jogador não participa da próxima temporada.
+
+    Retorna dict com o status da aplicação.
+    """
+    from models import db
+
+    tem_engenheiro = engenheiro_atual is not None
+    chassi_ok = (desenvolvimento.chassi_percentual_em_construcao or 0) >= 100.0
+    aero_ok = (desenvolvimento.aero_percentual_em_construcao or 0) >= 100.0
+
+    if not (tem_engenheiro and chassi_ok and aero_ok):
+        return {
+            "aplicado": False,
+            "motivo_falha": {
+                "sem_engenheiro": not tem_engenheiro,
+                "chassi_incompleto": not chassi_ok,
+                "aero_incompleto": not aero_ok,
+            },
+        }
+
+    # Aplica: o que estava em construção vira o aplicado
+    desenvolvimento.chassi_percentual_aplicado = 100.0
+    desenvolvimento.aero_percentual_aplicado = 100.0
+    desenvolvimento.chassi_percentual_em_construcao = 0.0
+    desenvolvimento.aero_percentual_em_construcao = 0.0
+    desenvolvimento.nivel_engenheiro_projetista = engenheiro_atual.nivel or 1
+
+    db.session.commit()
+
+    return {
+        "aplicado": True,
+        "novo_nivel": desenvolvimento.nivel_engenheiro_projetista,
+    }
+
+===== seed_fornecedores.py =====
+"""
+Gera 100 fornecedores por categoria, organizados em 10 tiers de 10.
+
+Regras do balanceamento (baseado no manual "Guia do Iniciante"):
+- Jogador começa com R$ 55.000 (configurável em admin_configuracoes)
+- Precisa pagar 5 contratos anuais (motor, combustível, pneu, câmbio,
+  suspensão) e ainda sobrar dinheiro pra montagem da 1ª corrida
+- Faixas do Tier 1 pensadas pra 5 contratos tier 1 caberem em R$ 27.000
+  aproximadamente, sobrando ~28k pra montagem
+
+Estrutura de cada tier (10 fornecedores):
+- 10 categorias (A-J pra câmbio/suspensão, ou 10 opções pra motor etc)
+- Dentro do tier, ~2 "furadas" (parecem baratas mas performance ruim),
+  ~2 "achados" (bom custo-benefício), e ~6 "normais". Performance é
+  ESCONDIDA do jogador - só admin vê.
+
+Numeração dos nomes (IMPORTANTE):
+- O número no nome (#1 a #100) reflete APENAS o CUSTO, do mais barato
+  (#1) ao mais caro (#100).
+- Ele NÃO indica qualidade. As "furadas" e "achados" continuam
+  embaralhadas de propósito, então um #10 barato pode render mais que
+  um #60 caro. É essa a graça de escolher no escuro.
+- A numeração é aplicada DEPOIS de ordenar cada categoria por custo.
+"""
+
+import random
+
+from models import (
+    db, FornecedorMotor, FornecedorCombustivel, FornecedorPneu,
+    FornecedorChassi, FornecedorCambio, FornecedorSuspensao,
+    FornecedorEngenheiro,
+)
+
+QUANTIDADE_PADRAO = 100
+FORNECEDORES_POR_TIER = 10
+NUMERO_TIERS = 10
+
+# Prefixos/sufixos pra nomes fictícios
+PREFIXOS_MOTOR = ["Turbo", "Power", "Apex", "Vortex", "Blaze"]
+SUFIXOS_MOTOR = ["Dynamics", "Racing", "Motors", "Systems", "Engineering"]
+
+PREFIXOS_COMBUSTIVEL = ["Race", "Eco", "Max", "Pure", "Ultra"]
+SUFIXOS_COMBUSTIVEL = ["Fuel", "Gas", "Energy", "Petro", "Blend"]
+
+PREFIXOS_PNEU = ["Grip", "Track", "Speed", "Vector", "Ace"]
+SUFIXOS_PNEU = ["Tire", "Tread", "Rubber", "Traction"]
+
+PREFIXOS_CHASSI = ["Aero", "Carbon", "Light", "Rigid", "Nano"]
+SUFIXOS_CHASSI = ["Chassis", "Frame", "Structures", "Build"]
+
+PREFIXOS_CAMBIO = ["Shift", "Quick", "Rapid", "Smooth", "Sync"]
+SUFIXOS_CAMBIO = ["Trans", "Box", "Drive", "Gears"]
+
+PREFIXOS_SUSPENSAO = ["Stable", "Firm", "Adaptive", "Balance", "Active"]
+SUFIXOS_SUSPENSAO = ["Susp", "Ride", "Dampers", "Control"]
+
+NOMES_PESSOA = ["Ricardo", "Marcos", "Felipe", "André", "Bruno", "Carlos",
+                "Diego", "Eduardo", "Gabriel", "Henrique", "Igor", "Lucas",
+                "Mateus", "Rafael", "Thiago", "Vitor"]
+SOBRENOMES_PESSOA = ["Silva", "Santos", "Oliveira", "Souza", "Costa", "Pereira",
+                     "Ferreira", "Almeida", "Ribeiro", "Martins", "Carvalho",
+                     "Rocha", "Dias", "Mendes", "Freitas"]
+
+
+def gerar_nome_item(prefixos, sufixos):
+    """Nome base do item, SEM número. O número é colocado depois,
+    quando a lista já estiver ordenada por custo."""
+    return f"{random.choice(prefixos)}{random.choice(sufixos)}"
+
+
+def gerar_nome_pessoa():
+    """Nome base da pessoa (engenheiro), SEM número."""
+    return f"{random.choice(NOMES_PESSOA)} {random.choice(SOBRENOMES_PESSOA)}"
+
+
+def _renumerar_por_custo(lista):
+    """Recebe uma lista de fornecedores JÁ ORDENADA por custo_temporada
+    e escreve o número no nome: #1 no mais barato, #N no mais caro.
+
+    O número reflete só o custo, não a qualidade. As furadas/achados
+    continuam embaralhadas de propósito."""
+    for posicao, item in enumerate(lista, start=1):
+        item.nome = f"{item.nome} #{posicao}"
+    return lista
+
+
+# ---------------------------------------------------------
+# Faixas de custo por tier (R$ - custo_temporada anual)
+# ---------------------------------------------------------
+# Cada tupla é (min_tier1, max_tier10). O custo cresce exponencialmente
+# entre tiers pra dar sensação de que o topo é "muito melhor" que o meio.
+
+FAIXAS_CUSTO_TEMPORADA = {
+    "motor":       (8_000,   200_000),
+    "combustivel": (4_000,   100_000),
+    "pneu":        (5_000,   130_000),
+    "chassi":      (3_000,    80_000),
+    "cambio":      (5_000,   130_000),
+    "suspensao":   (5_000,   130_000),
+    "engenheiro": (15_000,   400_000),
+}
+
+
+def custo_temporada_do_tier(categoria, tier):
+    """Cresce exponencialmente do tier 1 ao 10 pra dar sensação de progressão."""
+    minimo, maximo = FAIXAS_CUSTO_TEMPORADA[categoria]
+    fator = (tier - 1) / (NUMERO_TIERS - 1)   # 0.0 no tier 1, 1.0 no tier 10
+    # Curva exponencial: cresce devagar no início e acelera no topo
+    valor = minimo * ((maximo / minimo) ** fator)
+    return round(valor / 1000) * 1000   # arredonda pra múltiplo de 1000
+
+
+def custo_montagem_do_temporada(custo_temporada):
+    """Montagem por corrida ~= 10% do contrato anual."""
+    return round(custo_temporada * random.uniform(0.08, 0.12) / 100) * 100
+
+
+# ---------------------------------------------------------
+# Classificação de itens dentro do tier
+# ---------------------------------------------------------
+# Cada tier tem 10 fornecedores. Distribuímos assim:
+# - 2 "furada": custo próximo do topo do tier, performance BAIXA (pega ruim)
+# - 2 "achado": custo próximo do fundo do tier, performance ALTA (jogador feliz)
+# - 6 "normal": custo e performance médios pro tier
+
+CLASSIFICACOES_POR_TIER = (
+    ["furada"] * 2 + ["achado"] * 2 + ["normal"] * 6
+)
+
+
+def _aplicar_classificacao(classificacao, custo_base, performance_base):
+    """Ajusta custo e performance de acordo com classificação.
+    Retorna (custo_ajustado, performance_ajustada, multiplicador_perf)."""
+    if classificacao == "furada":
+        # Custa quase o mesmo, mas rende 60-75%
+        multiplicador = random.uniform(0.60, 0.75)
+        custo = custo_base * random.uniform(0.95, 1.05)
+    elif classificacao == "achado":
+        # Custa menos, mas rende 110-125%
+        multiplicador = random.uniform(1.10, 1.25)
+        custo = custo_base * random.uniform(0.85, 0.95)
+    else:
+        multiplicador = random.uniform(0.95, 1.05)
+        custo = custo_base * random.uniform(0.98, 1.02)
+    return custo, performance_base * multiplicador, multiplicador
+
+
+# ---------------------------------------------------------
+# Geração propriamente dita (uma função por categoria)
+# ---------------------------------------------------------
+
+def gerar_motores(quantidade=QUANTIDADE_PADRAO):
+    """10 tiers de 10 motores. Potência escala com tier."""
+    motores = []
+    for tier in range(1, NUMERO_TIERS + 1):
+        custo_base = custo_temporada_do_tier("motor", tier)
+        potencia_base = 0.3 * tier              # tier 1 = 0.3, tier 10 = 3.0
+        eficiencia_base = 0.05 * tier           # tier 1 = 0.05, tier 10 = 0.50
+        for slot in range(FORNECEDORES_POR_TIER):
+            classificacoes = CLASSIFICACOES_POR_TIER.copy()
+            random.shuffle(classificacoes)
+            cls = classificacoes[slot]
+            custo, _, mult = _aplicar_classificacao(cls, custo_base, 1.0)
+            custo_final = max(1000, round(custo / 100) * 100)
+            motores.append(FornecedorMotor(
+                nome=gerar_nome_item(PREFIXOS_MOTOR, SUFIXOS_MOTOR),
+                custo_temporada=custo_final,
+                custo_montagem=custo_montagem_do_temporada(custo_final),
+                potencia=round(potencia_base * mult, 2),
+                eficiencia_combustivel=round(eficiencia_base * mult, 3),
+                ativo=True,
+            ))
+    # Ordena por custo e numera #1 (mais barato) -> #100 (mais caro)
+    motores.sort(key=lambda m: m.custo_temporada)
+    motores = motores[:quantidade]
+    return _renumerar_por_custo(motores)
+
+
+def gerar_combustiveis(quantidade=QUANTIDADE_PADRAO):
+    combustiveis = []
+    for tier in range(1, NUMERO_TIERS + 1):
+        custo_base = custo_temporada_do_tier("combustivel", tier)
+        ef_base = 0.03 * tier
+        aumento_base = 0.025 * tier
+        for slot in range(FORNECEDORES_POR_TIER):
+            classificacoes = CLASSIFICACOES_POR_TIER.copy()
+            random.shuffle(classificacoes)
+            cls = classificacoes[slot]
+            custo, _, mult = _aplicar_classificacao(cls, custo_base, 1.0)
+            custo_final = max(1000, round(custo / 100) * 100)
+            combustiveis.append(FornecedorCombustivel(
+                nome=gerar_nome_item(PREFIXOS_COMBUSTIVEL, SUFIXOS_COMBUSTIVEL),
+                custo_temporada=custo_final,
+                custo_montagem=custo_montagem_do_temporada(custo_final),
+                eficiencia=round(ef_base * mult, 3),
+                aumento_potencia_motor=round(aumento_base * mult, 3),
+                ativo=True,
+            ))
+    combustiveis.sort(key=lambda c: c.custo_temporada)
+    combustiveis = combustiveis[:quantidade]
+    return _renumerar_por_custo(combustiveis)
+
+
+def gerar_pneus(quantidade=QUANTIDADE_PADRAO):
+    """Pneus com 3 categorias de chuva. Cada tier tem ~4 seco / 3 interm / 3 chuva."""
+    CATEGORIAS_CHUVA_DISTRIB = (
+        ["seco"] * 4 + ["intermediario"] * 3 + ["chuva"] * 3
+    )
+    pneus = []
+    for tier in range(1, NUMERO_TIERS + 1):
+        custo_base = custo_temporada_do_tier("pneu", tier)
+        performance_base = 0.25 * tier
+        desgaste_base = 3.0 - (0.22 * tier)   # tier 1 = mais desgaste, tier 10 = menos
+        categorias_chuva = CATEGORIAS_CHUVA_DISTRIB.copy()
+        random.shuffle(categorias_chuva)
+        for slot in range(FORNECEDORES_POR_TIER):
+            classificacoes = CLASSIFICACOES_POR_TIER.copy()
+            random.shuffle(classificacoes)
+            cls = classificacoes[slot]
+            custo, _, mult = _aplicar_classificacao(cls, custo_base, 1.0)
+            custo_final = max(1000, round(custo / 100) * 100)
+            pneus.append(FornecedorPneu(
+                nome=gerar_nome_item(PREFIXOS_PNEU, SUFIXOS_PNEU),
+                custo_temporada=custo_final,
+                custo_montagem=custo_montagem_do_temporada(custo_final),
+                performance=round(performance_base * mult, 2),
+                desgaste=round(max(0.8, desgaste_base / max(0.5, mult)), 2),
+                ativo=True,
+                categoria_chuva=categorias_chuva[slot],
+            ))
+    pneus.sort(key=lambda p: p.custo_temporada)
+    pneus = pneus[:quantidade]
+    return _renumerar_por_custo(pneus)
+
+
+def gerar_chassis(quantidade=QUANTIDADE_PADRAO):
+    chassis = []
+    for tier in range(1, NUMERO_TIERS + 1):
+        custo_base = custo_temporada_do_tier("chassi", tier)
+        performance_base = 0.2 * tier
+        for slot in range(FORNECEDORES_POR_TIER):
+            classificacoes = CLASSIFICACOES_POR_TIER.copy()
+            random.shuffle(classificacoes)
+            cls = classificacoes[slot]
+            custo, _, mult = _aplicar_classificacao(cls, custo_base, 1.0)
+            custo_final = max(1000, round(custo / 100) * 100)
+            chassis.append(FornecedorChassi(
+                nome=gerar_nome_item(PREFIXOS_CHASSI, SUFIXOS_CHASSI),
+                custo_temporada=custo_final,
+                custo_montagem=custo_montagem_do_temporada(custo_final),
+                performance=round(performance_base * mult, 2),
+                ativo=True,
+            ))
+    chassis.sort(key=lambda c: c.custo_temporada)
+    chassis = chassis[:quantidade]
+    return _renumerar_por_custo(chassis)
+
+
+def _gerar_categoria_pista(quantidade, categoria_key, prefixos, sufixos, Model, performance_scale):
+    """Câmbio e suspensão: cada tier tem 1 fornecedor de cada letra A-J."""
+    LETRAS = list("ABCDEFGHIJ")   # 10 letras, uma por slot
+    itens = []
+    for tier in range(1, NUMERO_TIERS + 1):
+        custo_base = custo_temporada_do_tier(categoria_key, tier)
+        performance_base = performance_scale * tier
+        letras_embaralhadas = LETRAS.copy()
+        random.shuffle(letras_embaralhadas)
+        for slot in range(FORNECEDORES_POR_TIER):
+            classificacoes = CLASSIFICACOES_POR_TIER.copy()
+            random.shuffle(classificacoes)
+            cls = classificacoes[slot]
+            custo, _, mult = _aplicar_classificacao(cls, custo_base, 1.0)
+            custo_final = max(1000, round(custo / 100) * 100)
+            itens.append(Model(
+                nome=gerar_nome_item(prefixos, sufixos),
+                custo_temporada=custo_final,
+                custo_montagem=custo_montagem_do_temporada(custo_final),
+                performance=round(performance_base * mult, 2),
+                ativo=True,
+                categoria_pista=letras_embaralhadas[slot],
+            ))
+    itens.sort(key=lambda x: x.custo_temporada)
+    itens = itens[:quantidade]
+    return _renumerar_por_custo(itens)
+
+
+def gerar_cambios(quantidade=QUANTIDADE_PADRAO):
+    return _gerar_categoria_pista(quantidade, "cambio", PREFIXOS_CAMBIO, SUFIXOS_CAMBIO,
+                                  FornecedorCambio, performance_scale=0.15)
+
+
+def gerar_suspensoes(quantidade=QUANTIDADE_PADRAO):
+    return _gerar_categoria_pista(quantidade, "suspensao", PREFIXOS_SUSPENSAO, SUFIXOS_SUSPENSAO,
+                                  FornecedorSuspensao, performance_scale=0.15)
+
+
+def gerar_engenheiros(quantidade=QUANTIDADE_PADRAO):
+    """Engenheiros: nível visível 1-10 = tier. Eficiência exata escala com tier."""
+    engenheiros = []
+    for tier in range(1, NUMERO_TIERS + 1):
+        custo_base = custo_temporada_do_tier("engenheiro", tier)
+        eficiencia_base = 0.04 * tier   # tier 1 = 0.04, tier 10 = 0.40
+        for slot in range(FORNECEDORES_POR_TIER):
+            classificacoes = CLASSIFICACOES_POR_TIER.copy()
+            random.shuffle(classificacoes)
+            cls = classificacoes[slot]
+            custo, _, mult = _aplicar_classificacao(cls, custo_base, 1.0)
+            custo_final = max(1000, round(custo / 100) * 100)
+            engenheiros.append(FornecedorEngenheiro(
+                nome=gerar_nome_pessoa(),
+                custo_temporada=custo_final,
+                custo_montagem=custo_montagem_do_temporada(custo_final),
+                nivel=tier,   # nível visível ao jogador = tier
+                eficiencia_exata=round(eficiencia_base * mult, 4),
+                ativo=True,
+            ))
+    engenheiros.sort(key=lambda e: e.custo_temporada)
+    engenheiros = engenheiros[:quantidade]
+    return _renumerar_por_custo(engenheiros)
+
+
+# ---------------------------------------------------------
+# Popular banco (mantém a lógica de "nunca apaga fornecedor em uso")
+# ---------------------------------------------------------
+
+MAPA_FK_EQUIPE = [
+    (FornecedorMotor,        "motor_fornecedor_id"),
+    (FornecedorCombustivel,  "combustivel_fornecedor_id"),
+    (FornecedorPneu,         "pneu_fornecedor_id"),
+    (FornecedorChassi,       "chassi_fornecedor_id"),
+    (FornecedorCambio,       "cambio_fornecedor_id"),
+    (FornecedorSuspensao,    "suspensao_fornecedor_id"),
+    (FornecedorEngenheiro,   "engenheiro_fornecedor_id"),
+]
+
+# Liga cada Model à sua função geradora
+GERADORES = {
+    FornecedorMotor:        gerar_motores,
+    FornecedorCombustivel:  gerar_combustiveis,
+    FornecedorPneu:         gerar_pneus,
+    FornecedorChassi:       gerar_chassis,
+    FornecedorCambio:       gerar_cambios,
+    FornecedorSuspensao:    gerar_suspensoes,
+    FornecedorEngenheiro:   gerar_engenheiros,
+}
+
+
+def _ids_em_uso(Model, campo_fk):
+    """Retorna o conjunto de IDs de fornecedores deste Model que estão
+    sendo usados por alguma equipe (pra nunca apagá-los)."""
+    from models import CarroJogador
+    ids = set()
+    for equipe in CarroJogador.query.all():
+        valor = getattr(equipe, campo_fk, None)
+        if valor:
+            ids.add(valor)
+    return ids
+
+
+def popular_banco(quantidade=QUANTIDADE_PADRAO, limpar_antes=True):
+    """
+    Gera fornecedores fictícios respeitando a regra "nunca apagar dado real":
+    - Fornecedores NÃO usados por nenhum jogador são deletados.
+    - Fornecedores em uso são desativados (ativo=False), então não aparecem
+      pra novos jogadores, mas os jogadores atuais continuam funcionando.
+    - Depois insere quantidade fornecedores novos e ativos.
+    """
+    for Model, campo_fk in MAPA_FK_EQUIPE:
+        if limpar_antes:
+            ids_protegidos = _ids_em_uso(Model, campo_fk)
+            for antigo in Model.query.all():
+                if antigo.id in ids_protegidos:
+                    # Em uso: apenas desativa, não deleta
+                    antigo.ativo = False
+                else:
+                    # Não usado: pode deletar
+                    db.session.delete(antigo)
+            db.session.flush()
+
+        # Gera e insere os novos fornecedores ativos
+        gerador = GERADORES[Model]
+        for novo in gerador(quantidade):
+            db.session.add(novo)
+
+    db.session.commit()
+
+
+if __name__ == "__main__":
+    # Permite rodar direto: python seed_fornecedores.py (dentro do contexto do app)
+    from app import app
+    with app.app_context():
+        popular_banco()
+        print("Fornecedores populados com sucesso: 100 por categoria, "
+              "numerados #1 (mais barato) a #100 (mais caro).")
+
+===== seed_influencias_pistas.py =====
+"""
+Grava os valores CANÔNICOS de influência nas pistas reais.
+
+IMPORTANTE:
+- As pistas já foram importadas (importar_todas_pistas.py) no banco
+  separado pistas_reais.db. Este script NÃO cria nem apaga pistas.
+- Ele apenas ATUALIZA as influências (M/C/S/P/G/E) das pistas pras
+  quais temos valores canônicos da planilha de referência.
+- Toda pista que não estiver no dicionário abaixo continua com 10
+  (neutro) em tudo, que é o padrão do banco. Você ajusta o resto
+  depois na tela admin.
+- Range válido: 7 a 15 (10 = neutro). Não existe influência de Freio.
+- As pistas são identificadas pelo NOME DE EXIBIÇÃO salvo no banco
+  (ex: "Red Bull Ring", não "Spielberg").
+
+Como rodar:
+    python seed_influencias_pistas.py
+"""
+
+from pistas_reais_db import listar_pistas_reais, atualizar_pista_real
+
+
+# ---------------------------------------------------------
+# Influências canônicas conhecidas da planilha de referência.
+# Chave = NOME DE EXIBIÇÃO exatamente como está salvo no banco.
+# Só coloque aqui pistas que você tem valor de verdade; o resto
+# fica neutro (10) automaticamente.
+# ---------------------------------------------------------
+INFLUENCIAS_CANONICAS = {
+    # Spielberg = Red Bull Ring = A1-Ring: M9 C8 S7 P11 G12 E14
+    "Red Bull Ring": {
+        "influencia_motor": 9,
+        "influencia_cambio": 8,
+        "influencia_suspensao": 7,
+        "influencia_pneu": 11,
+        "influencia_combustivel": 12,
+        "influencia_engenheiro": 14,
+    },
+}
+
+
+def aplicar_influencias():
+    pistas = listar_pistas_reais()
+    if not pistas:
+        print("Nenhuma pista encontrada no banco. Rode importar_todas_pistas.py antes.")
+        return
+
+    atualizadas = 0
+    nao_encontradas = list(INFLUENCIAS_CANONICAS.keys())
+
+    for pista in pistas:
+        nome = pista["nome"]
+        if nome in INFLUENCIAS_CANONICAS:
+            atualizar_pista_real(pista["id"], **INFLUENCIAS_CANONICAS[nome])
+            print(f"  OK: {nome} -> {INFLUENCIAS_CANONICAS[nome]}")
+            atualizadas += 1
+            if nome in nao_encontradas:
+                nao_encontradas.remove(nome)
+
+    print()
+    print(f"Pistas atualizadas com valores canônicos: {atualizadas}")
+    print(f"Demais pistas continuam neutras (influência 10 em tudo).")
+
+    if nao_encontradas:
+        print()
+        print("AVISO: estes nomes canônicos NÃO foram encontrados no banco")
+        print("(confira se o nome de exibição bate exatamente):")
+        for nome in nao_encontradas:
+            print(f"  - {nome}")
+
+
+if __name__ == "__main__":
+    aplicar_influencias()
+
+===== treino_livre_sim.py =====
+"""
+Treino Livre Real (stint de teste).
+
+O jogador escolhe:
+  - a pista (pra saber as categorias ideais de câmbio/suspensão -> feedback)
+  - o pneu que quer testar
+  - o combustível que quer testar
+  - quanto combustível carregar (define quantas voltas dá pra rodar)
+  - opcional: o setup de teste (modelos 50-900 de câmbio, suspensão e pneu)
+
+A simulação roda VOLTA A VOLTA:
+  - cada volta gera um tempo (com a mesma matemática do carro.py da corrida)
+  - o combustível vai baixando; quando não dá pra mais uma volta, encerra
+  - o pneu vai desgastando; se estourar (>=100%), encerra na hora
+  - o piloto dá um FEEDBACK a cada volta (feedback_piloto.py)
+
+Tudo é calculado em cima do carro real da equipe (equipe.montar_carro()),
+então NADA aqui altera o banco: pneu/combustível/setup escolhidos valem
+só pra este treino (sandbox).
+
+Tempos ficam SEMPRE em segundos (float). Na tela use o filtro `tempo_min`
+pra mostrar como 1:27.180.
+
+Uso típico (na rota):
+    from treino_livre_sim import simular_treino_livre_real
+    resultado = simular_treino_livre_real(
+        equipe_db, pneu_db, combustivel_db, combustivel_litros=30,
+        pista=pista_dict, modelo_cambio=500, modelo_suspensao=400,
+    )
+"""
+
+import modelos_componente
+from equipamentos import Pneu, Combustivel
+from feedback_piloto import frase_por_categoria
+
+
+LETRAS = modelos_componente.LETRAS  # "ABCDEFGHIJ"
+
+# Trava de segurança: mesmo com consumo minúsculo, não roda pra sempre.
+CAP_VOLTAS = 300
+
+
+def _idx(letra):
+    """Índice 0..9 de uma letra de categoria (A..J). Robusto a lixo."""
+    letra = (letra or "A").upper()[:1]
+    return LETRAS.index(letra) if letra in LETRAS else 0
+
+
+def _aplicar_pista(carro, pista):
+    """Coloca no carro os dados da pista usados pelo cálculo de tempo/consumo
+    e pelo casamento de categorias (câmbio/suspensão). Espelha o
+    _aplicar_dados_pista_no_carro do app.py pra manter o mesmo comportamento.
+    Se pista for None, deixa o carro num estado neutro (seco, sem penalidade)."""
+    if not pista:
+        carro.categoria_chuva = "seco"
+        return
+
+    cat_cambio = (pista.get("categoria_cambio_ideal") or "A").upper()
+    cat_suspensao = (pista.get("categoria_suspensao_ideal") or "A").upper()
+    carro.categoria_cambio_ideal_pista = cat_cambio[0] if cat_cambio else "A"
+    carro.categoria_suspensao_ideal_pista = cat_suspensao[0] if cat_suspensao else "A"
+    carro.categoria_chuva = "seco"
+    carro.temperatura_pista = (
+        pista.get("temperatura_trecho_1") or pista.get("temperatura_ambiente") or 20.0
+    )
+    carro.tamanho_volta_km = pista.get("extensao_km") or 0.0
+    carro.influencia_pista_motor = pista.get("influencia_motor") or 10
+    carro.influencia_pista_cambio = pista.get("influencia_cambio") or 10
+    carro.influencia_pista_suspensao = pista.get("influencia_suspensao") or 10
+    carro.influencia_pista_pneu = pista.get("influencia_pneu") or 10
+    carro.influencia_pista_combustivel = pista.get("influencia_combustivel") or 10
+    carro.influencia_pista_engenheiro = pista.get("influencia_engenheiro") or 10
+
+
+def simular_treino_livre_real(equipe_db, pneu_db, combustivel_db, combustivel_litros,
+                              pista=None, modelo_cambio=None, modelo_suspensao=None,
+                              modelo_pneu=None, aleatorio=True):
+    """
+    Roda o treino livre volta a volta e devolve um dicionário com o resumo
+    e o histórico de voltas.
+
+    Parâmetros:
+      equipe_db          : instância de CarroJogador (a equipe do jogador)
+      pneu_db            : FornecedorPneu escolhido pra testar
+      combustivel_db     : FornecedorCombustivel escolhido pra testar
+      combustivel_litros : quanto combustível carregar (define o nº de voltas)
+      pista              : dict da pista (opcional, mas recomendado p/ feedback)
+      modelo_cambio      : 50..900 do câmbio a testar (opcional)
+      modelo_suspensao   : 50..900 da suspensão a testar (opcional)
+      modelo_pneu        : 50..900 do pneu a testar (opcional)
+      aleatorio          : varia as frases de feedback (False = determinístico)
+
+    Retorno (dict) com as chaves usadas pelo template e pelo ranking:
+      pneu_nome, combustivel_nome, combustivel_litros, consumo_por_volta,
+      total_voltas, melhor_volta_numero, melhor_volta_tempo, tempo_medio,
+      erro_setup, encerrou_por ("combustivel" | "pneu"), pista_nome,
+      letra_cambio, letra_suspensao, ideal_cambio, ideal_suspensao,
+      voltas -> lista de {numero, tempo, desgaste_pneu, combustivel_restante, feedback}
+    """
+    carro = equipe_db.montar_carro()
+
+    # --- Pneu e combustível escolhidos SÓ pra este treino (não toca no banco) ---
+    carro.pneu = Pneu(
+        pneu_db.nome, pneu_db.custo_temporada, pneu_db.performance, pneu_db.desgaste,
+        categoria_chuva=getattr(pneu_db, "categoria_chuva", "seco") or "seco",
+    )
+    carro.combustivel = Combustivel(
+        combustivel_db.nome, combustivel_db.custo_temporada,
+        combustivel_db.eficiencia, combustivel_db.aumento_potencia_motor,
+    )
+
+    combustivel_litros = max(1.0, float(combustivel_litros or 0.0))
+    carro.combustivel_carregado = combustivel_litros
+
+    # --- Setup de teste (modelos 50-900). definir_modelos ignora inválidos/None ---
+    carro.definir_modelos(cambio=modelo_cambio, suspensao=modelo_suspensao, pneu=modelo_pneu)
+
+    # --- Dados da pista (categorias ideais, temperatura, tamanho da volta) ---
+    _aplicar_pista(carro, pista)
+
+    # Consumo depende do tamanho da volta -> por isso calculamos DEPOIS da pista.
+    consumo = carro.consumo_por_volta()
+    if consumo <= 0:
+        consumo = 0.1  # trava anti-divisão-por-zero
+
+    # Letras efetivas do setup escolhido x letras ideais da pista.
+    letra_cambio = carro._categoria_cambio_efetiva()
+    letra_suspensao = carro._categoria_suspensao_efetiva()
+    if pista:
+        ideal_cambio = (pista.get("categoria_cambio_ideal") or letra_cambio).upper()[:1]
+        ideal_suspensao = (pista.get("categoria_suspensao_ideal") or letra_suspensao).upper()[:1]
+    else:
+        ideal_cambio = letra_cambio
+        ideal_suspensao = letra_suspensao
+
+    # Erro de setup = distância (em "passos" de letra) do ideal. 0 = perfeito.
+    erro_setup = float(
+        abs(_idx(letra_cambio) - _idx(ideal_cambio))
+        + abs(_idx(letra_suspensao) - _idx(ideal_suspensao))
+    )
+
+    voltas = []
+    tempos = []
+    desgaste = 0.0
+    combustivel_restante = combustivel_litros
+    melhor_tempo = None
+    melhor_numero = None
+    encerrou_por = "combustivel"
+
+    numero = 0
+    while numero < CAP_VOLTAS:
+        # Acabou o combustível pra mais uma volta -> fim do stint.
+        if combustivel_restante < consumo:
+            encerrou_por = "combustivel"
+            break
+        numero += 1
+
+        tempo = carro.tempo_com_variacao(desgaste)
+        combustivel_restante -= consumo
+        desgaste += carro.desgaste_por_volta()
+        estourou = desgaste >= 100.0
+
+        # Feedback do piloto nesta volta.
+        if estourou:
+            feedback = "Estourou o pneu! Não dá pra continuar, treino encerrado."
+        elif desgaste > 85.0:
+            feedback = "Pneu no talo, tô escorregando muito — já era pra ter ido pro box."
+        elif numero % 2 == 1:
+            feedback = frase_por_categoria(ideal_cambio, letra_cambio, "cambio", aleatorio)
+        else:
+            feedback = frase_por_categoria(ideal_suspensao, letra_suspensao, "suspensao", aleatorio)
+
+        tempos.append(tempo)
+        if melhor_tempo is None or tempo < melhor_tempo:
+            melhor_tempo = tempo
+            melhor_numero = numero
+
+        voltas.append({
+            "numero": numero,
+            "tempo": round(tempo, 3),
+            "desgaste_pneu": round(min(desgaste, 100.0), 1),
+            "combustivel_restante": round(max(combustivel_restante, 0.0), 2),
+            "feedback": feedback,
+        })
+
+        if estourou:
+            encerrou_por = "pneu"
+            break
+
+    total_voltas = len(voltas)
+    tempo_medio = round(sum(tempos) / total_voltas, 3) if total_voltas else 0.0
+
+    return {
+        "pneu_nome": pneu_db.nome,
+        "combustivel_nome": combustivel_db.nome,
+        "combustivel_litros": round(combustivel_litros, 2),
+        "consumo_por_volta": round(consumo, 3),
+        "total_voltas": total_voltas,
+        "melhor_volta_numero": melhor_numero or 0,
+        "melhor_volta_tempo": round(melhor_tempo, 3) if melhor_tempo is not None else 0.0,
+        "tempo_medio": tempo_medio,
+        "erro_setup": erro_setup,
+        "encerrou_por": encerrou_por,
+        "pista_nome": (pista.get("nome") if pista else None),
+        "letra_cambio": letra_cambio,
+        "letra_suspensao": letra_suspensao,
+        "ideal_cambio": ideal_cambio,
+        "ideal_suspensao": ideal_suspensao,
+        "voltas": voltas,
+    }
+
