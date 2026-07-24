@@ -8,8 +8,8 @@
     <h1>ASSINE OS CONTRATOS DA TEMPORADA</h1>
     <div class="ows-hero-sub">
         Escolha os fornecedores da sua equipe. Motor, combustível, pneu, câmbio e suspensão
-        são contratos anuais obrigatórios. O engenheiro é opcional, mas necessário pra
-        desenvolver chassi e aerodinâmica pra próxima temporada.
+        são contratos anuais obrigatórios. Sua equipe já começa com um <strong>Engenheiro
+        nível 1</strong> (grátis), que entrega chassi e aerodinâmica de nível 1 prontos.
     </div>
 
     <div class="ows-hero-meta">
@@ -22,7 +22,7 @@
             <strong>Contratos anuais</strong>
         </div>
         <div>
-            <small>CHASSI E AERO</small>
+            <small>ENGENHEIRO + CHASSI E AERO</small>
             <strong>Grátis (nível 1)</strong>
         </div>
     </div>
@@ -60,7 +60,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in motores|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp.
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
                     </option>
                     {% endfor %}
                 </select>
@@ -72,7 +72,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in combustiveis|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp.
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
                     </option>
                     {% endfor %}
                 </select>
@@ -84,7 +84,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in pneus|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — {{ m.categoria_chuva|default('seco') }}
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
                     </option>
                     {% endfor %}
                 </select>
@@ -96,7 +96,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in cambios|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — Cat. {{ m.categoria_pista|default('A') }}
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} — Cat. {{ m.categoria_pista|default('A') }}
                     </option>
                     {% endfor %}
                 </select>
@@ -108,7 +108,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in suspensoes|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — Cat. {{ m.categoria_pista|default('A') }}
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} — Cat. {{ m.categoria_pista|default('A') }}
                     </option>
                     {% endfor %}
                 </select>
@@ -117,24 +117,15 @@
     </div>
 
     <div class="ows-card" style="margin-bottom: 18px; border-left: 3px solid #ff7a00;">
-        <h3 style="color: #ff8a3d;">ENGENHEIRO (OPCIONAL)</h3>
+        <h3 style="color: #ff8a3d;">ENGENHEIRO NÍVEL 1 — INCLUSO</h3>
         <p class="ows-muted" style="margin-top: 4px;">
-            O engenheiro projeta e desenvolve chassi e aerodinâmica pra <strong>próxima</strong> temporada.
-            Sem engenheiro, você fica com chassi/aero de nível 1 pra sempre.
-            <strong>Requisito pra próxima temporada:</strong> ter engenheiro contratado + chassi 100% + aero 100%.
+            Sua equipe já vem com um <strong>Engenheiro nível 1</strong> contratado, sem custo.
+            Ele entrega chassi e aerodinâmica de nível 1 (100% aplicados) para você começar a correr.
+            Nas próximas temporadas você poderá <strong>renovar</strong> esse contrato (com desconto)
+            ou <strong>contratar um engenheiro de nível superior</strong> para desenvolver um carro
+            mais rápido. Lembre-se: chassi 100% + aero 100% + engenheiro contratado são requisito
+            para participar normalmente da próxima temporada.
         </p>
-
-        <div style="margin-top: 12px;">
-            <label for="engenheiro_fornecedor_id">Engenheiro</label>
-            <select id="engenheiro_fornecedor_id" name="engenheiro_fornecedor_id">
-                <option value="">Sem engenheiro (economiza agora, mas trava desenvolvimento)</option>
-                {% for m in engenheiros|sort(attribute='custo_temporada') %}
-                <option value="{{ m.id }}">
-                    {{ m.nome }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} / temp. — Nível {{ m.nivel|default(1) }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
     </div>
 
     <div class="ows-card" style="margin-bottom: 18px; background: rgba(255,120,0,.06);">
@@ -142,8 +133,8 @@
         <p class="ows-muted" style="margin: 0;">
             Ao clicar em <strong>Criar Equipe</strong>, o sistema debita imediatamente
             os custos de temporada de todos os fornecedores selecionados. Você não
-            poderá trocar contratos durante a temporada. Seu carro começa com chassi
-            e aerodinâmica de nível 1 (grátis).
+            poderá trocar contratos durante a temporada. Seu carro começa com Engenheiro,
+            chassi e aerodinâmica de nível 1 (grátis).
         </p>
     </div>
 
