@@ -1,46 +1,131 @@
-# Open Wheel Strategy — PONTO DE RETOMADA
+# Open Wheel Strategy — PONTO DE RETOMADA (continuar depois)
+
 > **Como usar num chat novo:** cole ESTE arquivo + o `regras.md` +
 > o `openwheel_py.txt` (e o `openwheel_html.txt` se precisar de telas)
 > na primeira mensagem. Diga: "Vamos continuar o Open Wheel Strategy
 > de onde paramos, seguindo o CONTINUAR_AQUI.md."
 >
-> **Última sessão:** 25/07/2026
+> **Última sessão:** 24/07/2026
 
 ---
 
-## ✅ FEITO NA SESSÃO DE 25/07/2026 (tudo testado e funcionando)
+## ✅ FEITO NA SESSÃO DE 24/07/2026 (tudo testado e funcionando)
 
-### 1. PNEU NO FORMATO "MARCA — VALOR" — CONCLUÍDO ✅
-- `gerar_pneus` (`seed_fornecedores.py`) agora grava `categoria_chuva="seco"` fixo. 
-- A condição de pista (seco/molhada/encharcada) passou a vir puramente do modelo 50-900 escolhido por corrida.
-- No jogo, o pneu exibe apenas "Pneu — marca — R$ valor".
+### 1. DESMEMBRAMENTO DO app.py — CONCLUÍDO ✅
+- **O que era:** `app.py` com 1000+ linhas e ~30 rotas (uma "tripa" só).
+- **O que virou:** `app.py` enxuto (~137 linhas) + rotas divididas em
+  arquivos pequenos dentro da pasta `rotas/`.
+- **Padrão usado:** `registrar(app)` (NÃO Blueprint puro).
+  - Motivo: Blueprint mudaria o nome das rotas (login → auth.login) e
+    quebraria TODOS os `url_for(...)` dos templates. Com `registrar(app)`
+    os nomes das rotas continuam IDÊNTICOS → nenhum template mudou.
+- **Testado:** app sobe, registra as 33 rotas, comandos CLI (init-db,
+  tornar-admin) OK, e o Henrique confirmou: "nenhuma tela quebrada".
 
-### 2. CORREÇÕES DE PISTA E BALANCEAMENTO — CONCLUÍDO ✅
-- Criado e executado o script `popular_pistas_modernas.py` para injetar os dados canônicos das 7 pistas modernas.
-- Painel de Administração (`admin_configuracoes`) atualizado para permitir a edição direta de:
-  - **Prêmio por Vitória (1º Lugar)**
-  - **Multiplicador de Consumo**
-  - **Chance de Quebra Base e Mínima**
+#### Estrutura nova de arquivos
+```
+openwheel/
+├── app.py                 ← ~137 linhas: cria app, filtros, contexto, CLI, registra rotas
+├── extensoes.py           ← oauth, migrate, login_requerido, admin_requerido
+├── fornecedores_config.py ← FORNECEDORES_CONFIG + CATEGORIAS_PISTA/CHUVA
+├── rotas/
+│   ├── __init__.py        ← chama registrar() de cada área (NOME: dois underscores de cada lado)
+│   ├── auth.py            ← home, registrar, login, login google + callback, logout
+│   ├── equipe.py          ← minha_equipe, editar_equipe, resetar_equipe
+│   ├── desenvolvimento.py ← desenvolvimento_view, treinamento_view
+│   ├── treino.py          ← treino_livre, ranking, treino_oficial
+│   ├── corrida.py         ← estrategia_corrida, classificacao, corrida (+ helpers)
+│   ├── temporada.py       ← temporada, pistas_reais
+│   └── admin.py           ← todas as rotas /admin
+└── (resto IGUAL: models.py, carro.py, corrida.py, seed_fornecedores.py, etc.)
+```
+> ⚠️ NÃO foram alterados: models.py, models_temporada.py, carro.py,
+> corrida.py (raiz), config.py, seed_fornecedores.py, templates, etc.
+> Só o app.py foi fatiado.
+
+### 2. LOGIN GOOGLE NO LINUX — RESOLVIDO ✅
+- **Sintoma:** erro `invalid_client / OAuth client was not found` no Linux.
+- **Causa:** o `.env` (com GOOGLE_CLIENT_ID/SECRET) está no `.gitignore`,
+  então NÃO veio no `git pull`. No Windows funcionava porque o `.env`
+  existe lá.
+- **Solução:** criar o `.env` manualmente na máquina Linux, copiando as
+  credenciais do `.env` do Windows. (Cada máquina tem seu `.env` local.)
+
+### 3. ADMIN CRIADO ✅
+- `henriquebettegaclaro@gmail.com` virou admin (via `flask tornar-admin`).
 
 ---
 
-## 🔴 PRÓXIMO EPIC: REDESENHO DO FLUXO DE CORRIDA (Planejado)
+## 🖥️ AMBIENTE DE TRABALHO (2 máquinas)
 
-> Design estrutural definido. Mudança dividida em etapas incrementais.
+- **Windows (PC casa):** RX 6800 16GB, Ryzen 7 2700X, 16GB RAM.
+  Onde o login Google já funcionava.
+- **Linux (notebook):** Linux Mint, Dell E6440, i5 4ª gen, 8GB RAM.
+  Onde configuramos o `.env`, o desmembramento e o LM Studio.
+- **Git:** repositório https://github.com/henriquebdv-lab/openw
+  - Email git: `256236843+henriquebdv-lab@users.noreply.github.com`
+  - Convenção nova de commit: adicionar "- feito no Windows" / "- feito no Linux".
+  - PUSH: se der erro de credencial no terminal (vscode-git .sock),
+    fazer o push pelo botão Sync/Push do VS Code (reautoriza a sessão).
 
-### O fluxo correto (resumo)
-1. **Prep do JOGADOR:** Minha Equipe -> Treino Livre -> Treino Oficial -> Classificação (escolhas independentes de combustível e tipo de pneu por fase). Na Classificação, o jogador **salva a estratégia**.
-2. **TRAVA:** O piloto só corre se tiver a estratégia salva.
-3. **AUTOMÁTICO por horário:** O sistema executará o Qualy e a Corrida sozinho de acordo com o calendário do Admin.
+### Comandos úteis (fim/começo de sessão)
+```bash
+git pull                          # começo (traz o que fez na outra máquina)
+git add . && git commit -m "..."  # salva
+git push                          # envia (ou pelo botão do VS Code)
+```
 
-### Etapas planejadas:
-- [ ] **Etapa 1:** Ajustar telas de Classificação e Corrida para modo *somente leitura* no menu do jogador, removendo botões de disparo de lá e centralizando o disparo manual provisório exclusivamente no `/admin`.
-- [ ] **Etapa 2:** Criar o modelo de Calendário/Agenda no Admin.
-- [ ] **Etapa 3:** Sistema de grupos de 20 + fila de espera.
-- [ ] **Etapa 4:** Agendador (qualy/corrida automáticos por horário).
-- [ ] **Etapa 5:** Promoção/rebaixamento dinâmico (pirâmide) no fim da temporada.
+### Gerar os TXT do projeto (pra colar em chat novo)
+```bash
+# Python (inclui a pasta rotas/):
+find . -name "*.py" -not -path "./.venv/*" -not -path "./migrations/*" | sort | while read f; do echo "===== ${f#./} ====="; cat "$f"; echo ""; done > openwheel_py.txt
+
+# HTML (templates):
+find templates -name "*.html" | sort | while read f; do echo "===== $f ====="; cat "$f"; echo ""; done > openwheel_html.txt
+```
 
 ---
 
-## ⚙️ REGRAS DE TRABALHO COM LA IA
-- Arquivos completos, KISS/DRY, sem inventar regras e sem alterar o padrão `registrar(app)`.
+## 🟡 PENDÊNCIAS (não feitas ainda)
+
+### A. BUG do banco (chassi) — PULADO por decisão do Henrique
+- Erro `NOT NULL constraint failed: carros_jogadores.chassi_fornecedor_id`
+  ao criar equipe (banco antigo tem a trava; código novo manda None).
+- Solução pronta era rodar `corrigir_banco.py` UMA VEZ pra remover a trava.
+- STATUS: Henrique optou por NÃO mexer no banco por enquanto.
+  (A função minha_equipe já está com `chassi_fornecedor_id=None`, versão limpa.)
+
+### B. seed_fornecedores.py — gerar_pneus neutro
+- Fazer pneus NOVOS nascerem neutros ("seco") ao gerar fornecedores no admin.
+- Os pneus ATUAIS já foram neutralizados (neutralizar_pneu.py rodado).
+
+### C. 7 pistas modernas SEM dado canônico
+- Definir câmbio/suspensão/box/influências (proposta existe, não aprovada).
+- Circuit of the Americas, Hermanos Rodríguez, Moscow Raceway, Norisring,
+  Oschersleben, Sochi, Yas Marina.
+
+### D. Config de balanceamento editável no admin (ideia aprovada, fazer depois)
+
+---
+
+## 📋 DECISÕES DE REGRA JÁ TOMADAS (do histórico anterior)
+
+1. ✅ Categorias das pistas = Opção A (dados canônicos Ayres, range 5-15 real).
+2. ✅ Pneu é NEUTRO — condição vem do modelo 50-900, não do fornecedor.
+3. ✅ Engenheiro nível 1 automático na conta nova (grátis, não escolhido).
+4. ✅ Chassi/aero projetados pelo engenheiro (não são fornecedor).
+5. ✅ Desmembrar app.py em arquivos pequenos — FEITO nesta sessão.
+
+---
+
+## ⚙️ REGRAS DE TRABALHO COM A IA (reforçadas)
+- SEMPRE entregar arquivos COMPLETOS, prontos pra substituir (nunca pedaços
+  ou "procure a linha X").
+- Henrique não é avançado em terminal/Linux/SSH — dar passo a passo claro.
+- KISS/DRY. Explicações diretas.
+
+---
+
+## 🎯 PRÓXIMOS PASSOS SUGERIDOS (quando voltar)
+- [ ] Fazer o `git push` do desmembramento (se ainda não subiu).
+- [ ] Escolher a próxima pendência: B (pneu neutro), C (7 pistas) ou D (config admin).

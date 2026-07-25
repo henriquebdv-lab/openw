@@ -1,0 +1,79 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'dia_corrida' %}
+
+{% block admin_content %}
+<h1 class="h3 mb-4">Dia de Corrida (Controle)</h1>
+
+<p class="text-muted">Esta tela é de acesso exclusivo do administrador para controlar o avanço dos finais de semana de corrida.</p>
+
+<!-- 1. CLASSIFICAÇÃO -->
+<div class="card mb-4">
+    <div class="card-header">1. Classificação (Qualifying)</div>
+    <div class="card-body">
+        <p class="text-muted" style="font-size:0.9em;">
+            Gera o grid de largada baseado em 1 volta rápida de todas as equipes, sem gasto de componentes. O resultado aparecerá na tela do jogador.
+        </p>
+        <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+            <input type="hidden" name="acao" value="classificacao">
+            <button type="submit" class="btn btn-primary">Rodar Classificação</button>
+        </form>
+    </div>
+</div>
+
+<!-- 2. CORRIDA DA TEMPORADA -->
+{% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success text-white">2. Corrida da Temporada: {{ temporada.nome }}</div>
+    <div class="card-body">
+        <p>
+            Etapa <strong>{{ proxima_corrida_temporada.ordem }}</strong> de {{ temporada.total_corridas() }}:
+            <strong>{{ pista_proxima_temporada.nome }}</strong> ({{ pista_proxima_temporada.pais }},
+            {{ pista_proxima_temporada.extensao_km }} km)
+        </p>
+        <p class="text-muted" style="font-size:0.9em;">
+            Ao rodar essa corrida, o <strong>custo_montagem</strong> dos fornecedores será debitado do orçamento de todas as equipes,
+            e a pontuação será computada no ranking.
+        </p>
+        <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+            <input type="hidden" name="acao" value="corrida_temporada">
+            <button type="submit" class="btn btn-success">
+                ▶ Rodar Corrida Oficial ({{ pista_proxima_temporada.nome }})
+            </button>
+        </form>
+    </div>
+</div>
+{% elif temporada and not proxima_corrida_temporada %}
+<div class="alert alert-info mb-4">
+    Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
+</div>
+{% else %}
+<div class="alert alert-warning mb-4">
+    Nenhuma temporada ativa. Acesse a aba Temporadas para iniciar uma.
+</div>
+{% endif %}
+
+<!-- 3. CORRIDA LIVRE -->
+<div class="card mb-4">
+    <div class="card-header">Corrida Livre (Testes)</div>
+    <div class="card-body">
+        <p class="text-muted" style="font-size:0.9em;">
+            Roda uma corrida qualquer. Também debita o custo de montagem das equipes, mas NÃO conta para a pontuação da temporada.
+        </p>
+        <form method="POST" action="{{ url_for('admin_dia_corrida') }}" class="row g-3 align-items-center">
+            <input type="hidden" name="acao" value="corrida_livre">
+            <div class="col-auto">
+                <label for="pista_id" class="visually-hidden">Pista</label>
+                <select name="pista_id" id="pista_id" class="form-select" required>
+                    <option value="">-- Escolha uma pista --</option>
+                    {% for p in pistas %}
+                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-secondary">▶ Simular Corrida Livre</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

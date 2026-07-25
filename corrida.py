@@ -6,8 +6,7 @@ Regras de abandono:
 1. Pneu passou de 100% de desgaste -> pneu estoura -> abandono.
 2. Quebra mecânica aleatória (sorteada no início da corrida).
    A chance é reduzida pelo Treinamento de Boxes.
-
-Combustível zerado é pit stop automático (não abandono).
+3. Combustível zerado na pista -> pane seca -> abandono (Quick Win 3).
 """
 
 import random
@@ -50,7 +49,7 @@ class EstadoCarroNaCorrida:
         self.pit_stops = 0
         self.abandonou = False
         self.volta_abandono = None
-        self.motivo_abandono = None   # "pneu" ou "quebra"
+        self.motivo_abandono = None   # "pneu", "quebra" ou "combustivel"
         self.historico_voltas = []
 
         # --- ESTRATÉGIA DE PIT STOPS ---
@@ -123,10 +122,27 @@ class EstadoCarroNaCorrida:
                 "motivo": "pneu",
             })
             return
+            
+        # --- 3) Verifica falta de combustível (Pane Seca = Abandono) ---
+        if self.combustivel <= COMBUSTIVEL_MINIMO:
+            self.abandonou = True
+            self.motivo_abandono = "combustivel"
+            self.volta_abandono = numero_volta
+            self.tempo_acumulado += tempo_volta
+            self.historico_voltas.append({
+                "volta": numero_volta,
+                "tempo_volta": round(tempo_volta, 3),
+                "tempo_acumulado": round(self.tempo_acumulado, 3),
+                "desgaste_pneu": round(self.desgaste_pneu, 1),
+                "pit_stop": False,
+                "abandonou": True,
+                "motivo": "combustivel",
+            })
+            return
 
-        # --- 3) Pit stop programado ou emergência se faltar combustível ---
+        # --- 4) Pit stop programado ---
         pit_stop_nesta_volta = False
-        if self.combustivel <= COMBUSTIVEL_MINIMO or numero_volta in self.voltas_programadas_pit:
+        if numero_volta in self.voltas_programadas_pit:
             tempo_volta += self.carro.tempo_pit_stop
             self.combustivel = self.carro.combustivel_carregado
             self.desgaste_pneu = 0.0  # Troca de pneu no pit stop zera o desgaste!

@@ -2,9 +2,7 @@
 {% block content %}
 <h1 class="h3">Dia de Corrida</h1>
 {% include "_abas_corrida.html" %}
-<form method="POST">
-    <button type="submit">Rodar classificação (1 volta rápida por equipe)</button>
-</form>
+
 {% if resultado %}
 <h2>Grid de largada</h2>
 <table>
@@ -17,5 +15,9 @@
     </tr>
     {% endfor %}
 </table>
+{% else %}
+<p class="text-muted" style="margin-top: 15px;">
+    A classificação para a próxima corrida ainda não foi realizada. Aguarde o fechamento do grid.
+</p>
 {% endif %}
 {% endblock %}

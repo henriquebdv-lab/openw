@@ -18,7 +18,7 @@
   </p>
 
   {% if mensagem %}
-    <div class="ows-alert" style="{{ 'background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;' if novo_recorde else '' }}">
+    <div class="ows-alert" style="{% if novo_recorde %}background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;{% endif %}">
       {{ mensagem }}
     </div>
   {% endif %}
@@ -34,7 +34,7 @@
         <label>Pista</label>
         <select name="pista_id">
           {% for p in pistas %}
-            <option value="{{ p.id }}" {{ 'selected' if escolhas.pista_id == p.id else '' }}>
+            <option value="{{ p.id }}" {% if escolhas.pista_id == p.id %}selected{% endif %}>
               {{ p.nome }}
               (câmbio ideal {{ p.categoria_cambio_ideal }} / susp. {{ p.categoria_suspensao_ideal }})
             </option>
@@ -58,22 +58,22 @@
         <label>Modelo de câmbio</label>
         <select name="modelo_cambio">
           {% for m in modelos_disponiveis %}
-            <option value="{{ m }}" {{ 'selected' if escolhas.modelo_cambio == m else '' }}>{{ m }}</option>
+            <option value="{{ m }}" {% if escolhas.modelo_cambio == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
 
         <label>Modelo de suspensão</label>
         <select name="modelo_suspensao">
           {% for m in modelos_disponiveis %}
-            <option value="{{ m }}" {{ 'selected' if escolhas.modelo_suspensao == m else '' }}>{{ m }}</option>
+            <option value="{{ m }}" {% if escolhas.modelo_suspensao == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
 
-        <label>Modelo de pneu (opcional)</label>
+        <label>Modelo de pneu</label>
         <select name="modelo_pneu">
           <option value="">— usar padrão do contrato —</option>
           {% for m in modelos_disponiveis %}
-            <option value="{{ m }}" {{ 'selected' if escolhas.modelo_pneu == m else '' }}>{{ m }}</option>
+            <option value="{{ m }}" {% if escolhas.modelo_pneu == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
 
@@ -147,7 +147,7 @@
             </thead>
             <tbody>
               {% for v in resultado.voltas %}
-                <tr style="border-top:1px solid #1e2a3d; {{ 'background:rgba(255,138,61,0.10);' if v.numero == resultado.melhor_volta_numero else '' }}">
+                <tr style="border-top:1px solid #1e2a3d; {% if v.numero == resultado.melhor_volta_numero %}background:rgba(255,138,61,0.10);{% endif %}">
                   <td style="padding:8px;">{{ v.numero }}</td>
                   <td style="padding:8px; font-weight:600; color:#fff;">{{ v.tempo | tempo_min }}</td>
                   <td style="padding:8px;">{{ v.desgaste_pneu }}%</td>

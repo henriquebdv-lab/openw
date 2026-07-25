@@ -15,13 +15,17 @@
                class="list-group-item list-group-item-action {% if secao_admin == 'dashboard' %}active{% endif %}">
                 🏠 Painel
             </a>
+            <a href="{{ url_for('admin_dia_corrida') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'dia_corrida' %}active{% endif %}">
+                🏁 Dia de Corrida
+            </a>
             <a href="{{ url_for('admin_configuracoes') }}"
                class="list-group-item list-group-item-action {% if secao_admin == 'configuracoes' %}active{% endif %}">
-                ⚙ Configurações
+                ⚙️ Configurações
             </a>
             <a href="{{ url_for('admin_pistas_reais') }}"
                class="list-group-item list-group-item-action {% if secao_admin == 'pistas' %}active{% endif %}">
-                🏁 Pistas Reais
+                🛣️ Pistas Reais
             </a>
             <a href="{{ url_for('admin_temporadas') }}"
                class="list-group-item list-group-item-action {% if secao_admin == 'temporadas' %}active{% endif %}">

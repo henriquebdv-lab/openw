@@ -177,7 +177,7 @@ import modelos_componente
 
 class Carro:
     def __init__(self, equipe, motor, combustivel, pneu, chassi, cambio, suspensao,
-                 engenheiro=None, combustivel_carregado=110.0, tempo_pit_stop=None):
+                 engenheiro=None, combustivel_carregado=110.0, tempo_pit_stop=None, config=None):
         self.equipe = equipe
         self.motor = motor
         self.combustivel = combustivel
@@ -188,6 +188,8 @@ class Carro:
         self.engenheiro = engenheiro
         self.combustivel_carregado = combustivel_carregado
         self.tempo_pit_stop = tempo_pit_stop if tempo_pit_stop is not None else PIT_STOP_SEGUNDOS
+        self.config = config # Puxando do admin
+        
         # Performance da aerodinÃ¢mica (setado pelo CarroJogador.montar_carro)
         self.performance_aero = 0.0
 
@@ -364,6 +366,10 @@ class Carro:
             mod = self._mod(componente)
             if mod:
                 consumo *= mod["fator_consumo"]
+
+        # MULTIPLICADOR DO ADMIN CONFIG
+        if self.config:
+            consumo *= getattr(self.config, 'multiplicador_consumo', 1.0)
 
         return consumo
 
@@ -782,14 +788,10 @@ def calcular_tempo_pit_stop(tempo_pista_base, config, percentual_treinamento):
     return round(tempo_efetivo, 3)
 
 
-def calcular_chance_quebra(percentual_treinamento_box):
-    """Chance de o carro quebrar durante a corrida.
-    - Treinamento 0%    -> 10% de chance
-    - Treinamento 100%  -> 2% de chance
-    - Escala linear no meio.
-    """
+def calcular_chance_quebra(percentual_treinamento_box, chance_base=0.10, chance_minima=0.02):
+    """Chance de o carro quebrar durante a corrida."""
     p = max(0.0, min(100.0, percentual_treinamento_box or 0.0)) / 100.0
-    return CHANCE_QUEBRA_BASE - (CHANCE_QUEBRA_BASE - CHANCE_QUEBRA_MINIMA) * p
+    return chance_base - (chance_base - chance_minima) * p
 
 
 class EstadoCarroNaCorrida:
@@ -905,8 +907,9 @@ def _calcular_trecho_da_volta(numero_volta, total_voltas, numero_trechos=NUMERO_
 
 class Corrida:
     def __init__(self, carros, total_voltas=60, temperaturas_trechos=None,
-                 consumo_qualifying=True, percentuais_treino_box=None):
+                 consumo_qualifying=True, percentuais_treino_box=None, config=None):
         self.total_voltas = total_voltas
+        self.config = config
         self.temperaturas_trechos = temperaturas_trechos
         if temperaturas_trechos:
             for carro in carros:
@@ -914,8 +917,13 @@ class Corrida:
 
         percentuais = percentuais_treino_box or [0.0] * len(carros)
         self.estados = []
+        
+        # LÃª os parÃ¢metros editados pelo admin no banco
+        chance_base = getattr(config, 'chance_quebra_base', CHANCE_QUEBRA_BASE) if config else CHANCE_QUEBRA_BASE
+        chance_min = getattr(config, 'chance_quebra_minima', CHANCE_QUEBRA_MINIMA) if config else CHANCE_QUEBRA_MINIMA
+
         for carro, pct_treino in zip(carros, percentuais):
-            chance_quebra = calcular_chance_quebra(pct_treino)
+            chance_quebra = calcular_chance_quebra(pct_treino, chance_base, chance_min)
             self.estados.append(EstadoCarroNaCorrida(
                 carro,
                 consumo_qualifying=consumo_qualifying,
@@ -1906,6 +1914,10 @@ def garantir_colunas_fornecedores():
                 ("carros_jogadores", "modelo_suspensao", "INTEGER"),
                 ("carros_jogadores", "estrategia_volta_pit", "INTEGER DEFAULT 10"),
                 ("carros_jogadores", "estrategia_dois_pits", "BOOLEAN DEFAULT 0"),
+                ("configuracao", "premio_corrida_pos_1", "REAL DEFAULT 12000.0"),
+                ("configuracao", "multiplicador_consumo", "REAL DEFAULT 1.0"),
+                ("configuracao", "chance_quebra_base", "REAL DEFAULT 0.10"),
+                ("configuracao", "chance_quebra_minima", "REAL DEFAULT 0.02"),
             ]:
                 try:
                     conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
@@ -2046,6 +2058,11 @@ class Configuracao(db.Model):
     treino_custo_fator = db.Column(db.Float, default=1.0)
     pit_tempo_sem_treino = db.Column(db.Float, default=25.0)
     pit_tempo_treino_completo = db.Column(db.Float, default=9.0)
+    
+    premio_corrida_pos_1 = db.Column(db.Float, default=12000.0)
+    multiplicador_consumo = db.Column(db.Float, default=1.0)
+    chance_quebra_base = db.Column(db.Float, default=0.10)
+    chance_quebra_minima = db.Column(db.Float, default=0.02)
 
     @classmethod
     def obter(cls):
@@ -2190,6 +2207,7 @@ class CarroJogador(db.Model):
             equipe=equipe, motor=motor, combustivel=combustivel, pneu=pneu, chassi=chassi,
             cambio=cambio, suspensao=suspensao, engenheiro=engenheiro,
             combustivel_carregado=self.combustivel_carregado, tempo_pit_stop=tempo_pit_stop,
+            config=config # Passando a configuracao global pro carro!
         )
 
         from constantes import performance_aero_do_nivel
@@ -2948,15 +2966,6 @@ PONTOS INDIVIDUAIS (piloto): todos os 20 primeiros pontuam.
 11Âº = 14  12Âº = 12  13Âº = 10  14Âº = 8   15Âº = 6
 16Âº = 5   17Âº = 4   18Âº = 3   19Âº = 2   20Âº = 1
 
-PRÃŠMIO INDIVIDUAL EM R$: todos os 20 primeiros ganham.
-1Âº = R$ 12.000     2Âº = R$ 11.000    3Âº = R$ 10.500
-4Âº = R$ 10.000     5Âº = R$ 9.500     6Âº = R$ 9.200
-7Âº = R$ 8.900      8Âº = R$ 8.600     9Âº = R$ 8.300
-10Âº = R$ 8.000    11Âº = R$ 7.700    12Âº = R$ 7.400
-13Âº = R$ 7.100    14Âº = R$ 6.800    15Âº = R$ 6.500
-16Âº = R$ 6.200    17Âº = R$ 6.000    18Âº = R$ 5.800
-19Âº = R$ 5.650    20Âº = R$ 5.500
-
 Quem abandona nÃ£o recebe pontos nem prÃªmio.
 """
 
@@ -2975,7 +2984,7 @@ PONTOS_POR_POSICAO = {
 
 
 # ---------------------------------------------------------
-# TABELA DE PRÃŠMIO EM R$ (individual)
+# TABELA DE PRÃŠMIO ORIGINAL DE REFERÃŠNCIA
 # ---------------------------------------------------------
 PREMIO_POR_POSICAO = {
     1:  12000,   2:  11000,   3:  10500,   4:  10000,   5:   9500,
@@ -2993,12 +3002,18 @@ def pontos_por_posicao(posicao, abandonou=False):
     return PONTOS_POR_POSICAO.get(posicao, 0)
 
 
-def premio_por_posicao(posicao, abandonou=False):
+def premio_por_posicao(posicao, abandonou=False, premio_base=12000.0):
     """PrÃªmio em R$ do piloto na corrida.
-    Retorna 0 se abandonou ou se ficou fora do top 20."""
+    Retorna 0 se abandonou ou se ficou fora do top 20.
+    A escala dos demais se baseia na proporÃ§Ã£o do 1Âº lugar."""
     if abandonou:
         return 0
-    return PREMIO_POR_POSICAO.get(posicao, 0)
+    premio_original = PREMIO_POR_POSICAO.get(posicao, 0)
+    if premio_original == 0:
+        return 0
+        
+    proporcao = premio_original / 12000.0
+    return round(premio_base * proporcao)
 
 
 def ranking_temporada(temporada):
@@ -3257,6 +3272,85 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+===== popular_pistas_modernas.py =====
+"""
+Grava os valores sugeridos e aprovados para as 7 pistas modernas
+que nÃ£o possuÃ­am dados canÃ´nicos na planilha Ayres.
+"""
+
+from pistas_reais_db import listar_pistas_reais, atualizar_pista_real
+
+DADOS_PISTAS_MODERNAS = {
+    "Circuit of the Americas": {
+        "categoria_cambio_ideal": "E", "categoria_suspensao_ideal": "F",
+        "tempo_pit_stop_segundos": 14.0,
+        "influencia_motor": 11, "influencia_cambio": 12, "influencia_suspensao": 13,
+        "influencia_pneu": 11, "influencia_combustivel": 10, "influencia_engenheiro": 10
+    },
+    "AutÃ³dromo Hermanos RodrÃ­guez": {
+        "categoria_cambio_ideal": "H", "categoria_suspensao_ideal": "C",
+        "tempo_pit_stop_segundos": 16.0,
+        "influencia_motor": 14, "influencia_cambio": 9, "influencia_suspensao": 8,
+        "influencia_pneu": 9, "influencia_combustivel": 8, "influencia_engenheiro": 12
+    },
+    "Moscow Raceway": {
+        "categoria_cambio_ideal": "C", "categoria_suspensao_ideal": "G",
+        "tempo_pit_stop_segundos": 14.0,
+        "influencia_motor": 7, "influencia_cambio": 12, "influencia_suspensao": 14,
+        "influencia_pneu": 12, "influencia_combustivel": 8, "influencia_engenheiro": 10
+    },
+    "Norisring": {
+        "categoria_cambio_ideal": "B", "categoria_suspensao_ideal": "A",
+        "tempo_pit_stop_segundos": 12.0,
+        "influencia_motor": 14, "influencia_cambio": 13, "influencia_suspensao": 7,
+        "influencia_pneu": 10, "influencia_combustivel": 11, "influencia_engenheiro": 8
+    },
+    "Motorsport Arena Oschersleben": {
+        "categoria_cambio_ideal": "C", "categoria_suspensao_ideal": "H",
+        "tempo_pit_stop_segundos": 13.0,
+        "influencia_motor": 8, "influencia_cambio": 11, "influencia_suspensao": 14,
+        "influencia_pneu": 14, "influencia_combustivel": 9, "influencia_engenheiro": 9
+    },
+    "Sochi Autodrom": {
+        "categoria_cambio_ideal": "F", "categoria_suspensao_ideal": "E",
+        "tempo_pit_stop_segundos": 15.0,
+        "influencia_motor": 11, "influencia_cambio": 10, "influencia_suspensao": 10,
+        "influencia_pneu": 8, "influencia_combustivel": 12, "influencia_engenheiro": 11
+    },
+    "Yas Marina Circuit": {
+        "categoria_cambio_ideal": "G", "categoria_suspensao_ideal": "D",
+        "tempo_pit_stop_segundos": 14.0,
+        "influencia_motor": 12, "influencia_cambio": 11, "influencia_suspensao": 11,
+        "influencia_pneu": 10, "influencia_combustivel": 12, "influencia_engenheiro": 10
+    }
+}
+
+def aplicar_pistas_modernas():
+    pistas = listar_pistas_reais()
+    if not pistas:
+        print("Nenhuma pista encontrada no banco.")
+        return
+
+    atualizadas = 0
+    nao_encontradas = list(DADOS_PISTAS_MODERNAS.keys())
+
+    for pista in pistas:
+        nome = pista["nome"]
+        if nome in DADOS_PISTAS_MODERNAS:
+            atualizar_pista_real(pista["id"], **DADOS_PISTAS_MODERNAS[nome])
+            print(f"[OK] {nome} atualizada com os valores de balanceamento.")
+            atualizadas += 1
+            nao_encontradas.remove(nome)
+
+    print(f"\nTotal atualizado: {atualizadas}/7")
+    if nao_encontradas:
+        print("Pistas NÃƒO ENCONTRADAS no banco:")
+        for n in nao_encontradas:
+            print(f" - {n}")
+
+if __name__ == "__main__":
+    aplicar_pistas_modernas()
 
 ===== progressao.py =====
 """
@@ -3664,6 +3758,7 @@ def registrar(app):
                 "treino_incremento_percentual", "treino_tempo_base_horas", "treino_tempo_fator_horas",
                 "treino_custo_base", "treino_custo_fator",
                 "pit_tempo_sem_treino", "pit_tempo_treino_completo",
+                "premio_corrida_pos_1", "multiplicador_consumo", "chance_quebra_base", "chance_quebra_minima"
             ]
             for campo in campos_float:
                 setattr(config, campo, float(request.form[campo]))
@@ -3852,6 +3947,7 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         temperaturas_trechos=temperaturas_trechos,
         consumo_qualifying=True,
         percentuais_treino_box=percentuais_treino_box,
+        config=config
     ).simular()
     resultado["pista"] = pista
     resultado["distancia_total"] = distancia_total
@@ -3868,10 +3964,13 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         ))
         custo_montagem = float(equipe_db.custo_total_montagem() or 0)
         equipe_db.orcamento = float(equipe_db.orcamento or 0) - custo_montagem
+        
         premio = premio_por_posicao(
             posicao_info["posicao"],
             posicao_info.get("abandonou", False),
+            premio_base=getattr(config, 'premio_corrida_pos_1', 12000.0)
         )
+        
         equipe_db.orcamento = float(equipe_db.orcamento or 0) + premio
         if corrida_agendada is not None:
             pontos = pontos_por_posicao(
@@ -4682,17 +4781,15 @@ def gerar_combustiveis(quantidade=QUANTIDADE_PADRAO):
 
 
 def gerar_pneus(quantidade=QUANTIDADE_PADRAO):
-    """Pneus com 3 categorias de chuva. Cada tier tem ~4 seco / 3 interm / 3 chuva."""
-    CATEGORIAS_CHUVA_DISTRIB = (
-        ["seco"] * 4 + ["intermediario"] * 3 + ["chuva"] * 3
-    )
+    """Pneus: 10 tiers de 10. A condicao (seco/molhada/encharcada) NAO vem do
+    fornecedor - ela vem do modelo 50-900 escolhido por corrida. Por isso
+    todo pneu nasce com categoria_chuva='seco', e no jogo aparece so como
+    'Pneu - marca - R$ valor'."""
     pneus = []
     for tier in range(1, NUMERO_TIERS + 1):
         custo_base = custo_temporada_do_tier("pneu", tier)
         performance_base = 0.25 * tier
         desgaste_base = 3.0 - (0.22 * tier)   # tier 1 = mais desgaste, tier 10 = menos
-        categorias_chuva = CATEGORIAS_CHUVA_DISTRIB.copy()
-        random.shuffle(categorias_chuva)
         for slot in range(FORNECEDORES_POR_TIER):
             classificacoes = CLASSIFICACOES_POR_TIER.copy()
             random.shuffle(classificacoes)
@@ -4706,7 +4803,7 @@ def gerar_pneus(quantidade=QUANTIDADE_PADRAO):
                 performance=round(performance_base * mult, 2),
                 desgaste=round(max(0.8, desgaste_base / max(0.5, mult)), 2),
                 ativo=True,
-                categoria_chuva=categorias_chuva[slot],
+                categoria_chuva="seco",  # fixo: condicao vem do modelo 50-900, nao do fornecedor
             ))
     pneus.sort(key=lambda p: p.custo_temporada)
     pneus = pneus[:quantidade]

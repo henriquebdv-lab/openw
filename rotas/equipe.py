@@ -42,7 +42,13 @@ def registrar(app):
             return render_template("minha_equipe.html", equipe=usuario.equipe, carro=carro,
                                    custo_montagem=usuario.equipe.custo_total_montagem())
         if request.method == "POST":
-            engenheiro_id = request.form.get("engenheiro_fornecedor_id") or None
+            engenheiro_id = request.form.get("engenheiro_fornecedor_id")
+            
+            # CORREÇÃO: Força a contratação de um engenheiro nível 1 se não vier no form
+            if not engenheiro_id:
+                eng_basico = FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True).first()
+                engenheiro_id = eng_basico.id if eng_basico else None
+
             combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
             nova_equipe = CarroJogador(
                 usuario_id=usuario.id,

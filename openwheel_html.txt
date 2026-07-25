@@ -109,6 +109,36 @@
     </div>
 
     <div class="card mb-3">
+        <div class="card-header">ðŸ Corridas e MecÃ¢nica</div>
+        <div class="card-body row g-3">
+            <div class="col-md-6">
+                <label class="form-label">PrÃªmio por VitÃ³ria (1Âº Lugar - R$)</label>
+                <input type="number" step="100" name="premio_corrida_pos_1"
+                       value="{{ config.premio_corrida_pos_1 }}" class="form-control" required>
+                <small class="text-muted">Os demais prÃªmios escalam proporcionalmente.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Multiplicador de Consumo</label>
+                <input type="number" step="0.01" name="multiplicador_consumo"
+                       value="{{ config.multiplicador_consumo }}" class="form-control" required>
+                <small class="text-muted">1.0 Ã© o normal. Maior = gasta mais gasolina.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Chance de Quebra Base (0 a 1)</label>
+                <input type="number" step="0.01" name="chance_quebra_base"
+                       value="{{ config.chance_quebra_base }}" class="form-control" required>
+                <small class="text-muted">Ex: 0.10 = 10% de chance sem treino de box.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Chance de Quebra MÃ­nima (0 a 1)</label>
+                <input type="number" step="0.01" name="chance_quebra_minima"
+                       value="{{ config.chance_quebra_minima }}" class="form-control" required>
+                <small class="text-muted">Ex: 0.02 = 2% de chance com treino 100%.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
         <div class="card-header">ðŸ”¬ Desenvolvimento (chassi/aero)</div>
         <div class="card-body row g-3">
             <div class="col-md-6">
@@ -725,24 +755,22 @@
 
         <div class="ows-menu-section">COMANDO</div>
         <a href="{{ url_for('home') }}" class="ows-menu-link {% if request.endpoint == 'home' %}active{% endif %}"><span class="ows-icon">ðŸ </span> Painel</a>
-        <a href="{{ url_for('minha_equipe') }}" class="ows-menu-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}"><span class="ows-icon">ðŸŽ</span> Minha Equipe</a>
-        <a href="{{ url_for('desenvolvimento_view') }}" class="ows-menu-link {% if request.endpoint == 'desenvolvimento_view' %}active{% endif %}"><span class="ows-icon">ðŸ”¬</span> Desenvolvimento</a>
+        <a href="{{ url_for('minha_equipe') }}" class="ows-menu-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}"><span class="ows-icon">ðŸŽï¸</span> Minha Equipe</a>
+        <a href="{{ url_for('desenvolvimento_view') }}" class="ows-menu-link {% if request.endpoint == 'desenvolvimento_view' %}active{% endif %}"><span class="ows-icon">ðŸ“ˆ</span> Desenvolvimento</a>
         <a href="{{ url_for('treinamento_view') }}" class="ows-menu-link {% if request.endpoint == 'treinamento_view' %}active{% endif %}"><span class="ows-icon">ðŸ”§</span> Treinamento</a>
 
         <div class="ows-menu-section">CORRIDA</div>
         <a href="{{ url_for('treino_livre_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_livre_view' %}active{% endif %}"><span class="ows-icon">ðŸ“‹</span> Treino Livre</a>
         <a href="{{ url_for('treino_oficial_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_oficial_view' %}active{% endif %}"><span class="ows-icon">ðŸ“Š</span> Treino Oficial</a>
         <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'estrategia_corrida_view' %}active{% endif %}"><span class="ows-icon">ðŸŽ¯</span> EstratÃ©gia</a>
-        <a href="{{ url_for('corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'corrida_view' %}active{% endif %}"><span class="ows-icon">ðŸ</span> Corrida</a>
-        <a href="{{ url_for('classificacao_view') }}" class="ows-menu-link {% if request.endpoint == 'classificacao_view' %}active{% endif %}"><span class="ows-icon">ðŸ“ˆ</span> ClassificaÃ§Ã£o</a>
 
         <div class="ows-menu-section">CAMPEONATO</div>
         <a href="{{ url_for('temporada_view') }}" class="ows-menu-link {% if request.endpoint == 'temporada_view' %}active{% endif %}"><span class="ows-icon">ðŸ†</span> Temporada</a>
-        <a href="{{ url_for('pistas_reais_view') }}" class="ows-menu-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}"><span class="ows-icon">ðŸ—º</span> Pistas</a>
+        <a href="{{ url_for('pistas_reais_view') }}" class="ows-menu-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}"><span class="ows-icon">ðŸ—ºï¸</span> Pistas</a>
 
         {% if usuario_logado.eh_admin %}
         <div class="ows-menu-section">SISTEMA</div>
-        <a href="{{ url_for('admin_dashboard') }}" class="ows-menu-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"><span class="ows-icon">âš™</span> AdministraÃ§Ã£o</a>
+        <a href="{{ url_for('admin_dashboard') }}" class="ows-menu-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"><span class="ows-icon">âš™ï¸</span> AdministraÃ§Ã£o</a>
         {% endif %}
     </aside>
 
@@ -2148,7 +2176,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
   </p>
 
   {% if mensagem %}
-    <div class="ows-alert" style="{{ 'background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;' if novo_recorde else '' }}">
+    <div class="ows-alert" style="{% if novo_recorde %}background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;{% endif %}">
       {{ mensagem }}
     </div>
   {% endif %}
@@ -2164,7 +2192,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         <label>Pista</label>
         <select name="pista_id">
           {% for p in pistas %}
-            <option value="{{ p.id }}" {{ 'selected' if escolhas.pista_id == p.id else '' }}>
+            <option value="{{ p.id }}" {% if escolhas.pista_id == p.id %}selected{% endif %}>
               {{ p.nome }}
               (cÃ¢mbio ideal {{ p.categoria_cambio_ideal }} / susp. {{ p.categoria_suspensao_ideal }})
             </option>
@@ -2188,22 +2216,22 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         <label>Modelo de cÃ¢mbio</label>
         <select name="modelo_cambio">
           {% for m in modelos_disponiveis %}
-            <option value="{{ m }}" {{ 'selected' if escolhas.modelo_cambio == m else '' }}>{{ m }}</option>
+            <option value="{{ m }}" {% if escolhas.modelo_cambio == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
 
         <label>Modelo de suspensÃ£o</label>
         <select name="modelo_suspensao">
           {% for m in modelos_disponiveis %}
-            <option value="{{ m }}" {{ 'selected' if escolhas.modelo_suspensao == m else '' }}>{{ m }}</option>
+            <option value="{{ m }}" {% if escolhas.modelo_suspensao == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
 
-        <label>Modelo de pneu (opcional)</label>
+        <label>Modelo de pneu</label>
         <select name="modelo_pneu">
           <option value="">â€” usar padrÃ£o do contrato â€”</option>
           {% for m in modelos_disponiveis %}
-            <option value="{{ m }}" {{ 'selected' if escolhas.modelo_pneu == m else '' }}>{{ m }}</option>
+            <option value="{{ m }}" {% if escolhas.modelo_pneu == m %}selected{% endif %}>{{ m }}</option>
           {% endfor %}
         </select>
 
@@ -2277,7 +2305,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
             </thead>
             <tbody>
               {% for v in resultado.voltas %}
-                <tr style="border-top:1px solid #1e2a3d; {{ 'background:rgba(255,138,61,0.10);' if v.numero == resultado.melhor_volta_numero else '' }}">
+                <tr style="border-top:1px solid #1e2a3d; {% if v.numero == resultado.melhor_volta_numero %}background:rgba(255,138,61,0.10);{% endif %}">
                   <td style="padding:8px;">{{ v.numero }}</td>
                   <td style="padding:8px; font-weight:600; color:#fff;">{{ v.tempo | tempo_min }}</td>
                   <td style="padding:8px;">{{ v.desgaste_pneu }}%</td>

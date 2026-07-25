@@ -1,13 +1,16 @@
 """
 Rotas de corrida:
 - /estrategia-corrida   (define estratégia + salva modelos 50-900)
-- /classificacao        (gera grid de largada - admin)
-- /corrida              (executa a corrida - admin)
+- /classificacao        (visualização do grid)
+- /corrida              (visualização do resultado)
 """
+import os
+import json
 from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, session, flash
 
+from config import BASE_DIR
 from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel
 from models_temporada import Temporada
 from extensoes import login_requerido
@@ -114,6 +117,16 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         corrida_agendada.executada = True
         corrida_agendada.data_execucao = datetime.utcnow()
     db.session.commit()
+    
+    # NOVO: Salva o replay num arquivo local para que a tela de Corrida do jogador
+    # possa ler depois sem precisarmos alterar o schema do banco.
+    caminho_replay = os.path.join(BASE_DIR, 'ultimo_replay.json')
+    try:
+        with open(caminho_replay, 'w', encoding='utf-8') as f:
+            json.dump(resultado, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"Erro ao salvar replay: {e}")
+        
     return resultado
 
 
@@ -167,51 +180,44 @@ def registrar(app):
                                mensagem=mensagem, equipe=usuario.equipe,
                                modelos_disponiveis=modelos_componente.MODELOS)
 
-    @app.route("/classificacao", methods=["GET", "POST"])
+    @app.route("/classificacao", methods=["GET"])
     @login_requerido
     def classificacao_view():
+        # APENAS LEITURA: Busca do banco os resultados gerados pelo admin
+        resultados_db = ResultadoClassificacao.query.order_by(ResultadoClassificacao.posicao_grid).all()
         resultado = None
-        if request.method == "POST":
-            usuario = Usuario.query.get(session["usuario_id"])
-            if not usuario.eh_admin:
-                return render_template("acesso_negado.html"), 403
-            todas_equipes = CarroJogador.query.all()
-            carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
-            grid = Classificacao(carros).gerar_grid_largada()
-            for posicao_info, equipe_db in zip(grid, todas_equipes):
-                db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
-                    tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
-            db.session.commit()
-            resultado = grid
+        
+        if resultados_db:
+            resultado = []
+            for r in resultados_db:
+                resultado.append({
+                    "posicao_grid": r.posicao_grid,
+                    "equipe": r.equipe.nome if r.equipe else f"Equipe #{r.equipe_id}",
+                    "tempo_classificacao": r.tempo_classificacao
+                })
+                
         return render_template("classificacao.html", resultado=resultado)
 
-    @app.route("/corrida", methods=["GET", "POST"])
+    @app.route("/corrida", methods=["GET"])
     @login_requerido
     def corrida_view():
+        # APENAS LEITURA: Lê o arquivo gerado pela execução do admin
         resultado = None
+        caminho_replay = os.path.join(BASE_DIR, 'ultimo_replay.json')
+        
+        if os.path.exists(caminho_replay):
+            try:
+                with open(caminho_replay, 'r', encoding='utf-8') as f:
+                    resultado = json.load(f)
+            except Exception as e:
+                print(f"Erro ao carregar replay: {e}")
+                
+        # Mantém as variáveis de interface para a tela não quebrar
         criar_banco_pistas_reais()
-        pistas = listar_pistas_reais()
         temporada = Temporada.ativa_atual()
         proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-        pistas_por_id = {p["id"]: p for p in pistas}
-        pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
-        if request.method == "POST":
-            usuario = Usuario.query.get(session["usuario_id"])
-            if not usuario.eh_admin:
-                return render_template("acesso_negado.html"), 403
-            modo_temporada = request.form.get("modo") == "temporada"
-            if modo_temporada and proxima_corrida_temporada and pista_proxima_temporada:
-                resultado = _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
-                flash(f"Corrida da temporada: {pista_proxima_temporada['nome']}.", "success")
-            else:
-                pista_id = int(request.form["pista_id"])
-                pista = obter_pista_real(pista_id)
-                resultado = _executar_corrida_e_persistir(pista, corrida_agendada=None)
-                flash(f"Corrida: {pista['nome']}.", "success")
-            temporada = Temporada.ativa_atual()
-            proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-            pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
-        return render_template("corrida.html", resultado=resultado, pistas=pistas,
+        
+        return render_template("corrida.html", 
+                               resultado=resultado,
                                temporada=temporada,
-                               proxima_corrida_temporada=proxima_corrida_temporada,
-                               pista_proxima_temporada=pista_proxima_temporada)
+                               proxima_corrida_temporada=proxima_corrida_temporada)

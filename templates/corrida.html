@@ -3,58 +3,6 @@
 <h1 class="h3">Dia de Corrida</h1>
 {% include "_abas_corrida.html" %}
 
-{% if usuario_logado.eh_admin %}
-    {% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
-    <div class="card mb-3 border-success">
-        <div class="card-header bg-success text-white">
-            🏁 Próxima corrida da temporada ativa: <strong>{{ temporada.nome }}</strong>
-        </div>
-        <div class="card-body">
-            <p>
-                Etapa <strong>{{ proxima_corrida_temporada.ordem }}</strong> de {{ temporada.total_corridas() }}:
-                <strong>{{ pista_proxima_temporada.nome }}</strong> ({{ pista_proxima_temporada.pais }},
-                {{ pista_proxima_temporada.extensao_km }} km)
-            </p>
-            <p class="text-muted" style="font-size:0.9em;">
-                Ao rodar essa corrida, o <strong>custo_montagem</strong> dos fornecedores será debitado do orçamento de todas as equipes,
-                e a pontuação (25/18/15/12/10/8/6/4/2/1) será computada no ranking.
-            </p>
-            <form method="POST">
-                <input type="hidden" name="modo" value="temporada">
-                <button type="submit" class="btn btn-success">
-                    ▶ Rodar corrida da temporada ({{ pista_proxima_temporada.nome }})
-                </button>
-            </form>
-        </div>
-    </div>
-    {% elif temporada and not proxima_corrida_temporada %}
-    <div class="alert alert-info">
-        Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
-        Veja o ranking em <a href="{{ url_for('temporada_view') }}">Temporada</a>.
-    </div>
-    {% endif %}
-
-    <div class="card mb-3">
-        <div class="card-header">Corrida livre (fora da temporada)</div>
-        <div class="card-body">
-            <p class="text-muted" style="font-size:0.9em;">
-                Roda uma corrida qualquer. Também debita o custo_montagem, mas NÃO conta pra pontuação da temporada.
-            </p>
-            <form method="POST">
-                <label for="pista_id">Pista</label>
-                <select name="pista_id" id="pista_id" required>
-                    {% for p in pistas %}
-                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
-                    {% endfor %}
-                </select>
-                <button type="submit">▶ Simular corrida</button>
-            </form>
-        </div>
-    </div>
-{% else %}
-<p class="text-muted">Só o admin pode simular a corrida. O resultado mais recente aparece abaixo.</p>
-{% endif %}
-
 {% if resultado %}
 <h2>Replay volta a volta</h2>
 <div class="card">
@@ -75,9 +23,9 @@
         Volta <strong id="volta-atual">1</strong> de {{ resultado.posicoes_por_volta|length }}
     </p>
     <div>
-        <button type="button" id="btn-anterior">⏮ Volta anterior</button>
+        <button type="button" id="btn-anterior">❮ Volta anterior</button>
         <button type="button" id="btn-play">▶ Play</button>
-        <button type="button" id="btn-proxima">Próxima volta ⏭</button>
+        <button type="button" id="btn-proxima">Próxima volta ❯</button>
     </div>
     <table id="tabela-replay">
         <tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>
@@ -163,5 +111,9 @@
     });
     renderVolta(0);
 </script>
+{% else %}
+<p class="text-muted" style="margin-top: 15px;">
+    Nenhuma corrida foi executada recentemente. Aguarde o início da sessão.
+</p>
 {% endif %}
 {% endblock %}

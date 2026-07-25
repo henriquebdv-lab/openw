@@ -80,9 +80,8 @@
         </div>
 
         <div class="col-md-6">
-            <label class="form-label">Engenheiro (opcional)</label>
-            <select name="engenheiro_fornecedor_id" class="form-select">
-                <option value="">-- sem engenheiro --</option>
+            <label class="form-label">Engenheiro (Obrigatório)</label>
+            <select name="engenheiro_fornecedor_id" class="form-select" required>
                 {% for m in engenheiros %}
                 <option value="{{ m.id }}" {% if equipe.engenheiro_fornecedor_id == m.id %}selected{% endif %}>
                     {{ m.nome }} (Nível {{ m.nivel }}) — montagem: {{ m.custo_montagem | dinheiro }}

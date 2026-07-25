@@ -1,6 +1,6 @@
 """
 Rotas de administração (/admin/...):
-- dashboard, gerar fornecedores, CRUD de fornecedores
+- dashboard, dia_corrida, gerar fornecedores, CRUD de fornecedores
 - pistas reais (editar)
 - temporadas (criar, editar, ativar, desativar, remover corrida)
 - usuários (listar, editar)
@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, flash
 
-from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro
+from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro, ResultadoClassificacao
 from models_temporada import Temporada, CorridaAgendada
 from extensoes import admin_requerido
 from fornecedores_config import FORNECEDORES_CONFIG, CATEGORIAS_PISTA, CATEGORIAS_CHUVA
@@ -20,6 +20,8 @@ from pistas_reais_db import (
     criar_banco as criar_banco_pistas_reais,
     listar_pistas_reais, obter_pista_real, atualizar_pista_real,
 )
+from classificacao import Classificacao
+from rotas.corrida import _executar_corrida_e_persistir
 
 
 def registrar(app):
@@ -32,6 +34,55 @@ def registrar(app):
                                categorias=FORNECEDORES_CONFIG, contagens=contagens,
                                total_temporadas=Temporada.query.count(),
                                total_usuarios=Usuario.query.count())
+
+    @app.route("/admin/dia-corrida", methods=["GET", "POST"])
+    @admin_requerido
+    def admin_dia_corrida():
+        temporada = Temporada.ativa_atual()
+        proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
+        
+        criar_banco_pistas_reais()
+        pistas = listar_pistas_reais()
+        pistas_por_id = {p["id"]: p for p in pistas}
+        pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
+
+        if request.method == "POST":
+            acao = request.form.get("acao")
+            
+            if acao == "classificacao":
+                # Limpa a classificação anterior para a tela do jogador refletir o novo grid
+                ResultadoClassificacao.query.delete()
+                todas_equipes = CarroJogador.query.all()
+                carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+                grid = Classificacao(carros).gerar_grid_largada()
+                for posicao_info, equipe_db in zip(grid, todas_equipes):
+                    db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
+                        tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
+                db.session.commit()
+                flash("Classificação rodada com sucesso! O grid já está disponível para os jogadores.", "success")
+                
+            elif acao == "corrida_temporada":
+                if proxima_corrida_temporada and pista_proxima_temporada:
+                    _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
+                    flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
+                else:
+                    flash("Não há corrida pendente nesta temporada.", "danger")
+                    
+            elif acao == "corrida_livre":
+                pista_id = request.form.get("pista_id")
+                if pista_id:
+                    pista = obter_pista_real(int(pista_id))
+                    if pista:
+                        _executar_corrida_e_persistir(pista, corrida_agendada=None)
+                        flash(f"Corrida Livre ({pista['nome']}) simulada com sucesso!", "success")
+            
+            return redirect(url_for('admin_dia_corrida'))
+            
+        return render_template("admin_dia_corrida.html", 
+                               temporada=temporada,
+                               proxima_corrida_temporada=proxima_corrida_temporada,
+                               pista_proxima_temporada=pista_proxima_temporada,
+                               pistas=pistas)
 
     @app.route("/admin/gerar-fornecedores", methods=["POST"])
     @admin_requerido
