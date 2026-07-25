@@ -9,15 +9,6 @@ PONTOS INDIVIDUAIS (piloto): todos os 20 primeiros pontuam.
 11º = 14  12º = 12  13º = 10  14º = 8   15º = 6
 16º = 5   17º = 4   18º = 3   19º = 2   20º = 1
 
-PRÊMIO INDIVIDUAL EM R$: todos os 20 primeiros ganham.
-1º = R$ 12.000     2º = R$ 11.000    3º = R$ 10.500
-4º = R$ 10.000     5º = R$ 9.500     6º = R$ 9.200
-7º = R$ 8.900      8º = R$ 8.600     9º = R$ 8.300
-10º = R$ 8.000    11º = R$ 7.700    12º = R$ 7.400
-13º = R$ 7.100    14º = R$ 6.800    15º = R$ 6.500
-16º = R$ 6.200    17º = R$ 6.000    18º = R$ 5.800
-19º = R$ 5.650    20º = R$ 5.500
-
 Quem abandona não recebe pontos nem prêmio.
 """
 
@@ -36,7 +27,7 @@ PONTOS_POR_POSICAO = {
 
 
 # ---------------------------------------------------------
-# TABELA DE PRÊMIO EM R$ (individual)
+# TABELA DE PRÊMIO ORIGINAL DE REFERÊNCIA
 # ---------------------------------------------------------
 PREMIO_POR_POSICAO = {
     1:  12000,   2:  11000,   3:  10500,   4:  10000,   5:   9500,
@@ -54,12 +45,18 @@ def pontos_por_posicao(posicao, abandonou=False):
     return PONTOS_POR_POSICAO.get(posicao, 0)
 
 
-def premio_por_posicao(posicao, abandonou=False):
+def premio_por_posicao(posicao, abandonou=False, premio_base=12000.0):
     """Prêmio em R$ do piloto na corrida.
-    Retorna 0 se abandonou ou se ficou fora do top 20."""
+    Retorna 0 se abandonou ou se ficou fora do top 20.
+    A escala dos demais se baseia na proporção do 1º lugar."""
     if abandonou:
         return 0
-    return PREMIO_POR_POSICAO.get(posicao, 0)
+    premio_original = PREMIO_POR_POSICAO.get(posicao, 0)
+    if premio_original == 0:
+        return 0
+        
+    proporcao = premio_original / 12000.0
+    return round(premio_base * proporcao)
 
 
 def ranking_temporada(temporada):

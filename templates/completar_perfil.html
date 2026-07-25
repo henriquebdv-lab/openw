@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Completar Perfil • Open Wheel Strategy{% endblock %}
+
+{% block content %}
+<div class="ows-auth-wrap">
+    <div class="ows-auth-card">
+        <span class="ows-hero-label">PERFIL DE PILOTO</span>
+        <h1>BEM-VINDO</h1>
+        <p class="ows-muted">Para continuar e acessar o painel do jogo, você precisa definir como será chamado nas corridas.</p>
+
+        {% if erro %}
+        <div class="ows-alert">{{ erro }}</div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('completar_perfil') }}" class="ows-form">
+            <label>Seu Nome ou Nickname</label>
+            <input type="text" name="nick" required autofocus placeholder="Ex: Ayrton Senna">
+
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="margin-top: 16px;">Salvar Perfil e Jogar</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

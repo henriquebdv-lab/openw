@@ -260,6 +260,7 @@ def registrar(app):
                 "treino_incremento_percentual", "treino_tempo_base_horas", "treino_tempo_fator_horas",
                 "treino_custo_base", "treino_custo_fator",
                 "pit_tempo_sem_treino", "pit_tempo_treino_completo",
+                "premio_corrida_pos_1", "multiplicador_consumo", "chance_quebra_base", "chance_quebra_minima"
             ]
             for campo in campos_float:
                 setattr(config, campo, float(request.form[campo]))

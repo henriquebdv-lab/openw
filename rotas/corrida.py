@@ -3,9 +3,6 @@ Rotas de corrida:
 - /estrategia-corrida   (define estratégia + salva modelos 50-900)
 - /classificacao        (gera grid de largada - admin)
 - /corrida              (executa a corrida - admin)
-
-Os helpers _aplicar_dados_pista_no_carro e _executar_corrida_e_persistir
-ficavam no app.py; como só a corrida usa, vieram pra cá.
 """
 from datetime import datetime
 
@@ -47,11 +44,17 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
     todas_equipes = CarroJogador.query.all()
     carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
     percentuais_treino_box = []
+    
     for carro, equipe_db in zip(carros, todas_equipes):
         treinamento = TreinamentoBox.obter_ou_criar(equipe_db.id)
         carro.tempo_pit_stop = calcular_tempo_pit_stop(pista["tempo_pit_stop_segundos"], config, treinamento.percentual)
         _aplicar_dados_pista_no_carro(carro, pista)
+        
+        carro.estrategia_volta_pit = equipe_db.estrategia_volta_pit
+        carro.estrategia_dois_pits = equipe_db.estrategia_dois_pits
+        
         percentuais_treino_box.append(float(treinamento.percentual or 0.0))
+        
     temp_fallback = pista.get("temperatura_ambiente") or 20.0
     temperaturas_trechos = [
         pista.get("temperatura_trecho_1") or temp_fallback,
@@ -65,6 +68,7 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         temperaturas_trechos=temperaturas_trechos,
         consumo_qualifying=True,
         percentuais_treino_box=percentuais_treino_box,
+        config=config
     ).simular()
     resultado["pista"] = pista
     resultado["distancia_total"] = distancia_total
@@ -81,10 +85,13 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         ))
         custo_montagem = float(equipe_db.custo_total_montagem() or 0)
         equipe_db.orcamento = float(equipe_db.orcamento or 0) - custo_montagem
+        
         premio = premio_por_posicao(
             posicao_info["posicao"],
             posicao_info.get("abandonou", False),
+            premio_base=getattr(config, 'premio_corrida_pos_1', 12000.0)
         )
+        
         equipe_db.orcamento = float(equipe_db.orcamento or 0) + premio
         if corrida_agendada is not None:
             pontos = pontos_por_posicao(
@@ -121,19 +128,23 @@ def registrar(app):
         ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
                                                          "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
         treino_oficial = session.get("treino_oficial_salvo") or {}
-        pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
-        combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+        
+        pneu_contratado = FornecedorPneu.query.get(usuario.equipe.pneu_fornecedor_id)
+        combustivel_contratado = FornecedorCombustivel.query.get(usuario.equipe.combustivel_fornecedor_id)
+        
         resultado = None
         mensagem = None
         sugestao = None
+        
         if request.method == "POST":
-            pneu = FornecedorPneu.query.get(int(request.form.get("pneu_fornecedor_id")))
-            combustivel = FornecedorCombustivel.query.get(int(request.form.get("combustivel_fornecedor_id")))
             volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
             outro_pit = request.form.get("outro_pit") == "on"
-            resultado = montar_estrategia_corrida(ajustes, pneu or pneus[0], combustivel or combustiveis[0], volta_primeiro_pit, outro_pit)
+            resultado = montar_estrategia_corrida(ajustes, pneu_contratado, combustivel_contratado, volta_primeiro_pit, outro_pit)
             sugestao = sugerir_estrategia_estrategista(ajustes)
-            # REFACTOR xx-50/xx-900: salva os modelos escolhidos pra próxima corrida.
+            
+            usuario.equipe.estrategia_volta_pit = volta_primeiro_pit
+            usuario.equipe.estrategia_dois_pits = outro_pit
+            
             campos_modelo = {
                 "modelo_motor": request.form.get("modelo_motor"),
                 "modelo_combustivel": request.form.get("modelo_combustivel"),
@@ -149,9 +160,10 @@ def registrar(app):
                 elif modelos_componente.modelo_valido(valor):
                     setattr(usuario.equipe, campo, int(valor))
             db.session.commit()
-            mensagem = "Estratégia definida."
+            mensagem = "Estratégia salva no banco de dados com sucesso."
+            
         return render_template("estrategia_corrida.html", ajustes=ajustes, treino_oficial=treino_oficial,
-                               pneus=pneus, combustiveis=combustiveis, resultado=resultado, sugestao=sugestao,
+                               pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=resultado, sugestao=sugestao,
                                mensagem=mensagem, equipe=usuario.equipe,
                                modelos_disponiveis=modelos_componente.MODELOS)
 

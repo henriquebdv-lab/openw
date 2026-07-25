@@ -41,23 +41,11 @@
           {% endfor %}
         </select>
 
-        <label>Pneu</label>
-        <select name="pneu_fornecedor_id">
-          {% for pn in pneus %}
-            <option value="{{ pn.id }}" {{ 'selected' if escolhas.pneu_fornecedor_id == pn.id else '' }}>
-              {{ pn.nome }}
-            </option>
-          {% endfor %}
-        </select>
-
-        <label>Combustível</label>
-        <select name="combustivel_fornecedor_id">
-          {% for c in combustiveis %}
-            <option value="{{ c.id }}" {{ 'selected' if escolhas.combustivel_fornecedor_id == c.id else '' }}>
-              {{ c.nome }}
-            </option>
-          {% endfor %}
-        </select>
+        <label>Pneu Contratado</label>
+        <input type="text" value="{{ pneu_contratado.nome }}" disabled class="form-control" style="background:#1e2a3d; color:#7a8aa3; border: 1px solid #2a3a52; margin-bottom:12px;">
+        
+        <label>Combustível Contratado</label>
+        <input type="text" value="{{ combustivel_contratado.nome }}" disabled class="form-control" style="background:#1e2a3d; color:#7a8aa3; border: 1px solid #2a3a52; margin-bottom:12px;">
 
         <label>Combustível a carregar (litros)</label>
         <input type="number" step="1" min="1" max="150" name="combustivel_litros"

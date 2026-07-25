@@ -18,24 +18,22 @@
 
         <div class="ows-menu-section">COMANDO</div>
         <a href="{{ url_for('home') }}" class="ows-menu-link {% if request.endpoint == 'home' %}active{% endif %}"><span class="ows-icon">🏠</span> Painel</a>
-        <a href="{{ url_for('minha_equipe') }}" class="ows-menu-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}"><span class="ows-icon">🏎</span> Minha Equipe</a>
-        <a href="{{ url_for('desenvolvimento_view') }}" class="ows-menu-link {% if request.endpoint == 'desenvolvimento_view' %}active{% endif %}"><span class="ows-icon">🔬</span> Desenvolvimento</a>
+        <a href="{{ url_for('minha_equipe') }}" class="ows-menu-link {% if request.endpoint == 'minha_equipe' %}active{% endif %}"><span class="ows-icon">🏎️</span> Minha Equipe</a>
+        <a href="{{ url_for('desenvolvimento_view') }}" class="ows-menu-link {% if request.endpoint == 'desenvolvimento_view' %}active{% endif %}"><span class="ows-icon">📈</span> Desenvolvimento</a>
         <a href="{{ url_for('treinamento_view') }}" class="ows-menu-link {% if request.endpoint == 'treinamento_view' %}active{% endif %}"><span class="ows-icon">🔧</span> Treinamento</a>
 
         <div class="ows-menu-section">CORRIDA</div>
         <a href="{{ url_for('treino_livre_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_livre_view' %}active{% endif %}"><span class="ows-icon">📋</span> Treino Livre</a>
         <a href="{{ url_for('treino_oficial_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_oficial_view' %}active{% endif %}"><span class="ows-icon">📊</span> Treino Oficial</a>
         <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'estrategia_corrida_view' %}active{% endif %}"><span class="ows-icon">🎯</span> Estratégia</a>
-        <a href="{{ url_for('corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'corrida_view' %}active{% endif %}"><span class="ows-icon">🏁</span> Corrida</a>
-        <a href="{{ url_for('classificacao_view') }}" class="ows-menu-link {% if request.endpoint == 'classificacao_view' %}active{% endif %}"><span class="ows-icon">📈</span> Classificação</a>
 
         <div class="ows-menu-section">CAMPEONATO</div>
         <a href="{{ url_for('temporada_view') }}" class="ows-menu-link {% if request.endpoint == 'temporada_view' %}active{% endif %}"><span class="ows-icon">🏆</span> Temporada</a>
-        <a href="{{ url_for('pistas_reais_view') }}" class="ows-menu-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}"><span class="ows-icon">🗺</span> Pistas</a>
+        <a href="{{ url_for('pistas_reais_view') }}" class="ows-menu-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}"><span class="ows-icon">🗺️</span> Pistas</a>
 
         {% if usuario_logado.eh_admin %}
         <div class="ows-menu-section">SISTEMA</div>
-        <a href="{{ url_for('admin_dashboard') }}" class="ows-menu-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"><span class="ows-icon">⚙</span> Administração</a>
+        <a href="{{ url_for('admin_dashboard') }}" class="ows-menu-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}"><span class="ows-icon">⚙️</span> Administração</a>
         {% endif %}
     </aside>
 

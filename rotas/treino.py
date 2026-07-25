@@ -3,9 +3,6 @@ Rotas de treino:
 - /treino-livre            (treino livre real, stint volta a volta)
 - /treino-livre/ranking    (ranking de melhores voltas)
 - /treino-oficial          (define pneu/combustível/pit pra corrida)
-
-As funções simular_treino_livre / simular_treino_oficial ficavam soltas no
-app.py; como só o treino usa, vieram pra cá.
 """
 from flask import render_template, request, redirect, url_for, session
 
@@ -66,15 +63,15 @@ def registrar(app):
         equipe = usuario.equipe
         criar_banco_pistas_reais()
         pistas = listar_pistas_reais()
-        pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
-        combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+        
+        pneu_contratado = FornecedorPneu.query.get(equipe.pneu_fornecedor_id)
+        combustivel_contratado = FornecedorCombustivel.query.get(equipe.combustivel_fornecedor_id)
+        
         resultado = None
         mensagem = None
         novo_recorde = False
         escolhas = {
             "pista_id": (pistas[0]["id"] if pistas else None),
-            "pneu_fornecedor_id": equipe.pneu_fornecedor_id,
-            "combustivel_fornecedor_id": equipe.combustivel_fornecedor_id,
             "combustivel_litros": 30.0,
             "modelo_cambio": equipe.modelo_cambio or 500,
             "modelo_suspensao": equipe.modelo_suspensao or 500,
@@ -88,8 +85,6 @@ def registrar(app):
                 except (TypeError, ValueError):
                     return padrao
             escolhas["pista_id"] = _int("pista_id", escolhas["pista_id"])
-            escolhas["pneu_fornecedor_id"] = _int("pneu_fornecedor_id", escolhas["pneu_fornecedor_id"])
-            escolhas["combustivel_fornecedor_id"] = _int("combustivel_fornecedor_id", escolhas["combustivel_fornecedor_id"])
             try:
                 litros = float(request.form.get("combustivel_litros", 30.0))
             except (TypeError, ValueError):
@@ -107,19 +102,19 @@ def registrar(app):
             escolhas["modelo_cambio"] = modelo_cambio or ""
             escolhas["modelo_suspensao"] = modelo_suspensao or ""
             escolhas["modelo_pneu"] = modelo_pneu or ""
-            pneu_db = FornecedorPneu.query.get(escolhas["pneu_fornecedor_id"]) or (pneus[0] if pneus else None)
-            combustivel_db = FornecedorCombustivel.query.get(escolhas["combustivel_fornecedor_id"]) or (combustiveis[0] if combustiveis else None)
+            
             pista = obter_pista_real(escolhas["pista_id"]) if escolhas["pista_id"] else None
-            if not pneu_db or not combustivel_db:
-                mensagem = "Cadastre fornecedores de pneu e combustível antes de treinar."
+            if not pneu_contratado or not combustivel_contratado:
+                mensagem = "Você tem um contrato quebrado de pneu ou combustível."
             else:
                 resultado = simular_treino_livre_real(
-                    equipe, pneu_db, combustivel_db, litros,
+                    equipe, pneu_contratado, combustivel_contratado, litros,
                     pista=pista,
                     modelo_cambio=modelo_cambio,
                     modelo_suspensao=modelo_suspensao,
                     modelo_pneu=modelo_pneu,
                 )
+                from models import db
                 _, novo_recorde = ResultadoTreinoLivre.registrar_se_melhor(equipe.id, resultado)
                 session.setdefault("treino_livre_salvo", {
                     "ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
@@ -132,7 +127,8 @@ def registrar(app):
         meu_resultado = ResultadoTreinoLivre.query.filter_by(equipe_id=equipe.id).first()
         return render_template(
             "treino_livre.html",
-            equipe=equipe, pistas=pistas, pneus=pneus, combustiveis=combustiveis,
+            equipe=equipe, pistas=pistas, 
+            pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado,
             modelos_disponiveis=modelos_componente.MODELOS,
             escolhas=escolhas, resultado=resultado, mensagem=mensagem,
             novo_recorde=novo_recorde, meu_resultado=meu_resultado,
@@ -141,8 +137,6 @@ def registrar(app):
     @app.route("/treino-livre/ranking")
     @login_requerido
     def treino_livre_ranking_view():
-        """Ranking de treino livre: melhor volta de cada equipe, do mais rápido
-        pro mais lento."""
         usuario = Usuario.query.get(session["usuario_id"])
         resultados = (
             ResultadoTreinoLivre.query
@@ -164,24 +158,31 @@ def registrar(app):
             return redirect(url_for("minha_equipe"))
         ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
                                                          "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
-        pneus = FornecedorPneu.query.filter_by(ativo=True).order_by(FornecedorPneu.custo_temporada).all()
-        combustiveis = FornecedorCombustivel.query.filter_by(ativo=True).order_by(FornecedorCombustivel.custo_temporada).all()
+        
+        pneu_contratado = FornecedorPneu.query.get(usuario.equipe.pneu_fornecedor_id)
+        combustivel_contratado = FornecedorCombustivel.query.get(usuario.equipe.combustivel_fornecedor_id)
+        
         resultado = None
         mensagem = None
         if not session.get("treino_livre_salvo"):
             mensagem = "Complete primeiro o treino livre."
+            
         if request.method == "POST":
             if not session.get("treino_livre_salvo"):
-                return render_template("treino_oficial.html", ajustes=ajustes, pneus=pneus, combustiveis=combustiveis, resultado=None, mensagem=mensagem)
-            pneu = FornecedorPneu.query.get(int(request.form.get("pneu_fornecedor_id")))
-            combustivel = FornecedorCombustivel.query.get(int(request.form.get("combustivel_fornecedor_id")))
+                return render_template("treino_oficial.html", ajustes=ajustes, pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=None, mensagem=mensagem, equipe=usuario.equipe)
+            
             volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
             outro_pit = request.form.get("outro_pit") == "on"
-            resultado = simular_treino_oficial(ajustes, pneu or pneus[0], combustivel or combustiveis[0], volta_primeiro_pit, outro_pit)
+            resultado = simular_treino_oficial(ajustes, pneu_contratado, combustivel_contratado, volta_primeiro_pit, outro_pit)
+            
+            from models import db
+            usuario.equipe.estrategia_volta_pit = volta_primeiro_pit
+            usuario.equipe.estrategia_dois_pits = outro_pit
+            db.session.commit()
+
             session["treino_oficial_salvo"] = {
-                "pneu_fornecedor_id": request.form.get("pneu_fornecedor_id"),
-                "combustivel_fornecedor_id": request.form.get("combustivel_fornecedor_id"),
                 "volta_primeiro_pit": volta_primeiro_pit, "outro_pit": outro_pit,
             }
-            mensagem = "Treino oficial concluído."
-        return render_template("treino_oficial.html", ajustes=ajustes, pneus=pneus, combustiveis=combustiveis, resultado=resultado, mensagem=mensagem)
+            mensagem = "Treino oficial concluído e salvo."
+            
+        return render_template("treino_oficial.html", ajustes=ajustes, pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=resultado, mensagem=mensagem, equipe=usuario.equipe)

@@ -37,7 +37,7 @@ import modelos_componente
 
 class Carro:
     def __init__(self, equipe, motor, combustivel, pneu, chassi, cambio, suspensao,
-                 engenheiro=None, combustivel_carregado=110.0, tempo_pit_stop=None):
+                 engenheiro=None, combustivel_carregado=110.0, tempo_pit_stop=None, config=None):
         self.equipe = equipe
         self.motor = motor
         self.combustivel = combustivel
@@ -48,6 +48,8 @@ class Carro:
         self.engenheiro = engenheiro
         self.combustivel_carregado = combustivel_carregado
         self.tempo_pit_stop = tempo_pit_stop if tempo_pit_stop is not None else PIT_STOP_SEGUNDOS
+        self.config = config # Puxando do admin
+        
         # Performance da aerodinâmica (setado pelo CarroJogador.montar_carro)
         self.performance_aero = 0.0
 
@@ -224,6 +226,10 @@ class Carro:
             mod = self._mod(componente)
             if mod:
                 consumo *= mod["fator_consumo"]
+
+        # MULTIPLICADOR DO ADMIN CONFIG
+        if self.config:
+            consumo *= getattr(self.config, 'multiplicador_consumo', 1.0)
 
         return consumo
 

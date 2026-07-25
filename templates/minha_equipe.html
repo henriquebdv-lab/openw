@@ -11,6 +11,10 @@
 
     <div class="ows-hero-meta">
         <div>
+            <small>PILOTO</small>
+            <strong>{{ usuario_logado.nick or 'Não definido' }}</strong>
+        </div>
+        <div>
             <small>ORÇAMENTO</small>
             <strong>R$ {{ "{:,.0f}".format(equipe.orcamento or 0)|replace(",", ".") }}</strong>
         </div>

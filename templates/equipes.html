@@ -48,9 +48,8 @@
     <div class="ows-card" style="margin-bottom: 18px;">
         <h3>CONTRATOS OBRIGATÓRIOS</h3>
         <p class="ows-muted" style="margin-top: 4px;">
-            O desempenho técnico de cada fornecedor não aparece: escolha pelo custo,
-            categoria e o nome. Alguns fornecedores baratos entregam mais do que parecem.
-            Ordenados do mais barato ao mais caro.
+            O desempenho técnico de cada fornecedor não aparece: escolha pelo custo e o nome.
+            Alguns fornecedores baratos entregam mais do que parecem. Ordenados do mais barato ao mais caro.
         </p>
 
         <div class="ows-grid-2" style="margin-top: 16px;">
@@ -96,7 +95,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in cambios|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} — Cat. {{ m.categoria_pista|default('A') }}
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
                     </option>
                     {% endfor %}
                 </select>
@@ -108,7 +107,7 @@
                     <option value="">Escolha um fornecedor</option>
                     {% for m in suspensoes|sort(attribute='custo_temporada') %}
                     <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }} — Cat. {{ m.categoria_pista|default('A') }}
+                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
                     </option>
                     {% endfor %}
                 </select>

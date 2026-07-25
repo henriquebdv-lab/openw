@@ -10,39 +10,24 @@
 <form method="POST" class="form-ows">
     <div class="row g-3">
         <div class="col-md-6">
-            <label for="pneu_fornecedor_id" class="form-label">Pneu para a corrida</label>
-            <select id="pneu_fornecedor_id" name="pneu_fornecedor_id" class="form-select">
-                {% for pneu in pneus %}
-                <option value="{{ pneu.id }}">{{ pneu.nome }} (perf. {{ pneu.performance }})</option>
-                {% endfor %}
-            </select>
+            <label class="form-label">Pneu Contratado</label>
+            <input type="text" class="form-control" value="{{ pneu_contratado.nome }}" disabled style="background:#e9ecef;">
         </div>
         <div class="col-md-6">
-            <label for="combustivel_fornecedor_id" class="form-label">Combustível para a corrida</label>
-            <select id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" class="form-select">
-                {% for combustivel in combustiveis %}
-                <option value="{{ combustivel.id }}">{{ combustivel.nome }} (efic. {{ combustivel.eficiencia }})</option>
-                {% endfor %}
-            </select>
+            <label class="form-label">Combustível Contratado</label>
+            <input type="text" class="form-control" value="{{ combustivel_contratado.nome }}" disabled style="background:#e9ecef;">
         </div>
         <div class="col-md-6">
             <label for="volta_primeiro_pit" class="form-label">Volta do primeiro pit stop</label>
-            <input id="volta_primeiro_pit" type="number" min="1" max="80" name="volta_primeiro_pit" value="10" class="form-control">
+            <input id="volta_primeiro_pit" type="number" min="1" max="80" name="volta_primeiro_pit" value="{{ equipe.estrategia_volta_pit }}" class="form-control">
         </div>
         <div class="col-md-6">
             <label for="outro_pit" class="form-label d-block">Segundo pit stop?</label>
-            <input id="outro_pit" type="checkbox" name="outro_pit" class="form-check-input">
+            <input id="outro_pit" type="checkbox" name="outro_pit" class="form-check-input" {% if equipe.estrategia_dois_pits %}checked{% endif %}>
             <label class="form-check-label ms-2" for="outro_pit">Sim</label>
         </div>
     </div>
 
-    {# ------------------------------------------------------------------ #}
-    {#  REFACTOR xx-50/xx-900: escolha do MODELO de cada componente        #}
-    {#  Modelo baixo (50) = mais rápido, dura/rende menos                  #}
-    {#  Modelo alto (900) = mais lento, dura/rende mais                    #}
-    {#  Câmbio/Suspensão: o modelo define a letra (A=50 ... J=900)         #}
-    {#  Pneu: 50-500 seco, 600-700 molhada, 800-900 encharcada            #}
-    {# ------------------------------------------------------------------ #}
     <div class="card mt-4">
         <div class="card-header">
             Modelo dos componentes (50 a 900)

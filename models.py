@@ -21,21 +21,24 @@ def garantir_colunas_fornecedores():
                 ("fornecedores_engenheiro", "eficiencia_exata", "REAL DEFAULT 0.0"),
                 ("usuarios", "grupo", "TEXT"),
                 ("usuarios", "classe", "TEXT"),
+                ("usuarios", "nick", "TEXT"),
                 ("configuracao", "orcamento_inicial", "REAL DEFAULT 55000.0"),
-                # Chassi/Aero: novos campos do Desenvolvimento
                 ("desenvolvimentos", "chassi_percentual_aplicado", "REAL DEFAULT 100.0"),
                 ("desenvolvimentos", "chassi_percentual_em_construcao", "REAL DEFAULT 0.0"),
                 ("desenvolvimentos", "aero_percentual_aplicado", "REAL DEFAULT 100.0"),
                 ("desenvolvimentos", "aero_percentual_em_construcao", "REAL DEFAULT 0.0"),
                 ("desenvolvimentos", "nivel_engenheiro_projetista", "INTEGER DEFAULT 1"),
-                # CarroJogador: chassi_fornecedor_id vira opcional (legado)
-                # REFACTOR xx-50/xx-900: modelo escolhido por corrida (50..900),
-                # NULL = nenhum modelo escolhido = comportamento antigo.
                 ("carros_jogadores", "modelo_motor", "INTEGER"),
                 ("carros_jogadores", "modelo_combustivel", "INTEGER"),
                 ("carros_jogadores", "modelo_pneu", "INTEGER"),
                 ("carros_jogadores", "modelo_cambio", "INTEGER"),
                 ("carros_jogadores", "modelo_suspensao", "INTEGER"),
+                ("carros_jogadores", "estrategia_volta_pit", "INTEGER DEFAULT 10"),
+                ("carros_jogadores", "estrategia_dois_pits", "BOOLEAN DEFAULT 0"),
+                ("configuracao", "premio_corrida_pos_1", "REAL DEFAULT 12000.0"),
+                ("configuracao", "multiplicador_consumo", "REAL DEFAULT 1.0"),
+                ("configuracao", "chance_quebra_base", "REAL DEFAULT 0.10"),
+                ("configuracao", "chance_quebra_minima", "REAL DEFAULT 0.02"),
             ]:
                 try:
                     conexao.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}"))
@@ -51,9 +54,6 @@ def garantir_colunas_fornecedores():
     except Exception:
         pass
 
-    # Cria tabelas novas que ainda não existam no banco (ex.: resultados_treino_livre).
-    # create_all() NÃO altera nem apaga tabelas existentes: só cria as que faltam.
-    # Assim o banco atual continua 100% compatível.
     try:
         db.create_all()
     except Exception:
@@ -71,6 +71,7 @@ class Usuario(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
     grupo = db.Column(db.String(50), nullable=True)
     classe = db.Column(db.String(50), nullable=True)
+    nick = db.Column(db.String(50), nullable=True)
 
     equipe = db.relationship("CarroJogador", backref="usuario", uselist=False)
 
@@ -118,8 +119,6 @@ class FornecedorPneu(db.Model):
 
 
 class FornecedorChassi(db.Model):
-    """LEGADO: mantido no banco por compatibilidade, mas não é mais usado.
-    Chassi agora é projetado pelo Engenheiro contratado (regra do manual)."""
     __tablename__ = "fornecedores_chassi"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
@@ -180,6 +179,11 @@ class Configuracao(db.Model):
     treino_custo_fator = db.Column(db.Float, default=1.0)
     pit_tempo_sem_treino = db.Column(db.Float, default=25.0)
     pit_tempo_treino_completo = db.Column(db.Float, default=9.0)
+    
+    premio_corrida_pos_1 = db.Column(db.Float, default=12000.0)
+    multiplicador_consumo = db.Column(db.Float, default=1.0)
+    chance_quebra_base = db.Column(db.Float, default=0.10)
+    chance_quebra_minima = db.Column(db.Float, default=0.02)
 
     @classmethod
     def obter(cls):
@@ -192,36 +196,19 @@ class Configuracao(db.Model):
 
 
 class Desenvolvimento(db.Model):
-    """Progresso de chassi + aerodinâmica de um jogador.
-
-    Regra do manual:
-    - Chassi e aero são projetados pelo Engenheiro contratado.
-    - Cada um vai de 0 a 100%.
-    - O que está EM CONSTRUÇÃO durante a temporada só passa a valer
-      NA PRÓXIMA temporada, quando o admin fecha a temporada e o
-      sistema aplica os projetos concluídos.
-    - Para participar da próxima temporada, chassi + aero precisam
-      chegar a 100% até o fim da temporada atual.
-    - Jogador novo recebe chassi + aero de nível 1, 100% aplicado.
-    """
     __tablename__ = "desenvolvimentos"
 
     id = db.Column(db.Integer, primary_key=True)
     equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
 
-    # Campo legado (ainda usado em bancos antigos)
     percentual = db.Column(db.Float, default=0.0)
 
-    # Chassi
-    chassi_percentual_aplicado = db.Column(db.Float, default=100.0)      # o que o carro USA nas corridas
-    chassi_percentual_em_construcao = db.Column(db.Float, default=0.0)    # o que o engenheiro está construindo
+    chassi_percentual_aplicado = db.Column(db.Float, default=100.0)
+    chassi_percentual_em_construcao = db.Column(db.Float, default=0.0)
 
-    # Aerodinâmica
     aero_percentual_aplicado = db.Column(db.Float, default=100.0)
     aero_percentual_em_construcao = db.Column(db.Float, default=0.0)
 
-    # Nível do engenheiro que projetou o chassi/aero atualmente aplicado.
-    # Define a performance máxima. Jogador novo começa com 1.
     nivel_engenheiro_projetista = db.Column(db.Integer, default=1)
 
     em_progresso = db.Column(db.Boolean, default=False)
@@ -258,21 +245,6 @@ class TreinamentoBox(db.Model):
 
 
 class CarroJogador(db.Model):
-    """Representa o CARRO INDIVIDUAL de um jogador.
-
-    Regra nova:
-    - Chassi NÃO é mais contrato com fornecedor. É projetado pelo
-      Engenheiro. Por isso `chassi_fornecedor_id` virou opcional
-      (legado, mantido pra bancos antigos).
-    - A performance do chassi vem do Desenvolvimento + nível do
-      engenheiro que projetou.
-
-    REFACTOR xx-50/xx-900:
-    - O jogador contrata 1 fornecedor por temporada (igual antes).
-    - A CADA CORRIDA, escolhe qual MODELO (50 a 900) usar de cada
-      componente. Guardamos essa escolha nas colunas modelo_*.
-      NULL = nenhum modelo escolhido = comportamento antigo.
-    """
     __tablename__ = "carros_jogadores"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -283,7 +255,6 @@ class CarroJogador(db.Model):
     motor_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_motor.id"), nullable=False)
     combustivel_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_combustivel.id"), nullable=False)
     pneu_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_pneu.id"), nullable=False)
-    # Legado: pode ser NULL agora
     chassi_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_chassi.id"), nullable=True)
     cambio_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_cambio.id"), nullable=False)
     suspensao_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_suspensao.id"), nullable=False)
@@ -293,13 +264,14 @@ class CarroJogador(db.Model):
     cor_primaria = db.Column(db.String(7), default="#cc0000")
     cor_secundaria = db.Column(db.String(7), default="#ffffff")
 
-    # REFACTOR xx-50/xx-900: modelo escolhido pra próxima corrida (50..900).
-    # NULL = usa o comportamento antigo (sem modificador de modelo).
     modelo_motor = db.Column(db.Integer, nullable=True)
     modelo_combustivel = db.Column(db.Integer, nullable=True)
     modelo_pneu = db.Column(db.Integer, nullable=True)
     modelo_cambio = db.Column(db.Integer, nullable=True)
     modelo_suspensao = db.Column(db.Integer, nullable=True)
+
+    estrategia_volta_pit = db.Column(db.Integer, default=10)
+    estrategia_dois_pits = db.Column(db.Boolean, default=False)
 
     def montar_carro(self):
         from equipamentos import Motor, Combustivel, Pneu, Chassi, Cambio, Suspensao, Engenheiro
@@ -324,7 +296,6 @@ class CarroJogador(db.Model):
         pneu = Pneu(pneu_db.nome, pneu_db.custo_temporada, pneu_db.performance, pneu_db.desgaste,
                     categoria_chuva=getattr(pneu_db, "categoria_chuva", "seco") or "seco")
 
-        # Chassi: performance vem do nível do engenheiro projetista + percentual aplicado
         desenvolvimento = Desenvolvimento.obter_ou_criar(self.id)
         performance_chassi_base = performance_chassi_do_nivel(desenvolvimento.nivel_engenheiro_projetista or 1)
         performance_chassi_efetiva = performance_chassi_base * (
@@ -343,10 +314,6 @@ class CarroJogador(db.Model):
 
         engenheiro = None
         if engenheiro_db:
-            # Efeito antigo (eficiência exata usada em consumo/desgaste).
-            # A performance do CHASSI já foi aplicada acima usando o nível do
-            # engenheiro projetista, então aqui só passamos a eficiência efetiva
-            # zerada (compat) ou usamos como efeito auxiliar.
             eficiencia_efetiva = 0.0
             engenheiro = Engenheiro(engenheiro_db.nome, engenheiro_db.custo_temporada,
                                      engenheiro_db.nivel, eficiencia_efetiva)
@@ -361,17 +328,15 @@ class CarroJogador(db.Model):
             equipe=equipe, motor=motor, combustivel=combustivel, pneu=pneu, chassi=chassi,
             cambio=cambio, suspensao=suspensao, engenheiro=engenheiro,
             combustivel_carregado=self.combustivel_carregado, tempo_pit_stop=tempo_pit_stop,
+            config=config # Passando a configuracao global pro carro!
         )
 
-        # Aero: performance somada como bônus separado no carro
         from constantes import performance_aero_do_nivel
         performance_aero_base = performance_aero_do_nivel(desenvolvimento.nivel_engenheiro_projetista or 1)
         carro_obj.performance_aero = performance_aero_base * (
             (desenvolvimento.aero_percentual_aplicado or 0) / 100.0
         )
 
-        # REFACTOR xx-50/xx-900: aplica os modelos escolhidos pra corrida.
-        # Se todos forem NULL, definir_modelos não faz nada (comportamento antigo).
         carro_obj.definir_modelos(
             motor=self.modelo_motor,
             combustivel=self.modelo_combustivel,
@@ -419,7 +384,7 @@ class CarroJogador(db.Model):
         return total
 
 
-EquipeDB = CarroJogador   # alias pra código antigo
+EquipeDB = CarroJogador
 
 
 class ResultadoClassificacao(db.Model):
@@ -444,14 +409,6 @@ class ResultadoCorrida(db.Model):
 
 
 class ResultadoTreinoLivre(db.Model):
-    """Melhor resultado de TREINO LIVRE de cada equipe.
-
-    Regra: só o MELHOR resultado da equipe fica salvo (1 linha por equipe,
-    garantido por equipe_id unique). Se um novo treino não bater o melhor
-    tempo de volta anterior, o registro antigo é mantido.
-
-    'melhor' = menor melhor_volta_tempo (volta mais rápida do stint).
-    """
     __tablename__ = "resultados_treino_livre"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -469,22 +426,14 @@ class ResultadoTreinoLivre(db.Model):
 
     @classmethod
     def registrar_se_melhor(cls, equipe_id, resultado):
-        """Salva o resultado se ele for melhor que o atual da equipe.
-
-        Retorna (registro, novo_recorde: bool).
-        - Se não havia registro -> cria e salva (novo_recorde=True).
-        - Se o novo melhor_volta_tempo for MENOR que o guardado -> substitui.
-        - Caso contrário -> mantém o antigo (novo_recorde=False).
-        """
         novo_tempo = resultado.get("melhor_volta_tempo")
         existente = cls.query.filter_by(equipe_id=equipe_id).first()
 
-        # Sem melhor tempo válido (stint sem voltas) -> não mexe.
         if not novo_tempo or novo_tempo <= 0:
             return existente, False
 
         if existente and existente.melhor_volta_tempo and novo_tempo >= existente.melhor_volta_tempo:
-            return existente, False  # não superou -> mantém o anterior
+            return existente, False
 
         if not existente:
             existente = cls(equipe_id=equipe_id)

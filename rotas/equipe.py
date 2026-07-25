@@ -44,7 +44,6 @@ def registrar(app):
         if request.method == "POST":
             engenheiro_id = request.form.get("engenheiro_fornecedor_id") or None
             combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
-            # Chassi NÃO vem mais do formulário (é projetado pelo engenheiro nível 1)
             nova_equipe = CarroJogador(
                 usuario_id=usuario.id,
                 nome=request.form["nome"],
@@ -52,7 +51,7 @@ def registrar(app):
                 motor_fornecedor_id=int(request.form["motor_fornecedor_id"]),
                 combustivel_fornecedor_id=int(request.form["combustivel_fornecedor_id"]),
                 pneu_fornecedor_id=int(request.form["pneu_fornecedor_id"]),
-                chassi_fornecedor_id=None,  # legado, sempre nulo em contas novas
+                chassi_fornecedor_id=None,
                 cambio_fornecedor_id=int(request.form["cambio_fornecedor_id"]),
                 suspensao_fornecedor_id=int(request.form["suspensao_fornecedor_id"]),
                 engenheiro_fornecedor_id=int(engenheiro_id) if engenheiro_id else None,
@@ -60,7 +59,6 @@ def registrar(app):
             )
             db.session.add(nova_equipe)
             db.session.flush()
-            # Cria registro de desenvolvimento com nível 1 (chassi/aero grátis)
             desenvolvimento = Desenvolvimento(
                 equipe_id=nova_equipe.id,
                 chassi_percentual_aplicado=100.0,

@@ -16,6 +16,36 @@
     </div>
 
     <div class="card mb-3">
+        <div class="card-header">🏁 Corridas e Mecânica</div>
+        <div class="card-body row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Prêmio por Vitória (1º Lugar - R$)</label>
+                <input type="number" step="100" name="premio_corrida_pos_1"
+                       value="{{ config.premio_corrida_pos_1 }}" class="form-control" required>
+                <small class="text-muted">Os demais prêmios escalam proporcionalmente.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Multiplicador de Consumo</label>
+                <input type="number" step="0.01" name="multiplicador_consumo"
+                       value="{{ config.multiplicador_consumo }}" class="form-control" required>
+                <small class="text-muted">1.0 é o normal. Maior = gasta mais gasolina.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Chance de Quebra Base (0 a 1)</label>
+                <input type="number" step="0.01" name="chance_quebra_base"
+                       value="{{ config.chance_quebra_base }}" class="form-control" required>
+                <small class="text-muted">Ex: 0.10 = 10% de chance sem treino de box.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Chance de Quebra Mínima (0 a 1)</label>
+                <input type="number" step="0.01" name="chance_quebra_minima"
+                       value="{{ config.chance_quebra_minima }}" class="form-control" required>
+                <small class="text-muted">Ex: 0.02 = 2% de chance com treino 100%.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
         <div class="card-header">🔬 Desenvolvimento (chassi/aero)</div>
         <div class="card-body row g-3">
             <div class="col-md-6">

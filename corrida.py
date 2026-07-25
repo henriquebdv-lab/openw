@@ -34,14 +34,10 @@ def calcular_tempo_pit_stop(tempo_pista_base, config, percentual_treinamento):
     return round(tempo_efetivo, 3)
 
 
-def calcular_chance_quebra(percentual_treinamento_box):
-    """Chance de o carro quebrar durante a corrida.
-    - Treinamento 0%    -> 10% de chance
-    - Treinamento 100%  -> 2% de chance
-    - Escala linear no meio.
-    """
+def calcular_chance_quebra(percentual_treinamento_box, chance_base=0.10, chance_minima=0.02):
+    """Chance de o carro quebrar durante a corrida."""
     p = max(0.0, min(100.0, percentual_treinamento_box or 0.0)) / 100.0
-    return CHANCE_QUEBRA_BASE - (CHANCE_QUEBRA_BASE - CHANCE_QUEBRA_MINIMA) * p
+    return chance_base - (chance_base - chance_minima) * p
 
 
 class EstadoCarroNaCorrida:
@@ -57,6 +53,18 @@ class EstadoCarroNaCorrida:
         self.motivo_abandono = None   # "pneu" ou "quebra"
         self.historico_voltas = []
 
+        # --- ESTRATÉGIA DE PIT STOPS ---
+        self.voltas_programadas_pit = []
+        vp1 = getattr(carro, 'estrategia_volta_pit', None)
+        if vp1 and 0 < vp1 < total_voltas:
+            self.voltas_programadas_pit.append(vp1)
+            
+            # Se houver 2 pits, calcula o segundo para a metade do caminho restante
+            if getattr(carro, 'estrategia_dois_pits', False):
+                vp2 = vp1 + max(1, (total_voltas - vp1) // 2)
+                if vp2 < total_voltas:
+                    self.voltas_programadas_pit.append(vp2)
+
         # Consumo da volta de qualifying
         if consumo_qualifying:
             consumo_qualifying_litros = self.carro.consumo_por_volta()
@@ -66,8 +74,6 @@ class EstadoCarroNaCorrida:
             self.combustivel_gasto_qualifying = 0.0
 
         # Sorteio de quebra mecânica no INÍCIO da corrida.
-        # Se vai quebrar, sorteia também em qual volta (aleatória entre 2 e total-1
-        # pra não quebrar logo na largada nem na última volta).
         self.vai_quebrar = random.random() < chance_quebra
         if self.vai_quebrar and total_voltas > 2:
             self.volta_quebra = random.randint(2, total_voltas - 1)
@@ -118,11 +124,12 @@ class EstadoCarroNaCorrida:
             })
             return
 
-        # --- 3) Pit stop automático se acabou o combustível ---
+        # --- 3) Pit stop programado ou emergência se faltar combustível ---
         pit_stop_nesta_volta = False
-        if self.combustivel <= COMBUSTIVEL_MINIMO:
+        if self.combustivel <= COMBUSTIVEL_MINIMO or numero_volta in self.voltas_programadas_pit:
             tempo_volta += self.carro.tempo_pit_stop
             self.combustivel = self.carro.combustivel_carregado
+            self.desgaste_pneu = 0.0  # Troca de pneu no pit stop zera o desgaste!
             self.pit_stops += 1
             pit_stop_nesta_volta = True
 
@@ -146,16 +153,9 @@ def _calcular_trecho_da_volta(numero_volta, total_voltas, numero_trechos=NUMERO_
 
 class Corrida:
     def __init__(self, carros, total_voltas=60, temperaturas_trechos=None,
-                 consumo_qualifying=True, percentuais_treino_box=None):
-        """
-        carros: lista de instâncias de Carro (um por piloto competindo).
-        temperaturas_trechos: lista opcional de 4 temperaturas por trecho.
-        consumo_qualifying: se True, cada carro perde 1 volta de combustível.
-        percentuais_treino_box: lista opcional (paralela a `carros`) com o
-            percentual de treinamento de box de cada equipe (0 a 100).
-            Se não informado, usa 0 (chance de quebra máxima).
-        """
+                 consumo_qualifying=True, percentuais_treino_box=None, config=None):
         self.total_voltas = total_voltas
+        self.config = config
         self.temperaturas_trechos = temperaturas_trechos
         if temperaturas_trechos:
             for carro in carros:
@@ -163,8 +163,13 @@ class Corrida:
 
         percentuais = percentuais_treino_box or [0.0] * len(carros)
         self.estados = []
+        
+        # Lê os parâmetros editados pelo admin no banco
+        chance_base = getattr(config, 'chance_quebra_base', CHANCE_QUEBRA_BASE) if config else CHANCE_QUEBRA_BASE
+        chance_min = getattr(config, 'chance_quebra_minima', CHANCE_QUEBRA_MINIMA) if config else CHANCE_QUEBRA_MINIMA
+
         for carro, pct_treino in zip(carros, percentuais):
-            chance_quebra = calcular_chance_quebra(pct_treino)
+            chance_quebra = calcular_chance_quebra(pct_treino, chance_base, chance_min)
             self.estados.append(EstadoCarroNaCorrida(
                 carro,
                 consumo_qualifying=consumo_qualifying,

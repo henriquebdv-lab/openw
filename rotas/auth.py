@@ -5,6 +5,7 @@ Rotas de autenticação e home:
 - /login
 - /login/google  + callback
 - /logout
+- /completar-perfil (nova)
 """
 from flask import render_template, request, redirect, url_for, session
 
@@ -13,6 +14,36 @@ from extensoes import oauth
 
 
 def registrar(app):
+
+    @app.before_request
+    def checar_nick():
+        if request.endpoint in ('static', 'login', 'registrar', 'login_google', 'auth_google_callback', 'logout', 'completar_perfil', 'home'):
+            return
+        
+        usuario_id = session.get("usuario_id")
+        if usuario_id:
+            usuario = Usuario.query.get(usuario_id)
+            if usuario and not usuario.nick:
+                return redirect(url_for('completar_perfil'))
+
+    @app.route("/completar-perfil", methods=["GET", "POST"])
+    def completar_perfil():
+        usuario_id = session.get("usuario_id")
+        if not usuario_id:
+            return redirect(url_for("login"))
+            
+        usuario = Usuario.query.get(usuario_id)
+        
+        if request.method == "POST":
+            nick = request.form.get("nick", "").strip()
+            if nick:
+                usuario.nick = nick
+                db.session.commit()
+                return redirect(url_for("minha_equipe"))
+            else:
+                return render_template("completar_perfil.html", erro="Você precisa informar um Nick.")
+                
+        return render_template("completar_perfil.html", usuario=usuario)
 
     @app.route("/registrar", methods=["GET", "POST"])
     def registrar():
@@ -26,7 +57,7 @@ def registrar(app):
             db.session.add(usuario)
             db.session.commit()
             session["usuario_id"] = usuario.id
-            return redirect(url_for("minha_equipe"))
+            return redirect(url_for("home"))
         return render_template("registrar.html")
 
     @app.route("/login", methods=["GET", "POST"])

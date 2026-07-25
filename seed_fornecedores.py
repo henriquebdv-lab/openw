@@ -202,17 +202,15 @@ def gerar_combustiveis(quantidade=QUANTIDADE_PADRAO):
 
 
 def gerar_pneus(quantidade=QUANTIDADE_PADRAO):
-    """Pneus com 3 categorias de chuva. Cada tier tem ~4 seco / 3 interm / 3 chuva."""
-    CATEGORIAS_CHUVA_DISTRIB = (
-        ["seco"] * 4 + ["intermediario"] * 3 + ["chuva"] * 3
-    )
+    """Pneus: 10 tiers de 10. A condicao (seco/molhada/encharcada) NAO vem do
+    fornecedor - ela vem do modelo 50-900 escolhido por corrida. Por isso
+    todo pneu nasce com categoria_chuva='seco', e no jogo aparece so como
+    'Pneu - marca - R$ valor'."""
     pneus = []
     for tier in range(1, NUMERO_TIERS + 1):
         custo_base = custo_temporada_do_tier("pneu", tier)
         performance_base = 0.25 * tier
         desgaste_base = 3.0 - (0.22 * tier)   # tier 1 = mais desgaste, tier 10 = menos
-        categorias_chuva = CATEGORIAS_CHUVA_DISTRIB.copy()
-        random.shuffle(categorias_chuva)
         for slot in range(FORNECEDORES_POR_TIER):
             classificacoes = CLASSIFICACOES_POR_TIER.copy()
             random.shuffle(classificacoes)
@@ -226,7 +224,7 @@ def gerar_pneus(quantidade=QUANTIDADE_PADRAO):
                 performance=round(performance_base * mult, 2),
                 desgaste=round(max(0.8, desgaste_base / max(0.5, mult)), 2),
                 ativo=True,
-                categoria_chuva=categorias_chuva[slot],
+                categoria_chuva="seco",  # fixo: condicao vem do modelo 50-900, nao do fornecedor
             ))
     pneus.sort(key=lambda p: p.custo_temporada)
     pneus = pneus[:quantidade]
