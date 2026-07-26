@@ -472,6 +472,31 @@ class SetupFimDeSemana(db.Model):
     modelo_motor = db.Column(db.Integer, nullable=False)
     modelo_cambio = db.Column(db.Integer, nullable=False)
     modelo_suspensao = db.Column(db.Integer, nullable=False)
+    travado = db.Column(db.Boolean, default=False, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     equipe = db.relationship("CarroJogador", backref="setups_fim_de_semana")
+
+
+class IdealPistaSlider(db.Model):
+    __tablename__ = "ideal_pista_slider"
+    __table_args__ = (db.UniqueConstraint('pista_real_id', 'slider', name='uq_ideal_pista_slider'),)
+    id = db.Column(db.Integer, primary_key=True)
+    pista_real_id = db.Column(db.Integer, nullable=False, index=True)
+    slider = db.Column(db.String(50), nullable=False)
+    valor_base = db.Column(db.Integer, nullable=False)
+
+
+class AjusteSalvo(db.Model):
+    __tablename__ = "ajustes_salvos"
+    __table_args__ = (db.UniqueConstraint('equipe_id', 'pista_real_id', name='uq_ajuste_equipe_pista'),)
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    pista_real_id = db.Column(db.Integer, nullable=False)
+    ajuste_cambio = db.Column(db.Integer, default=50)
+    ajuste_suspensao = db.Column(db.Integer, default=50)
+    ajuste_aero_dianteiro = db.Column(db.Integer, default=50)
+    ajuste_aero_traseiro = db.Column(db.Integer, default=50)
+    ajuste_freio = db.Column(db.Integer, default=50)
+
+    equipe = db.relationship("CarroJogador", backref="ajustes_salvos")

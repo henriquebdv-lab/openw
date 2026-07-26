@@ -1740,7 +1740,6 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
     .btn-add-stint:hover { background: #364156; }
     .btn-save-strategy { background: #ff7a00; color: white; border: none; width: 100%; padding: 15px; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 15px; cursor: pointer; }
     .btn-save-strategy:hover { background: #e66e00; }
-    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1751,41 +1750,6 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 </div>
 
 <form method="POST" action="{{ url_for('estrategia_corrida_view') }}" id="strategyForm">
-    <div class="config-grid">
-        <div>
-            <label class="form-label text-muted">Config. Motor</label>
-            <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label text-muted">Config. CÃ¢mbio</label>
-            <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label text-muted">Config. SuspensÃ£o</label>
-            <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label text-muted">Mapeamento InjeÃ§Ã£o</label>
-            <select name="modelo_combustivel" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_combustivel == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    </div>
-
     <div class="pit-wall-container">
         <div class="strategy-editor">
             <h3 style="color:#fff; margin-bottom: 20px;">Plano de Stints</h3>
@@ -2223,6 +2187,14 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
     <p class="ows-muted">NÃ£o hÃ¡ nenhuma corrida agendada na temporada ativa no momento. Aguarde o inÃ­cio do campeonato.</p>
 </div>
 {% else %}
+
+{% if setup_existente and setup_existente.travado %}
+<div class="ows-card" style="margin-bottom: 24px; border-left: 3px solid #e74c3c;">
+    <h3 style="color:#e74c3c;">ðŸ”’ PARC FERMÃ‰ ATIVO</h3>
+    <p class="ows-muted" style="margin: 0;">Setup travado para {{ pista.nome }}. Motor, cÃ¢mbio e suspensÃ£o nÃ£o podem ser alterados.</p>
+</div>
+{% endif %}
+
 <div class="ows-card" style="margin-bottom: 24px;">
     <h3>DADOS DA PISTA: {{ pista.nome }} ({{ pista.pais }})</h3>
     <p class="ows-muted" style="margin-top:4px;">Analise as categorias ideais abaixo para configurar seu carro corretamente.</p>
@@ -2238,15 +2210,28 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
     </div>
 </div>
 
-<form method="POST" action="{{ url_for('montagem_fim_de_semana') }}">
+{% if not (setup_existente and setup_existente.travado) %}
+<form method="POST" action="{{ url_for('montagem_fim_de_semana') }}" onsubmit="return confirm('âš ï¸ Ao salvar, seu carro entra em PARC FERMÃ‰. Motor, cÃ¢mbio e suspensÃ£o ficam travados pro fim de semana. Romper o lacre depois vai custar R$ 1.000 e vocÃª larga em Ãºltimo. Tem certeza que quer salvar?');">
+{% else %}
+<form>
+{% endif %}
     <div class="ows-card" style="margin-bottom: 24px;">
         <h3>ESCOLHA O SETUP INICIAL</h3>
-        <p class="ows-muted" style="margin-top:4px;">Selecione o modelo do cÃ¢mbio e da suspensÃ£o para este fim de semana de corrida. 50 (rÃ¡pido/frÃ¡gil) a 900 (lento/durÃ¡vel).</p>
+        <p class="ows-muted" style="margin-top:4px;">Selecione os modelos do carro para este fim de semana de corrida. 50 (rÃ¡pido/frÃ¡gil) a 900 (lento/durÃ¡vel).</p>
         
-        <div class="ows-grid-2" style="margin-top: 16px;">
+        <div class="ows-grid-3" style="margin-top: 16px;">
+            <div>
+                <label class="form-label text-muted">Modelo de Motor</label>
+                <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required {% if setup_existente and setup_existente.travado %}disabled{% endif %}>
+                    <option value="">-- selecione --</option>
+                    {% for m in modelos_disponiveis %}
+                    <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div>
                 <label class="form-label text-muted">Modelo de CÃ¢mbio</label>
-                <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required {% if setup_existente and setup_existente.travado %}disabled{% endif %}>
                     <option value="">-- selecione --</option>
                     {% for m in modelos_disponiveis %}
                     <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
@@ -2255,7 +2240,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
             </div>
             <div>
                 <label class="form-label text-muted">Modelo de SuspensÃ£o</label>
-                <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required {% if setup_existente and setup_existente.travado %}disabled{% endif %}>
                     <option value="">-- selecione --</option>
                     {% for m in modelos_disponiveis %}
                     <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
@@ -2265,9 +2250,15 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         </div>
     </div>
 
+    {% if not (setup_existente and setup_existente.travado) %}
     <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="padding: 15px; font-weight: bold; text-transform: uppercase;">
         ðŸ’¾ Salvar Montagem
     </button>
+    {% else %}
+    <button type="button" class="ows-btn ows-btn-ghost ows-btn-full" disabled style="padding: 15px; font-weight: bold; text-transform: uppercase;">
+        ðŸ”’ Montagem Salva e Travada
+    </button>
+    {% endif %}
 </form>
 {% endif %}
 {% endblock %}

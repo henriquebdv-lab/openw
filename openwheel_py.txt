@@ -2375,9 +2375,11 @@ class SetupFimDeSemana(db.Model):
     __tablename__ = "setup_fim_de_semana"
     id = db.Column(db.Integer, primary_key=True)
     equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
-    corrida_id = db.Column(db.Integer, nullable=False) # FK lÃƒÂ³gica para corridas_agendadas.id
+    corrida_id = db.Column(db.Integer, nullable=False)
+    modelo_motor = db.Column(db.Integer, nullable=False)
     modelo_cambio = db.Column(db.Integer, nullable=False)
     modelo_suspensao = db.Column(db.Integer, nullable=False)
+    travado = db.Column(db.Boolean, default=False, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     equipe = db.relationship("CarroJogador", backref="setups_fim_de_semana")
@@ -4481,7 +4483,7 @@ def registrar(app):
 
 ===== rotas\fim_de_semana.py =====
 """
-Rota de Montagem do Fim de Semana (Etapa 1 do Parc FermÃƒÂ©).
+Rota de Montagem do Fim de Semana (Etapa 1 do Parc FermÃ©).
 """
 from flask import render_template, request, redirect, url_for, session, flash
 from models import db, Usuario, SetupFimDeSemana
@@ -4513,24 +4515,40 @@ def registrar(app):
         ).first()
 
         if request.method == "POST":
+            # Trava de seguranÃƒÂ§a: nÃƒÂ£o permite alterar se jÃƒÂ¡ estiver travado
+            if setup_existente and setup_existente.travado:
+                flash("Seu carro jÃƒÂ¡ estÃƒÂ¡ em Parc FermÃƒÂ© para esta corrida.", "warning")
+                return redirect(url_for("montagem_fim_de_semana"))
+                
+            mod_motor = request.form.get("modelo_motor")
             mod_cambio = request.form.get("modelo_cambio")
             mod_susp = request.form.get("modelo_suspensao")
             
-            if modelos_componente.modelo_valido(mod_cambio) and modelos_componente.modelo_valido(mod_susp):
+            valido = (
+                modelos_componente.modelo_valido(mod_motor) and
+                modelos_componente.modelo_valido(mod_cambio) and 
+                modelos_componente.modelo_valido(mod_susp)
+            )
+            
+            if valido:
                 if setup_existente:
+                    setup_existente.modelo_motor = int(mod_motor)
                     setup_existente.modelo_cambio = int(mod_cambio)
                     setup_existente.modelo_suspensao = int(mod_susp)
+                    setup_existente.travado = True
                 else:
                     novo_setup = SetupFimDeSemana(
                         equipe_id=equipe.id,
                         corrida_id=proxima_corrida.id,
+                        modelo_motor=int(mod_motor),
                         modelo_cambio=int(mod_cambio),
-                        modelo_suspensao=int(mod_susp)
+                        modelo_suspensao=int(mod_susp),
+                        travado=True
                     )
                     db.session.add(novo_setup)
                 
                 db.session.commit()
-                flash("Montagem do fim de semana salva com sucesso!", "success")
+                flash("Montagem do fim de semana salva e travada com sucesso!", "success")
                 return redirect(url_for("montagem_fim_de_semana"))
             else:
                 flash("Modelos invÃƒÂ¡lidos selecionados.", "danger")
@@ -5234,6 +5252,109 @@ def aplicar_influencias():
 
 if __name__ == "__main__":
     aplicar_influencias()
+
+===== seed_teste.py =====
+"""
+Seed de TESTE do Open Wheel Strategy.
+
+Monta um ambiente de teste completo de uma vez sÃ³, pra vocÃª nÃ£o precisar
+recriar cadastro/admin/temporada na mÃ£o toda vez que zerar o banco.
+
+USO (depois de recriar o banco):
+    python criar_banco.py
+    python seed_teste.py
+
+O que ele cria:
+    - 2 usuÃ¡rios JÃ admin (senha padrao de teste), com nick "Razor"
+    - Os fornecedores (popular_banco: 100 de cada categoria)
+    - A "TEMPORADA 1" ativa, com as 10 primeiras corridas do calendario
+
+E idempotente: se rodar de novo, nao duplica (verifica antes de criar).
+"""
+from app import app
+from models import db, Usuario, FornecedorMotor
+from models_temporada import Temporada, CorridaAgendada
+from seed_fornecedores import popular_banco
+from pistas_reais_db import criar_banco as criar_banco_pistas_reais, listar_pistas_reais
+
+
+# ---- CONFIG DO SEED (mude aqui se quiser) ----
+USUARIOS_ADMIN = [
+    "henriquebdv@gmail.com",
+    "henriquebettegaclaro@gmail.com",
+]
+SENHA_PADRAO = "123456"          # so pra teste!
+NICK = "Razor"
+NOME_TEMPORADA = "TEMPORADA 1"
+QTD_CORRIDAS = 10
+
+
+def criar_admins():
+    criados = 0
+    for email in USUARIOS_ADMIN:
+        u = Usuario.query.filter_by(email=email).first()
+        if u:
+            # garante que continua admin/nick mesmo se ja existir
+            u.eh_admin = True
+            if hasattr(u, "nick") and not u.nick:
+                u.nick = NICK
+            continue
+        u = Usuario(email=email, eh_admin=True)
+        u.definir_senha(SENHA_PADRAO)
+        if hasattr(u, "nick"):
+            u.nick = NICK
+        db.session.add(u)
+        criados += 1
+    db.session.commit()
+    print(f"[OK] Admins: {criados} criado(s), {len(USUARIOS_ADMIN) - criados} ja existia(m). Senha padrao: {SENHA_PADRAO}")
+
+
+def criar_fornecedores():
+    # so popula se ainda nao houver fornecedores (evita duplicar)
+    if FornecedorMotor.query.count() > 0:
+        print("[SKIP] Fornecedores ja existem (nao populei de novo).")
+        return
+    popular_banco()
+    print("[OK] Fornecedores gerados (100 por categoria).")
+
+
+def criar_temporada():
+    existente = Temporada.query.filter_by(nome=NOME_TEMPORADA).first()
+    if existente:
+        print(f"[SKIP] Temporada '{NOME_TEMPORADA}' ja existe.")
+        return
+
+    # desativa outras temporadas e cria a nova como ativa
+    Temporada.query.update({"ativa": False})
+    temporada = Temporada(nome=NOME_TEMPORADA, ativa=True)
+    db.session.add(temporada)
+    db.session.flush()  # pega o id
+
+    criar_banco_pistas_reais()
+    pistas = listar_pistas_reais()[:QTD_CORRIDAS]
+    for i, pista in enumerate(pistas, start=1):
+        db.session.add(CorridaAgendada(
+            temporada_id=temporada.id,
+            pista_real_id=pista["id"],
+            pista_nome=pista["nome"],
+            ordem=i,
+            executada=False,
+        ))
+    db.session.commit()
+    print(f"[OK] '{NOME_TEMPORADA}' criada e ativa, com {len(pistas)} corridas.")
+
+
+def main():
+    with app.app_context():
+        criar_admins()
+        criar_fornecedores()
+        criar_temporada()
+        print("\n=== SEED DE TESTE CONCLUIDO ===")
+        print(f"Logue com: {USUARIOS_ADMIN[0]} / senha: {SENHA_PADRAO}")
+
+
+if __name__ == "__main__":
+    main()
 
 ===== tests\test_categorias_carro.py =====
 import unittest

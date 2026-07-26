@@ -12,6 +12,14 @@
     <p class="ows-muted">Não há nenhuma corrida agendada na temporada ativa no momento. Aguarde o início do campeonato.</p>
 </div>
 {% else %}
+
+{% if setup_existente and setup_existente.travado %}
+<div class="ows-card" style="margin-bottom: 24px; border-left: 3px solid #e74c3c;">
+    <h3 style="color:#e74c3c;">🔒 PARC FERMÉ ATIVO</h3>
+    <p class="ows-muted" style="margin: 0;">Setup travado para {{ pista.nome }}. Motor, câmbio e suspensão não podem ser alterados.</p>
+</div>
+{% endif %}
+
 <div class="ows-card" style="margin-bottom: 24px;">
     <h3>DADOS DA PISTA: {{ pista.nome }} ({{ pista.pais }})</h3>
     <p class="ows-muted" style="margin-top:4px;">Analise as categorias ideais abaixo para configurar seu carro corretamente.</p>
@@ -27,7 +35,11 @@
     </div>
 </div>
 
-<form method="POST" action="{{ url_for('montagem_fim_de_semana') }}">
+{% if not (setup_existente and setup_existente.travado) %}
+<form method="POST" action="{{ url_for('montagem_fim_de_semana') }}" onsubmit="return confirm('⚠️ Ao salvar, seu carro entra em PARC FERMÉ. Motor, câmbio e suspensão ficam travados pro fim de semana. Romper o lacre depois vai custar R$ 1.000 e você larga em último. Tem certeza que quer salvar?');">
+{% else %}
+<form>
+{% endif %}
     <div class="ows-card" style="margin-bottom: 24px;">
         <h3>ESCOLHA O SETUP INICIAL</h3>
         <p class="ows-muted" style="margin-top:4px;">Selecione os modelos do carro para este fim de semana de corrida. 50 (rápido/frágil) a 900 (lento/durável).</p>
@@ -35,7 +47,7 @@
         <div class="ows-grid-3" style="margin-top: 16px;">
             <div>
                 <label class="form-label text-muted">Modelo de Motor</label>
-                <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required {% if setup_existente and setup_existente.travado %}disabled{% endif %}>
                     <option value="">-- selecione --</option>
                     {% for m in modelos_disponiveis %}
                     <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
@@ -44,7 +56,7 @@
             </div>
             <div>
                 <label class="form-label text-muted">Modelo de Câmbio</label>
-                <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required {% if setup_existente and setup_existente.travado %}disabled{% endif %}>
                     <option value="">-- selecione --</option>
                     {% for m in modelos_disponiveis %}
                     <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
@@ -53,7 +65,7 @@
             </div>
             <div>
                 <label class="form-label text-muted">Modelo de Suspensão</label>
-                <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required {% if setup_existente and setup_existente.travado %}disabled{% endif %}>
                     <option value="">-- selecione --</option>
                     {% for m in modelos_disponiveis %}
                     <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
@@ -63,9 +75,15 @@
         </div>
     </div>
 
+    {% if not (setup_existente and setup_existente.travado) %}
     <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="padding: 15px; font-weight: bold; text-transform: uppercase;">
         💾 Salvar Montagem
     </button>
+    {% else %}
+    <button type="button" class="ows-btn ows-btn-ghost ows-btn-full" disabled style="padding: 15px; font-weight: bold; text-transform: uppercase;">
+        🔒 Montagem Salva e Travada
+    </button>
+    {% endif %}
 </form>
 {% endif %}
 {% endblock %}

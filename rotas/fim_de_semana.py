@@ -31,6 +31,11 @@ def registrar(app):
         ).first()
 
         if request.method == "POST":
+            # Trava de seguranÃ§a: nÃ£o permite alterar se jÃ¡ estiver travado
+            if setup_existente and setup_existente.travado:
+                flash("Seu carro jÃ¡ estÃ¡ em Parc FermÃ© para esta corrida.", "warning")
+                return redirect(url_for("montagem_fim_de_semana"))
+                
             mod_motor = request.form.get("modelo_motor")
             mod_cambio = request.form.get("modelo_cambio")
             mod_susp = request.form.get("modelo_suspensao")
@@ -46,21 +51,23 @@ def registrar(app):
                     setup_existente.modelo_motor = int(mod_motor)
                     setup_existente.modelo_cambio = int(mod_cambio)
                     setup_existente.modelo_suspensao = int(mod_susp)
+                    setup_existente.travado = True
                 else:
                     novo_setup = SetupFimDeSemana(
                         equipe_id=equipe.id,
                         corrida_id=proxima_corrida.id,
                         modelo_motor=int(mod_motor),
                         modelo_cambio=int(mod_cambio),
-                        modelo_suspensao=int(mod_susp)
+                        modelo_suspensao=int(mod_susp),
+                        travado=True
                     )
                     db.session.add(novo_setup)
                 
                 db.session.commit()
-                flash("Montagem do fim de semana salva com sucesso!", "success")
+                flash("Montagem do fim de semana salva e travada com sucesso!", "success")
                 return redirect(url_for("montagem_fim_de_semana"))
             else:
-                flash("Modelos inválidos selecionados.", "danger")
+                flash("Modelos invÃ¡lidos selecionados.", "danger")
 
         return render_template(
             "montagem_fim_de_semana.html",
