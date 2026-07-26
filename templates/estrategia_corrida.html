@@ -1,87 +1,271 @@
 {% extends "base.html" %}
+{% block title %}Estratégia de Corrida • Open Wheel Strategy{% endblock %}
+
 {% block content %}
-<h1 class="h3">Estratégia de Corrida</h1>
-<p>Defina a estratégia final da corrida e consulte a sugestão do estrategista.</p>
+<style>
+    /* Dark mode Pit Wall */
+    .pit-wall-container { display: flex; gap: 20px; align-items: flex-start; margin-top: 20px; }
+    .strategy-editor { flex: 2; background: #1e2430; border-radius: 8px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .pit-wall-summary { flex: 1; background: #161a23; border: 1px solid #2a3241; border-radius: 8px; padding: 20px; position: sticky; top: 20px; font-family: monospace; }
+    .pit-wall-summary h3 { color: #7a8aa3; font-size: 14px; letter-spacing: 2px; margin-bottom: 20px; border-bottom: 1px solid #2a3241; padding-bottom: 10px; }
+    .summary-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 16px; }
+    .summary-item span:first-child { color: #8c9bb3; }
+    .summary-item strong { color: #ffffff; }
+    
+    .timeline-bar { display: flex; height: 30px; background: #0f1218; border-radius: 4px; overflow: hidden; margin-bottom: 25px; }
+    .timeline-stint { display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 12px; font-family: monospace; transition: width 0.3s; }
+    
+    /* Cores de Pneus 50-900 */
+    .pneu-seco { background-color: #f1c40f; } 
+    .pneu-molhado { background-color: #2ecc71; } 
+    .pneu-encharcado { background-color: #3498db; } 
 
-{% if mensagem %}
-<div class="alert alert-info">{{ mensagem }}</div>
-{% endif %}
+    .stint-card { background: #262d3d; border-left: 4px solid #f1c40f; padding: 15px; margin-bottom: 15px; border-radius: 4px; display: flex; gap: 15px; align-items: center; }
+    .stint-card select, .stint-card input { background: #161a23; border: 1px solid #364156; color: #fff; padding: 8px; border-radius: 4px; font-family: monospace; }
+    .btn-remover-stint { background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-add-stint { background: #2a3241; color: white; border: 1px dashed #7a8aa3; width: 100%; padding: 12px; text-align: center; cursor: pointer; border-radius: 4px; margin-bottom: 20px; }
+    .btn-add-stint:hover { background: #364156; }
+    .btn-save-strategy { background: #ff7a00; color: white; border: none; width: 100%; padding: 15px; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 15px; cursor: pointer; }
+    .btn-save-strategy:hover { background: #e66e00; }
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+</style>
 
-<form method="POST" class="form-ows">
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label">Pneu Contratado</label>
-            <input type="text" class="form-control" value="{{ pneu_contratado.nome }}" disabled style="background:#e9ecef;">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Estratégia de Corrida</h1>
+    {% if pista %}
+    <span class="badge bg-secondary">Próxima Corrida: {{ pista.nome }} ({{ voltas_pista }} voltas)</span>
+    {% endif %}
+</div>
+
+<form method="POST" action="{{ url_for('estrategia_corrida_view') }}" id="strategyForm">
+    <div class="config-grid">
+        <div>
+            <label class="form-label text-muted">Config. Motor</label>
+            <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="col-md-6">
-            <label class="form-label">Combustível Contratado</label>
-            <input type="text" class="form-control" value="{{ combustivel_contratado.nome }}" disabled style="background:#e9ecef;">
+        <div>
+            <label class="form-label text-muted">Config. Câmbio</label>
+            <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="col-md-6">
-            <label for="volta_primeiro_pit" class="form-label">Volta do primeiro pit stop</label>
-            <input id="volta_primeiro_pit" type="number" min="1" max="80" name="volta_primeiro_pit" value="{{ equipe.estrategia_volta_pit }}" class="form-control">
+        <div>
+            <label class="form-label text-muted">Config. Suspensão</label>
+            <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="col-md-6">
-            <label for="outro_pit" class="form-label d-block">Segundo pit stop?</label>
-            <input id="outro_pit" type="checkbox" name="outro_pit" class="form-check-input" {% if equipe.estrategia_dois_pits %}checked{% endif %}>
-            <label class="form-check-label ms-2" for="outro_pit">Sim</label>
+        <div>
+            <label class="form-label text-muted">Mapeamento Injeção</label>
+            <select name="modelo_combustivel" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_combustivel == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
     </div>
 
-    <div class="card mt-4">
-        <div class="card-header">
-            Modelo dos componentes (50 a 900)
-        </div>
-        <div class="card-body">
-            <p class="text-muted">
-                Escolha por corrida. <strong>Modelo baixo (50)</strong> = mais rápido, mas
-                gasta/desgasta mais. <strong>Modelo alto (900)</strong> = mais lento, porém
-                mais econômico e durável. Deixe em <em>"Padrão"</em> pra não usar modelo.
-            </p>
-            <div class="row g-3">
-                {% set campos_modelo = [
-                    ('modelo_motor', 'Motor', 'velocidade x consumo'),
-                    ('modelo_combustivel', 'Combustível', 'velocidade x consumo'),
-                    ('modelo_pneu', 'Pneu', '50-500 seco / 600-700 molhada / 800-900 encharcada'),
-                    ('modelo_cambio', 'Câmbio', 'letra A=50 ... J=900 (case com a pista)'),
-                    ('modelo_suspensao', 'Suspensão', 'letra A=50 ... J=900 (case com a pista)')
-                ] %}
-                {% for campo, titulo, dica in campos_modelo %}
-                <div class="col-md-4">
-                    <label for="{{ campo }}" class="form-label">{{ titulo }}</label>
-                    <select id="{{ campo }}" name="{{ campo }}" class="form-select">
-                        <option value="">Padrão (sem modelo)</option>
-                        {% for m in modelos_disponiveis %}
-                        <option value="{{ m }}"
-                            {% if equipe and equipe[campo] == m %}selected{% endif %}>
-                            {{ titulo[:2]|upper }}-{{ m }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <small class="text-muted">{{ dica }}</small>
+    <div class="pit-wall-container">
+        <div class="strategy-editor">
+            <h3 style="color:#fff; margin-bottom: 20px;">Plano de Stints</h3>
+            
+            <div class="timeline-bar" id="timelineBar"></div>
+
+            <div id="stintsContainer">
+                {% for stint in stints %}
+                <div class="stint-card stint-row" data-ordem="{{ loop.index }}">
+                    <div style="flex:1;">
+                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">STINT <span class="stint-number">{{ loop.index }}</span></span>
+                        <select name="modelo_pneu[]" class="pneu-select" onchange="updateUI()" style="width:100%;">
+                            {% for m in modelos_disponiveis %}
+                            <option value="{{ m }}" {% if stint.modelo_pneu == m %}selected{% endif %}>
+                                {{ m }} — {% if m <= 500 %}🌤️ Seco{% elif m <= 700 %}🌧️ Molhada{% else %}⛈️ Encharcada{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Voltas Alvo</span>
+                        <input type="number" name="voltas[]" value="{{ stint.voltas }}" min="1" max="100" class="input-voltas" onchange="updateUI()" style="width:80px;">
+                    </div>
+                    <div>
+                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Combustível (L)</span>
+                        <input type="number" name="combustivel_litros[]" value="{{ stint.combustivel_litros }}" min="1" max="150" step="0.5" class="input-combustivel" onchange="updateUI()" style="width:100px;">
+                    </div>
+                    <div style="align-self: flex-end;">
+                        <button type="button" class="btn-remover-stint" onclick="removeStint(this)">✕</button>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
+
+            <button type="button" class="btn-add-stint" onclick="addStint()">+ ADICIONAR STINT / PIT STOP</button>
+        </div>
+
+        <div class="pit-wall-summary">
+            <h3>PIT WALL - DADOS ALVO</h3>
+            
+            <!-- Aviso dinâmico JS -->
+            <div id="lapValidationMsg" style="font-weight: bold; margin-bottom: 15px; font-size: 14px;"></div>
+
+            <div class="summary-item">
+                <span>Voltas da Pista</span>
+                <strong id="sumPistaVoltas">{{ voltas_pista if voltas_pista else '-' }}</strong>
+            </div>
+            <div class="summary-item">
+                <span>Voltas Planejadas</span>
+                <strong id="sumVoltasPlanejadas">0</strong>
+            </div>
+            <div class="summary-item">
+                <span>Total Combustível</span>
+                <strong id="sumCombustivel">0 L</strong>
+            </div>
+            <div class="summary-item">
+                <span>Paradas no Box</span>
+                <strong id="sumParadas">0</strong>
+            </div>
+            <div class="summary-item">
+                <span>Tempo Estimado</span>
+                <strong style="color:#7a8aa3;">[Fase B]</strong>
+            </div>
+
+            <button type="submit" class="btn-save-strategy">💾 Salvar Estratégia</button>
         </div>
     </div>
-
-    <button type="submit" class="btn btn-primary mt-3">Salvar estratégia</button>
 </form>
 
-{% if resultado %}
-<div class="card mt-4">
-    <h2 class="h5">Estratégia montada</h2>
-    <p>{{ resultado.resumo }}</p>
-    <p><strong>Volta do primeiro pit stop:</strong> {{ resultado.volta_primeiro_pit }}</p>
-    <p><strong>Segundo pit stop:</strong> {% if resultado.outro_pit %}Sim{% else %}Não{% endif %}</p>
-</div>
-{% endif %}
+<script>
+    const selectOptionsHTML = `
+        {% for m in modelos_disponiveis %}
+        <option value="{{ m }}">{{ m }} — {% if m <= 500 %}🌤️ Seco{% elif m <= 700 %}🌧️ Molhada{% else %}⛈️ Encharcada{% endif %}</option>
+        {% endfor %}
+    `;
 
-{% if sugestao %}
-<div class="card mt-3">
-    <h2 class="h5">Sugestão do estrategista</h2>
-    <p>{{ sugestao.resumo }}</p>
-    <p><strong>Volta sugerida:</strong> {{ sugestao.volta_primeiro_pit }}</p>
-</div>
-{% endif %}
+    function getPneuColorClass(modelo) {
+        if (modelo <= 500) return 'pneu-seco';
+        if (modelo <= 700) return 'pneu-molhado';
+        return 'pneu-encharcado';
+    }
+    
+    function getPneuColorBorder(modelo) {
+        if (modelo <= 500) return '#f1c40f';
+        if (modelo <= 700) return '#2ecc71';
+        return '#3498db';
+    }
+
+    function addStint() {
+        const container = document.getElementById('stintsContainer');
+        const div = document.createElement('div');
+        div.className = 'stint-card stint-row';
+        div.innerHTML = `
+            <div style="flex:1;">
+                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">STINT <span class="stint-number">X</span></span>
+                <select name="modelo_pneu[]" class="pneu-select" onchange="updateUI()" style="width:100%;">
+                    ${selectOptionsHTML}
+                </select>
+            </div>
+            <div>
+                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Voltas Alvo</span>
+                <input type="number" name="voltas[]" value="15" min="1" max="100" class="input-voltas" onchange="updateUI()" style="width:80px;">
+            </div>
+            <div>
+                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Combustível (L)</span>
+                <input type="number" name="combustivel_litros[]" value="40" min="1" max="150" step="0.5" class="input-combustivel" onchange="updateUI()" style="width:100px;">
+            </div>
+            <div style="align-self: flex-end;">
+                <button type="button" class="btn-remover-stint" onclick="removeStint(this)">✕</button>
+            </div>
+        `;
+        container.appendChild(div);
+        updateUI();
+    }
+
+    function removeStint(btn) {
+        const rows = document.querySelectorAll('.stint-row');
+        if (rows.length <= 1) {
+            alert('A estratégia deve ter pelo menos 1 stint.');
+            return;
+        }
+        btn.closest('.stint-row').remove();
+        updateUI();
+    }
+
+    function updateUI() {
+        const rows = document.querySelectorAll('.stint-row');
+        let totalVoltas = 0;
+        let totalCombustivel = 0;
+        const timeline = document.getElementById('timelineBar');
+        timeline.innerHTML = '';
+
+        rows.forEach((row, index) => {
+            row.querySelector('.stint-number').innerText = index + 1;
+            const voltas = parseInt(row.querySelector('.input-voltas').value) || 0;
+            const combustivel = parseFloat(row.querySelector('.input-combustivel').value) || 0;
+            const modeloPneu = parseInt(row.querySelector('.pneu-select').value) || 50;
+            
+            totalVoltas += voltas;
+            totalCombustivel += combustivel;
+            row.style.borderLeftColor = getPneuColorBorder(modeloPneu);
+        });
+
+        rows.forEach((row, index) => {
+            const voltas = parseInt(row.querySelector('.input-voltas').value) || 0;
+            const modeloPneu = parseInt(row.querySelector('.pneu-select').value) || 50;
+            let perc = totalVoltas > 0 ? (voltas / totalVoltas) * 100 : 0;
+            
+            if (perc > 0) {
+                const block = document.createElement('div');
+                block.className = `timeline-stint ${getPneuColorClass(modeloPneu)}`;
+                block.style.width = `${perc}%`;
+                block.innerText = voltas;
+                timeline.appendChild(block);
+            }
+        });
+
+        document.getElementById('sumVoltasPlanejadas').innerText = totalVoltas;
+        document.getElementById('sumCombustivel').innerText = totalCombustivel.toFixed(1) + ' L';
+        document.getElementById('sumParadas').innerText = rows.length - 1;
+
+        // VALIDAÇÃO DE VOLTAS E TRAVA DE BOTÃO
+        const pistaVoltasText = document.getElementById('sumPistaVoltas').innerText;
+        const pistaVoltas = isNaN(parseInt(pistaVoltasText)) ? 0 : parseInt(pistaVoltasText);
+        const validationMsg = document.getElementById('lapValidationMsg');
+        const btnAdd = document.querySelector('.btn-add-stint');
+
+        if (pistaVoltas > 0) {
+            if (totalVoltas > pistaVoltas) {
+                validationMsg.innerText = `⚠️ ${totalVoltas - pistaVoltas} voltas a mais que a corrida`;
+                validationMsg.style.color = '#e74c3c';
+            } else if (totalVoltas < pistaVoltas) {
+                validationMsg.innerText = `⚠️ Faltam ${pistaVoltas - totalVoltas} voltas`;
+                validationMsg.style.color = '#f1c40f';
+            } else {
+                validationMsg.innerText = `✅ Voltas batem certinho`;
+                validationMsg.style.color = '#2ecc71';
+            }
+
+            if (totalVoltas >= pistaVoltas) {
+                btnAdd.disabled = true;
+                btnAdd.innerText = "LIMITE DE VOLTAS ATINGIDO";
+                btnAdd.style.opacity = "0.5";
+                btnAdd.style.cursor = "not-allowed";
+            } else {
+                btnAdd.disabled = false;
+                btnAdd.innerText = "+ ADICIONAR STINT / PIT STOP";
+                btnAdd.style.opacity = "1";
+                btnAdd.style.cursor = "pointer";
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', updateUI);
+</script>
 {% endblock %}

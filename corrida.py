@@ -4,9 +4,8 @@ e calcula as posições de cada um a cada volta.
 
 Regras de abandono:
 1. Pneu passou de 100% de desgaste -> pneu estoura -> abandono.
-2. Quebra mecânica aleatória (sorteada no início da corrida).
-   A chance é reduzida pelo Treinamento de Boxes.
-3. Combustível zerado na pista -> pane seca -> abandono (Quick Win 3).
+2. Quebra mecânica aleatória (sorteada no início).
+3. Combustível zerado na pista -> pane seca -> abandono.
 """
 
 import random
@@ -34,37 +33,36 @@ def calcular_tempo_pit_stop(tempo_pista_base, config, percentual_treinamento):
 
 
 def calcular_chance_quebra(percentual_treinamento_box, chance_base=0.10, chance_minima=0.02):
-    """Chance de o carro quebrar durante a corrida."""
     p = max(0.0, min(100.0, percentual_treinamento_box or 0.0)) / 100.0
     return chance_base - (chance_base - chance_minima) * p
 
 
 class EstadoCarroNaCorrida:
-    """Guarda o estado (combustível, desgaste) de um carro durante a corrida."""
     def __init__(self, carro, consumo_qualifying=False, chance_quebra=0.0, total_voltas=1):
         self.carro = carro
-        self.combustivel = carro.combustivel_carregado
+        
+        # Carrega os stints. Se não houver (equipe não salvou), cria um stint único de emergência.
+        self.stints = carro.stints if hasattr(carro, 'stints') and carro.stints else [
+            {'ordem': 1, 'modelo_pneu': 50, 'voltas': total_voltas, 'combustivel_litros': carro.combustivel_carregado}
+        ]
+        self.stints.sort(key=lambda x: x['ordem'])
+        
+        self.stint_atual_idx = 0
+        self.voltas_no_stint_atual = 0
+        
+        # Inicializa o carro com o Stint 1
+        stint_inicial = self.stints[0]
+        self.combustivel = stint_inicial['combustivel_litros']
+        self.carro.modelo_pneu = stint_inicial['modelo_pneu']
+
         self.desgaste_pneu = 0.0
         self.tempo_acumulado = 0.0
         self.pit_stops = 0
         self.abandonou = False
         self.volta_abandono = None
-        self.motivo_abandono = None   # "pneu", "quebra" ou "combustivel"
+        self.motivo_abandono = None   
         self.historico_voltas = []
 
-        # --- ESTRATÉGIA DE PIT STOPS ---
-        self.voltas_programadas_pit = []
-        vp1 = getattr(carro, 'estrategia_volta_pit', None)
-        if vp1 and 0 < vp1 < total_voltas:
-            self.voltas_programadas_pit.append(vp1)
-            
-            # Se houver 2 pits, calcula o segundo para a metade do caminho restante
-            if getattr(carro, 'estrategia_dois_pits', False):
-                vp2 = vp1 + max(1, (total_voltas - vp1) // 2)
-                if vp2 < total_voltas:
-                    self.voltas_programadas_pit.append(vp2)
-
-        # Consumo da volta de qualifying
         if consumo_qualifying:
             consumo_qualifying_litros = self.carro.consumo_por_volta()
             self.combustivel = max(0.0, self.combustivel - consumo_qualifying_litros)
@@ -72,7 +70,6 @@ class EstadoCarroNaCorrida:
         else:
             self.combustivel_gasto_qualifying = 0.0
 
-        # Sorteio de quebra mecânica no INÍCIO da corrida.
         self.vai_quebrar = random.random() < chance_quebra
         if self.vai_quebrar and total_voltas > 2:
             self.volta_quebra = random.randint(2, total_voltas - 1)
@@ -85,69 +82,38 @@ class EstadoCarroNaCorrida:
             return
 
         tempo_volta = self.carro.tempo_com_variacao(self.desgaste_pneu)
-
         self.combustivel -= self.carro.consumo_por_volta()
         self.desgaste_pneu += self.carro.desgaste_por_volta()
+        self.voltas_no_stint_atual += 1
 
-        # --- 1) Verifica quebra mecânica ---
         if self.vai_quebrar and numero_volta == self.volta_quebra:
-            self.abandonou = True
-            self.motivo_abandono = "quebra"
-            self.volta_abandono = numero_volta
-            self.tempo_acumulado += tempo_volta
-            self.historico_voltas.append({
-                "volta": numero_volta,
-                "tempo_volta": round(tempo_volta, 3),
-                "tempo_acumulado": round(self.tempo_acumulado, 3),
-                "desgaste_pneu": round(self.desgaste_pneu, 1),
-                "pit_stop": False,
-                "abandonou": True,
-                "motivo": "quebra",
-            })
+            self.abandonar(numero_volta, tempo_volta, "quebra")
             return
 
-        # --- 2) Verifica pneu estourado ---
         if self.desgaste_pneu >= LIMITE_DESGASTE_PNEU:
-            self.abandonou = True
-            self.motivo_abandono = "pneu"
-            self.volta_abandono = numero_volta
-            self.tempo_acumulado += tempo_volta
-            self.historico_voltas.append({
-                "volta": numero_volta,
-                "tempo_volta": round(tempo_volta, 3),
-                "tempo_acumulado": round(self.tempo_acumulado, 3),
-                "desgaste_pneu": round(self.desgaste_pneu, 1),
-                "pit_stop": False,
-                "abandonou": True,
-                "motivo": "pneu",
-            })
+            self.abandonar(numero_volta, tempo_volta, "pneu")
             return
             
-        # --- 3) Verifica falta de combustível (Pane Seca = Abandono) ---
         if self.combustivel <= COMBUSTIVEL_MINIMO:
-            self.abandonou = True
-            self.motivo_abandono = "combustivel"
-            self.volta_abandono = numero_volta
-            self.tempo_acumulado += tempo_volta
-            self.historico_voltas.append({
-                "volta": numero_volta,
-                "tempo_volta": round(tempo_volta, 3),
-                "tempo_acumulado": round(self.tempo_acumulado, 3),
-                "desgaste_pneu": round(self.desgaste_pneu, 1),
-                "pit_stop": False,
-                "abandonou": True,
-                "motivo": "combustivel",
-            })
+            self.abandonar(numero_volta, tempo_volta, "combustivel")
             return
 
-        # --- 4) Pit stop programado ---
+        # Verifica se concluiu as voltas do stint atual e precisa ir pro box (se houver próximo stint)
         pit_stop_nesta_volta = False
-        if numero_volta in self.voltas_programadas_pit:
+        stint_atual = self.stints[self.stint_atual_idx]
+        
+        if self.voltas_no_stint_atual >= stint_atual['voltas'] and self.stint_atual_idx < len(self.stints) - 1:
+            self.stint_atual_idx += 1
+            proximo_stint = self.stints[self.stint_atual_idx]
+            
             tempo_volta += self.carro.tempo_pit_stop
-            self.combustivel = self.carro.combustivel_carregado
-            self.desgaste_pneu = 0.0  # Troca de pneu no pit stop zera o desgaste!
+            # Abastecimento: soma o combustível atual com o do pit stop, limitado a 150L
+            self.combustivel = min(150.0, self.combustivel + proximo_stint['combustivel_litros'])
+            self.desgaste_pneu = 0.0  
+            self.carro.modelo_pneu = proximo_stint['modelo_pneu'] 
             self.pit_stops += 1
             pit_stop_nesta_volta = True
+            self.voltas_no_stint_atual = 0
 
         self.tempo_acumulado += tempo_volta
         self.historico_voltas.append({
@@ -157,6 +123,21 @@ class EstadoCarroNaCorrida:
             "desgaste_pneu": round(self.desgaste_pneu, 1),
             "pit_stop": pit_stop_nesta_volta,
             "abandonou": False,
+        })
+        
+    def abandonar(self, numero_volta, tempo_volta, motivo):
+        self.abandonou = True
+        self.motivo_abandono = motivo
+        self.volta_abandono = numero_volta
+        self.tempo_acumulado += tempo_volta
+        self.historico_voltas.append({
+            "volta": numero_volta,
+            "tempo_volta": round(tempo_volta, 3),
+            "tempo_acumulado": round(self.tempo_acumulado, 3),
+            "desgaste_pneu": round(self.desgaste_pneu, 1),
+            "pit_stop": False,
+            "abandonou": True,
+            "motivo": motivo,
         })
 
 
@@ -180,7 +161,6 @@ class Corrida:
         percentuais = percentuais_treino_box or [0.0] * len(carros)
         self.estados = []
         
-        # Lê os parâmetros editados pelo admin no banco
         chance_base = getattr(config, 'chance_quebra_base', CHANCE_QUEBRA_BASE) if config else CHANCE_QUEBRA_BASE
         chance_min = getattr(config, 'chance_quebra_minima', CHANCE_QUEBRA_MINIMA) if config else CHANCE_QUEBRA_MINIMA
 

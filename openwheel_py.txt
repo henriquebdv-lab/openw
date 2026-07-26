@@ -758,10 +758,8 @@ e calcula as posiÃ§Ãµes de cada um a cada volta.
 
 Regras de abandono:
 1. Pneu passou de 100% de desgaste -> pneu estoura -> abandono.
-2. Quebra mecÃ¢nica aleatÃ³ria (sorteada no inÃ­cio da corrida).
-   A chance Ã© reduzida pelo Treinamento de Boxes.
-
-CombustÃ­vel zerado Ã© pit stop automÃ¡tico (nÃ£o abandono).
+2. Quebra mecÃ¢nica aleatÃ³ria (sorteada no inÃ­cio).
+3. CombustÃ­vel zerado na pista -> pane seca -> abandono.
 """
 
 import random
@@ -789,37 +787,36 @@ def calcular_tempo_pit_stop(tempo_pista_base, config, percentual_treinamento):
 
 
 def calcular_chance_quebra(percentual_treinamento_box, chance_base=0.10, chance_minima=0.02):
-    """Chance de o carro quebrar durante a corrida."""
     p = max(0.0, min(100.0, percentual_treinamento_box or 0.0)) / 100.0
     return chance_base - (chance_base - chance_minima) * p
 
 
 class EstadoCarroNaCorrida:
-    """Guarda o estado (combustÃ­vel, desgaste) de um carro durante a corrida."""
     def __init__(self, carro, consumo_qualifying=False, chance_quebra=0.0, total_voltas=1):
         self.carro = carro
-        self.combustivel = carro.combustivel_carregado
+        
+        # Carrega os stints. Se nÃ£o houver (equipe nÃ£o salvou), cria um stint Ãºnico de emergÃªncia.
+        self.stints = carro.stints if hasattr(carro, 'stints') and carro.stints else [
+            {'ordem': 1, 'modelo_pneu': 50, 'voltas': total_voltas, 'combustivel_litros': carro.combustivel_carregado}
+        ]
+        self.stints.sort(key=lambda x: x['ordem'])
+        
+        self.stint_atual_idx = 0
+        self.voltas_no_stint_atual = 0
+        
+        # Inicializa o carro com o Stint 1
+        stint_inicial = self.stints[0]
+        self.combustivel = stint_inicial['combustivel_litros']
+        self.carro.modelo_pneu = stint_inicial['modelo_pneu']
+
         self.desgaste_pneu = 0.0
         self.tempo_acumulado = 0.0
         self.pit_stops = 0
         self.abandonou = False
         self.volta_abandono = None
-        self.motivo_abandono = None   # "pneu" ou "quebra"
+        self.motivo_abandono = None   
         self.historico_voltas = []
 
-        # --- ESTRATÃ‰GIA DE PIT STOPS ---
-        self.voltas_programadas_pit = []
-        vp1 = getattr(carro, 'estrategia_volta_pit', None)
-        if vp1 and 0 < vp1 < total_voltas:
-            self.voltas_programadas_pit.append(vp1)
-            
-            # Se houver 2 pits, calcula o segundo para a metade do caminho restante
-            if getattr(carro, 'estrategia_dois_pits', False):
-                vp2 = vp1 + max(1, (total_voltas - vp1) // 2)
-                if vp2 < total_voltas:
-                    self.voltas_programadas_pit.append(vp2)
-
-        # Consumo da volta de qualifying
         if consumo_qualifying:
             consumo_qualifying_litros = self.carro.consumo_por_volta()
             self.combustivel = max(0.0, self.combustivel - consumo_qualifying_litros)
@@ -827,7 +824,6 @@ class EstadoCarroNaCorrida:
         else:
             self.combustivel_gasto_qualifying = 0.0
 
-        # Sorteio de quebra mecÃ¢nica no INÃCIO da corrida.
         self.vai_quebrar = random.random() < chance_quebra
         if self.vai_quebrar and total_voltas > 2:
             self.volta_quebra = random.randint(2, total_voltas - 1)
@@ -840,52 +836,38 @@ class EstadoCarroNaCorrida:
             return
 
         tempo_volta = self.carro.tempo_com_variacao(self.desgaste_pneu)
-
         self.combustivel -= self.carro.consumo_por_volta()
         self.desgaste_pneu += self.carro.desgaste_por_volta()
+        self.voltas_no_stint_atual += 1
 
-        # --- 1) Verifica quebra mecÃ¢nica ---
         if self.vai_quebrar and numero_volta == self.volta_quebra:
-            self.abandonou = True
-            self.motivo_abandono = "quebra"
-            self.volta_abandono = numero_volta
-            self.tempo_acumulado += tempo_volta
-            self.historico_voltas.append({
-                "volta": numero_volta,
-                "tempo_volta": round(tempo_volta, 3),
-                "tempo_acumulado": round(self.tempo_acumulado, 3),
-                "desgaste_pneu": round(self.desgaste_pneu, 1),
-                "pit_stop": False,
-                "abandonou": True,
-                "motivo": "quebra",
-            })
+            self.abandonar(numero_volta, tempo_volta, "quebra")
             return
 
-        # --- 2) Verifica pneu estourado ---
         if self.desgaste_pneu >= LIMITE_DESGASTE_PNEU:
-            self.abandonou = True
-            self.motivo_abandono = "pneu"
-            self.volta_abandono = numero_volta
-            self.tempo_acumulado += tempo_volta
-            self.historico_voltas.append({
-                "volta": numero_volta,
-                "tempo_volta": round(tempo_volta, 3),
-                "tempo_acumulado": round(self.tempo_acumulado, 3),
-                "desgaste_pneu": round(self.desgaste_pneu, 1),
-                "pit_stop": False,
-                "abandonou": True,
-                "motivo": "pneu",
-            })
+            self.abandonar(numero_volta, tempo_volta, "pneu")
+            return
+            
+        if self.combustivel <= COMBUSTIVEL_MINIMO:
+            self.abandonar(numero_volta, tempo_volta, "combustivel")
             return
 
-        # --- 3) Pit stop programado ou emergÃªncia se faltar combustÃ­vel ---
+        # Verifica se concluiu as voltas do stint atual e precisa ir pro box (se houver prÃ³ximo stint)
         pit_stop_nesta_volta = False
-        if self.combustivel <= COMBUSTIVEL_MINIMO or numero_volta in self.voltas_programadas_pit:
+        stint_atual = self.stints[self.stint_atual_idx]
+        
+        if self.voltas_no_stint_atual >= stint_atual['voltas'] and self.stint_atual_idx < len(self.stints) - 1:
+            self.stint_atual_idx += 1
+            proximo_stint = self.stints[self.stint_atual_idx]
+            
             tempo_volta += self.carro.tempo_pit_stop
-            self.combustivel = self.carro.combustivel_carregado
-            self.desgaste_pneu = 0.0  # Troca de pneu no pit stop zera o desgaste!
+            # Abastecimento: soma o combustÃ­vel atual com o do pit stop, limitado a 150L
+            self.combustivel = min(150.0, self.combustivel + proximo_stint['combustivel_litros'])
+            self.desgaste_pneu = 0.0  
+            self.carro.modelo_pneu = proximo_stint['modelo_pneu'] 
             self.pit_stops += 1
             pit_stop_nesta_volta = True
+            self.voltas_no_stint_atual = 0
 
         self.tempo_acumulado += tempo_volta
         self.historico_voltas.append({
@@ -895,6 +877,21 @@ class EstadoCarroNaCorrida:
             "desgaste_pneu": round(self.desgaste_pneu, 1),
             "pit_stop": pit_stop_nesta_volta,
             "abandonou": False,
+        })
+        
+    def abandonar(self, numero_volta, tempo_volta, motivo):
+        self.abandonou = True
+        self.motivo_abandono = motivo
+        self.volta_abandono = numero_volta
+        self.tempo_acumulado += tempo_volta
+        self.historico_voltas.append({
+            "volta": numero_volta,
+            "tempo_volta": round(tempo_volta, 3),
+            "tempo_acumulado": round(self.tempo_acumulado, 3),
+            "desgaste_pneu": round(self.desgaste_pneu, 1),
+            "pit_stop": False,
+            "abandonou": True,
+            "motivo": motivo,
         })
 
 
@@ -918,7 +915,6 @@ class Corrida:
         percentuais = percentuais_treino_box or [0.0] * len(carros)
         self.estados = []
         
-        # LÃª os parÃ¢metros editados pelo admin no banco
         chance_base = getattr(config, 'chance_quebra_base', CHANCE_QUEBRA_BASE) if config else CHANCE_QUEBRA_BASE
         chance_min = getattr(config, 'chance_quebra_minima', CHANCE_QUEBRA_MINIMA) if config else CHANCE_QUEBRA_MINIMA
 
@@ -1049,6 +1045,15 @@ PRAGMA foreign_keys=on;
 con.commit()
 con.close()
 print("[OK] Trava NOT NULL do chassi removida. Pode criar equipe com chassi nulo.")
+
+===== criar_banco.py =====
+from app import app
+from models import db
+
+# Cria o contexto da aplicaÃ§Ã£o para o banco de dados saber onde operar
+with app.app_context():
+    db.create_all()
+    print("âœ… Banco de dados recriado com sucesso!")
 
 ===== criar_equipe.py =====
 from app import app, db
@@ -1588,6 +1593,29 @@ FORNECEDORES_CONFIG = {
                               {"nome": "eficiencia_exata", "label": "EficiÃªncia exata", "tipo": "float"}]},
 }
 
+===== how 41b5cb7models.py =====
+[33m41b5cb7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m quick wins: pneu card, engenheiro obrigatorio, pane seca = abandono
+[33m4fe4754[m sua descricao - feito no Windows
+[33mb9004e4[m sua descricao - feito no Windows
+[33mbbd76cf[m desmembramento do app.py concluido - feito no linux
+[33m2643af0[m Desmembra app.py em rotas/ + atualiza CONTINUAR_AQUI - feito no Linux
+[33m55948ca[m Desmembra app.py em rotas/ (blueprints via registrar) - tudo testado, telas OK
+[33m6d8d95b[m Sessao 23/07: categorias pistas, engenheiro auto, pneu neutro + plano de refatoracao
+[33mf713aad[m tirei sp
+[33mf844882[m Ignora arquivos temporarios de export
+[33m012654f[m ultima
+[33m0378748[m ultima
+[33m04126c0[m Adiciona regras.md
+[33m509a778[m Adiciona regras.md e ajustes
+[33m941b169[m v de hoje
+[33md1a4f3e[m v202623070049
+[33m77df795[m teste de sync
+[33m2b601d5[m Configurando ambiente no Linux
+[33m1c4d9ed[m fim
+[33m5346331[m fim do dia
+[33mcc689c6[m backup inicial
+[33mf3dba41[m backup inicial
+
 ===== importar_todas_pistas.py =====
 """
 Importa TODOS os CSVs de pista real de uma vez, direto da pasta "tracks/"
@@ -2058,7 +2086,7 @@ class Configuracao(db.Model):
     treino_custo_fator = db.Column(db.Float, default=1.0)
     pit_tempo_sem_treino = db.Column(db.Float, default=25.0)
     pit_tempo_treino_completo = db.Column(db.Float, default=9.0)
-    
+
     premio_corrida_pos_1 = db.Column(db.Float, default=12000.0)
     multiplicador_consumo = db.Column(db.Float, default=1.0)
     chance_quebra_base = db.Column(db.Float, default=0.10)
@@ -2181,7 +2209,7 @@ class CarroJogador(db.Model):
             (desenvolvimento.chassi_percentual_aplicado or 0) / 100.0
         )
         chassi = Chassi(
-            nome=f"Chassi nÃ­vel {desenvolvimento.nivel_engenheiro_projetista or 1}",
+            nome=f"Chassi nivel {desenvolvimento.nivel_engenheiro_projetista or 1}",
             custo=0.0,
             performance=performance_chassi_efetiva,
         )
@@ -2207,7 +2235,7 @@ class CarroJogador(db.Model):
             equipe=equipe, motor=motor, combustivel=combustivel, pneu=pneu, chassi=chassi,
             cambio=cambio, suspensao=suspensao, engenheiro=engenheiro,
             combustivel_carregado=self.combustivel_carregado, tempo_pit_stop=tempo_pit_stop,
-            config=config # Passando a configuracao global pro carro!
+            config=config
         )
 
         from constantes import performance_aero_do_nivel
@@ -2264,6 +2292,20 @@ class CarroJogador(db.Model):
 
 
 EquipeDB = CarroJogador
+
+
+class EstrategiaStint(db.Model):
+    __tablename__ = "estrategia_stint"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    ordem = db.Column(db.Integer, nullable=False)
+    modelo_pneu = db.Column(db.Integer, nullable=False)
+    voltas = db.Column(db.Integer, nullable=False)
+    combustivel_litros = db.Column(db.Float, nullable=False)
+    equipe = db.relationship(
+        "CarroJogador",
+        backref=db.backref("stints", cascade="all, delete-orphan", lazy=True, order_by="EstrategiaStint.ordem"),
+    )
 
 
 class ResultadoClassificacao(db.Model):
@@ -3498,7 +3540,7 @@ def registrar_rotas(app):
 ===== rotas\admin.py =====
 """
 Rotas de administraÃ§Ã£o (/admin/...):
-- dashboard, gerar fornecedores, CRUD de fornecedores
+- dashboard, dia_corrida, gerar fornecedores, CRUD de fornecedores
 - pistas reais (editar)
 - temporadas (criar, editar, ativar, desativar, remover corrida)
 - usuÃ¡rios (listar, editar)
@@ -3508,7 +3550,7 @@ from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, flash
 
-from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro
+from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro, ResultadoClassificacao
 from models_temporada import Temporada, CorridaAgendada
 from extensoes import admin_requerido
 from fornecedores_config import FORNECEDORES_CONFIG, CATEGORIAS_PISTA, CATEGORIAS_CHUVA
@@ -3518,6 +3560,8 @@ from pistas_reais_db import (
     criar_banco as criar_banco_pistas_reais,
     listar_pistas_reais, obter_pista_real, atualizar_pista_real,
 )
+from classificacao import Classificacao
+from rotas.corrida import _executar_corrida_e_persistir
 
 
 def registrar(app):
@@ -3530,6 +3574,55 @@ def registrar(app):
                                categorias=FORNECEDORES_CONFIG, contagens=contagens,
                                total_temporadas=Temporada.query.count(),
                                total_usuarios=Usuario.query.count())
+
+    @app.route("/admin/dia-corrida", methods=["GET", "POST"])
+    @admin_requerido
+    def admin_dia_corrida():
+        temporada = Temporada.ativa_atual()
+        proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
+        
+        criar_banco_pistas_reais()
+        pistas = listar_pistas_reais()
+        pistas_por_id = {p["id"]: p for p in pistas}
+        pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
+
+        if request.method == "POST":
+            acao = request.form.get("acao")
+            
+            if acao == "classificacao":
+                # Limpa a classificaÃ§Ã£o anterior para a tela do jogador refletir o novo grid
+                ResultadoClassificacao.query.delete()
+                todas_equipes = CarroJogador.query.all()
+                carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+                grid = Classificacao(carros).gerar_grid_largada()
+                for posicao_info, equipe_db in zip(grid, todas_equipes):
+                    db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
+                        tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
+                db.session.commit()
+                flash("ClassificaÃ§Ã£o rodada com sucesso! O grid jÃ¡ estÃ¡ disponÃ­vel para os jogadores.", "success")
+                
+            elif acao == "corrida_temporada":
+                if proxima_corrida_temporada and pista_proxima_temporada:
+                    _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
+                    flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
+                else:
+                    flash("NÃ£o hÃ¡ corrida pendente nesta temporada.", "danger")
+                    
+            elif acao == "corrida_livre":
+                pista_id = request.form.get("pista_id")
+                if pista_id:
+                    pista = obter_pista_real(int(pista_id))
+                    if pista:
+                        _executar_corrida_e_persistir(pista, corrida_agendada=None)
+                        flash(f"Corrida Livre ({pista['nome']}) simulada com sucesso!", "success")
+            
+            return redirect(url_for('admin_dia_corrida'))
+            
+        return render_template("admin_dia_corrida.html", 
+                               temporada=temporada,
+                               proxima_corrida_temporada=proxima_corrida_temporada,
+                               pista_proxima_temporada=pista_proxima_temporada,
+                               pistas=pistas)
 
     @app.route("/admin/gerar-fornecedores", methods=["POST"])
     @admin_requerido
@@ -3879,21 +3972,22 @@ def registrar(app):
 ===== rotas\corrida.py =====
 """
 Rotas de corrida:
-- /estrategia-corrida   (define estratÃ©gia + salva modelos 50-900)
-- /classificacao        (gera grid de largada - admin)
-- /corrida              (executa a corrida - admin)
+- /estrategia-corrida   (define estratÃ©gia + salva modelos 50-900 e N stints)
+- /classificacao        (visualizaÃ§Ã£o do grid)
+- /corrida              (visualizaÃ§Ã£o do resultado)
 """
+import os
+import json
 from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, session, flash
 
-from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel
+from config import BASE_DIR
+from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel, EstrategiaStint
 from models_temporada import Temporada
 from extensoes import login_requerido
 from pontuacao import pontos_por_posicao, premio_por_posicao
-from classificacao import Classificacao
 from corrida import Corrida, calcular_tempo_pit_stop
-from estrategia import montar_estrategia_corrida, sugerir_estrategia_estrategista
 from pistas_reais_db import (
     criar_banco as criar_banco_pistas_reais,
     listar_pistas_reais, obter_pista_real, calcular_numero_voltas,
@@ -3929,8 +4023,11 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         carro.tempo_pit_stop = calcular_tempo_pit_stop(pista["tempo_pit_stop_segundos"], config, treinamento.percentual)
         _aplicar_dados_pista_no_carro(carro, pista)
         
-        carro.estrategia_volta_pit = equipe_db.estrategia_volta_pit
-        carro.estrategia_dois_pits = equipe_db.estrategia_dois_pits
+        # Carrega os stints da equipe pro motor de corrida
+        carro.stints = [
+            {'ordem': s.ordem, 'modelo_pneu': s.modelo_pneu, 'voltas': s.voltas, 'combustivel_litros': s.combustivel_litros}
+            for s in equipe_db.stints
+        ]
         
         percentuais_treino_box.append(float(treinamento.percentual or 0.0))
         
@@ -3949,11 +4046,13 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
         percentuais_treino_box=percentuais_treino_box,
         config=config
     ).simular()
+    
     resultado["pista"] = pista
     resultado["distancia_total"] = distancia_total
     resultado["temperaturas_trechos"] = temperaturas_trechos
     equipes_por_nome = {e.nome: e for e in todas_equipes}
     resultados_para_temporada = []
+    
     for posicao_info in resultado["classificacao_final"]:
         equipe_db = equipes_por_nome[posicao_info["equipe"]]
         db.session.add(ResultadoCorrida(
@@ -3988,11 +4087,20 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None):
                 "tempo_total": posicao_info["tempo_total_segundos"],
                 "custo_montagem": custo_montagem,
             })
+            
     if corrida_agendada is not None:
         corrida_agendada.salvar_resultados(resultados_para_temporada)
         corrida_agendada.executada = True
         corrida_agendada.data_execucao = datetime.utcnow()
     db.session.commit()
+    
+    caminho_replay = os.path.join(BASE_DIR, 'ultimo_replay.json')
+    try:
+        with open(caminho_replay, 'w', encoding='utf-8') as f:
+            json.dump(resultado, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"Erro ao salvar replay: {e}")
+        
     return resultado
 
 
@@ -4004,96 +4112,96 @@ def registrar(app):
         usuario = Usuario.query.get(session["usuario_id"])
         if not usuario.equipe:
             return redirect(url_for("minha_equipe"))
-        ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
-                                                         "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
-        treino_oficial = session.get("treino_oficial_salvo") or {}
+            
+        equipe = usuario.equipe
+        pneu_contratado = FornecedorPneu.query.get(equipe.pneu_fornecedor_id)
+        combustivel_contratado = FornecedorCombustivel.query.get(equipe.combustivel_fornecedor_id)
         
-        pneu_contratado = FornecedorPneu.query.get(usuario.equipe.pneu_fornecedor_id)
-        combustivel_contratado = FornecedorCombustivel.query.get(usuario.equipe.combustivel_fornecedor_id)
-        
-        resultado = None
-        mensagem = None
-        sugestao = None
-        
+        temporada = Temporada.ativa_atual()
+        proxima_corrida = temporada.proxima_corrida() if temporada else None
+        pista = None
+        voltas_pista = 0
+        if proxima_corrida:
+            criar_banco_pistas_reais()
+            pista = obter_pista_real(proxima_corrida.pista_real_id)
+            if pista:
+                voltas_pista, _ = calcular_numero_voltas(pista["extensao_km"])
+
         if request.method == "POST":
-            volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
-            outro_pit = request.form.get("outro_pit") == "on"
-            resultado = montar_estrategia_corrida(ajustes, pneu_contratado, combustivel_contratado, volta_primeiro_pit, outro_pit)
-            sugestao = sugerir_estrategia_estrategista(ajustes)
-            
-            usuario.equipe.estrategia_volta_pit = volta_primeiro_pit
-            usuario.equipe.estrategia_dois_pits = outro_pit
-            
+            # Salva modelos gerais de peÃ§as
             campos_modelo = {
                 "modelo_motor": request.form.get("modelo_motor"),
                 "modelo_combustivel": request.form.get("modelo_combustivel"),
-                "modelo_pneu": request.form.get("modelo_pneu"),
                 "modelo_cambio": request.form.get("modelo_cambio"),
                 "modelo_suspensao": request.form.get("modelo_suspensao"),
             }
             for campo, valor in campos_modelo.items():
-                if valor is None:
-                    continue
-                if valor == "":
-                    setattr(usuario.equipe, campo, None)
-                elif modelos_componente.modelo_valido(valor):
-                    setattr(usuario.equipe, campo, int(valor))
-            db.session.commit()
-            mensagem = "EstratÃ©gia salva no banco de dados com sucesso."
+                if valor and modelos_componente.modelo_valido(valor):
+                    setattr(equipe, campo, int(valor))
+                    
+            # Salva os Stints DinÃ¢micos
+            modelos_pneu_stints = request.form.getlist("modelo_pneu[]")
+            voltas_stints = request.form.getlist("voltas[]")
+            litros_stints = request.form.getlist("combustivel_litros[]")
             
-        return render_template("estrategia_corrida.html", ajustes=ajustes, treino_oficial=treino_oficial,
-                               pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=resultado, sugestao=sugestao,
-                               mensagem=mensagem, equipe=usuario.equipe,
-                               modelos_disponiveis=modelos_componente.MODELOS)
+            EstrategiaStint.query.filter_by(equipe_id=equipe.id).delete()
+            
+            for i in range(len(modelos_pneu_stints)):
+                try:
+                    novo_stint = EstrategiaStint(
+                        equipe_id=equipe.id,
+                        ordem=i + 1,
+                        modelo_pneu=int(modelos_pneu_stints[i]),
+                        voltas=int(voltas_stints[i]),
+                        combustivel_litros=float(litros_stints[i])
+                    )
+                    db.session.add(novo_stint)
+                except ValueError:
+                    continue 
+                
+            db.session.commit()
+            flash("EstratÃ©gia de corrida salva com sucesso!", "success")
+            return redirect(url_for("estrategia_corrida_view"))
 
-    @app.route("/classificacao", methods=["GET", "POST"])
+        stints = EstrategiaStint.query.filter_by(equipe_id=equipe.id).order_by(EstrategiaStint.ordem).all()
+        if not stints:
+            stints = [{"ordem": 1, "modelo_pneu": 100, "voltas": 20, "combustivel_litros": 60.0}]
+
+        return render_template(
+            "estrategia_corrida.html",
+            equipe=equipe,
+            pneu_contratado=pneu_contratado,
+            combustivel_contratado=combustivel_contratado,
+            modelos_disponiveis=modelos_componente.MODELOS,
+            stints=stints,
+            pista=pista,
+            voltas_pista=voltas_pista
+        )
+
+    @app.route("/classificacao", methods=["GET"])
     @login_requerido
     def classificacao_view():
+        resultados_db = ResultadoClassificacao.query.order_by(ResultadoClassificacao.posicao_grid).all()
         resultado = None
-        if request.method == "POST":
-            usuario = Usuario.query.get(session["usuario_id"])
-            if not usuario.eh_admin:
-                return render_template("acesso_negado.html"), 403
-            todas_equipes = CarroJogador.query.all()
-            carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
-            grid = Classificacao(carros).gerar_grid_largada()
-            for posicao_info, equipe_db in zip(grid, todas_equipes):
-                db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
-                    tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
-            db.session.commit()
-            resultado = grid
+        if resultados_db:
+            resultado = [{"posicao_grid": r.posicao_grid, "equipe": r.equipe.nome if r.equipe else f"Equipe #{r.equipe_id}", "tempo_classificacao": r.tempo_classificacao} for r in resultados_db]
         return render_template("classificacao.html", resultado=resultado)
 
-    @app.route("/corrida", methods=["GET", "POST"])
+    @app.route("/corrida", methods=["GET"])
     @login_requerido
     def corrida_view():
         resultado = None
+        caminho_replay = os.path.join(BASE_DIR, 'ultimo_replay.json')
+        if os.path.exists(caminho_replay):
+            try:
+                with open(caminho_replay, 'r', encoding='utf-8') as f:
+                    resultado = json.load(f)
+            except Exception as e:
+                print(f"Erro ao carregar replay: {e}")
         criar_banco_pistas_reais()
-        pistas = listar_pistas_reais()
         temporada = Temporada.ativa_atual()
         proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-        pistas_por_id = {p["id"]: p for p in pistas}
-        pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
-        if request.method == "POST":
-            usuario = Usuario.query.get(session["usuario_id"])
-            if not usuario.eh_admin:
-                return render_template("acesso_negado.html"), 403
-            modo_temporada = request.form.get("modo") == "temporada"
-            if modo_temporada and proxima_corrida_temporada and pista_proxima_temporada:
-                resultado = _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
-                flash(f"Corrida da temporada: {pista_proxima_temporada['nome']}.", "success")
-            else:
-                pista_id = int(request.form["pista_id"])
-                pista = obter_pista_real(pista_id)
-                resultado = _executar_corrida_e_persistir(pista, corrida_agendada=None)
-                flash(f"Corrida: {pista['nome']}.", "success")
-            temporada = Temporada.ativa_atual()
-            proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-            pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
-        return render_template("corrida.html", resultado=resultado, pistas=pistas,
-                               temporada=temporada,
-                               proxima_corrida_temporada=proxima_corrida_temporada,
-                               pista_proxima_temporada=pista_proxima_temporada)
+        return render_template("corrida.html", resultado=resultado, temporada=temporada, proxima_corrida_temporada=proxima_corrida_temporada)
 
 ===== rotas\desenvolvimento.py =====
 """
@@ -4237,7 +4345,13 @@ def registrar(app):
             return render_template("minha_equipe.html", equipe=usuario.equipe, carro=carro,
                                    custo_montagem=usuario.equipe.custo_total_montagem())
         if request.method == "POST":
-            engenheiro_id = request.form.get("engenheiro_fornecedor_id") or None
+            engenheiro_id = request.form.get("engenheiro_fornecedor_id")
+            
+            # CORREÃ‡ÃƒO: ForÃ§a a contrataÃ§Ã£o de um engenheiro nÃ­vel 1 se nÃ£o vier no form
+            if not engenheiro_id:
+                eng_basico = FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True).first()
+                engenheiro_id = eng_basico.id if eng_basico else None
+
             combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
             nova_equipe = CarroJogador(
                 usuario_id=usuario.id,

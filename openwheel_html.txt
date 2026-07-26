@@ -48,13 +48,17 @@
                class="list-group-item list-group-item-action {% if secao_admin == 'dashboard' %}active{% endif %}">
                 ðŸ  Painel
             </a>
+            <a href="{{ url_for('admin_dia_corrida') }}"
+               class="list-group-item list-group-item-action {% if secao_admin == 'dia_corrida' %}active{% endif %}">
+                ðŸ Dia de Corrida
+            </a>
             <a href="{{ url_for('admin_configuracoes') }}"
                class="list-group-item list-group-item-action {% if secao_admin == 'configuracoes' %}active{% endif %}">
-                âš™ ConfiguraÃ§Ãµes
+                âš™ï¸ ConfiguraÃ§Ãµes
             </a>
             <a href="{{ url_for('admin_pistas_reais') }}"
                class="list-group-item list-group-item-action {% if secao_admin == 'pistas' %}active{% endif %}">
-                ðŸ Pistas Reais
+                ðŸ›£ï¸ Pistas Reais
             </a>
             <a href="{{ url_for('admin_temporadas') }}"
                class="list-group-item list-group-item-action {% if secao_admin == 'temporadas' %}active{% endif %}">
@@ -250,6 +254,87 @@
             <tr><td>UsuÃ¡rios</td><td>{{ total_usuarios }}</td></tr>
         </tbody>
     </table>
+</div>
+{% endblock %}
+
+===== templates\admin_dia_corrida.html =====
+{% extends "admin_base.html" %}
+{% set secao_admin = 'dia_corrida' %}
+
+{% block admin_content %}
+<h1 class="h3 mb-4">Dia de Corrida (Controle)</h1>
+
+<p class="text-muted">Esta tela Ã© de acesso exclusivo do administrador para controlar o avanÃ§o dos finais de semana de corrida.</p>
+
+<!-- 1. CLASSIFICAÃ‡ÃƒO -->
+<div class="card mb-4">
+    <div class="card-header">1. ClassificaÃ§Ã£o (Qualifying)</div>
+    <div class="card-body">
+        <p class="text-muted" style="font-size:0.9em;">
+            Gera o grid de largada baseado em 1 volta rÃ¡pida de todas as equipes, sem gasto de componentes. O resultado aparecerÃ¡ na tela do jogador.
+        </p>
+        <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+            <input type="hidden" name="acao" value="classificacao">
+            <button type="submit" class="btn btn-primary">Rodar ClassificaÃ§Ã£o</button>
+        </form>
+    </div>
+</div>
+
+<!-- 2. CORRIDA DA TEMPORADA -->
+{% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
+<div class="card mb-4 border-success">
+    <div class="card-header bg-success text-white">2. Corrida da Temporada: {{ temporada.nome }}</div>
+    <div class="card-body">
+        <p>
+            Etapa <strong>{{ proxima_corrida_temporada.ordem }}</strong> de {{ temporada.total_corridas() }}:
+            <strong>{{ pista_proxima_temporada.nome }}</strong> ({{ pista_proxima_temporada.pais }},
+            {{ pista_proxima_temporada.extensao_km }} km)
+        </p>
+        <p class="text-muted" style="font-size:0.9em;">
+            Ao rodar essa corrida, o <strong>custo_montagem</strong> dos fornecedores serÃ¡ debitado do orÃ§amento de todas as equipes,
+            e a pontuaÃ§Ã£o serÃ¡ computada no ranking.
+        </p>
+        <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+            <input type="hidden" name="acao" value="corrida_temporada">
+            <button type="submit" class="btn btn-success">
+                â–¶ Rodar Corrida Oficial ({{ pista_proxima_temporada.nome }})
+            </button>
+        </form>
+    </div>
+</div>
+{% elif temporada and not proxima_corrida_temporada %}
+<div class="alert alert-info mb-4">
+    Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
+</div>
+{% else %}
+<div class="alert alert-warning mb-4">
+    Nenhuma temporada ativa. Acesse a aba Temporadas para iniciar uma.
+</div>
+{% endif %}
+
+<!-- 3. CORRIDA LIVRE -->
+<div class="card mb-4">
+    <div class="card-header">Corrida Livre (Testes)</div>
+    <div class="card-body">
+        <p class="text-muted" style="font-size:0.9em;">
+            Roda uma corrida qualquer. TambÃ©m debita o custo de montagem das equipes, mas NÃƒO conta para a pontuaÃ§Ã£o da temporada.
+        </p>
+        <form method="POST" action="{{ url_for('admin_dia_corrida') }}" class="row g-3 align-items-center">
+            <input type="hidden" name="acao" value="corrida_livre">
+            <div class="col-auto">
+                <label for="pista_id" class="visually-hidden">Pista</label>
+                <select name="pista_id" id="pista_id" class="form-select" required>
+                    <option value="">-- Escolha uma pista --</option>
+                    {% for p in pistas %}
+                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-secondary">â–¶ Simular Corrida Livre</button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
@@ -793,6 +878,17 @@
         </header>
 
         <div class="ows-content">
+            <!-- MENSAGENS FLASH (ConfirmaÃ§Ã£o verde) -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="ows-alert" style="margin-bottom: 20px; {% if category == 'success' %}background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
             {% block content %}{% endblock %}
         </div>
     </div>
@@ -821,9 +917,7 @@
 {% block content %}
 <h1 class="h3">Dia de Corrida</h1>
 {% include "_abas_corrida.html" %}
-<form method="POST">
-    <button type="submit">Rodar classificaÃ§Ã£o (1 volta rÃ¡pida por equipe)</button>
-</form>
+
 {% if resultado %}
 <h2>Grid de largada</h2>
 <table>
@@ -836,6 +930,10 @@
     </tr>
     {% endfor %}
 </table>
+{% else %}
+<p class="text-muted" style="margin-top: 15px;">
+    A classificaÃ§Ã£o para a prÃ³xima corrida ainda nÃ£o foi realizada. Aguarde o fechamento do grid.
+</p>
 {% endif %}
 {% endblock %}
 
@@ -870,58 +968,6 @@
 <h1 class="h3">Dia de Corrida</h1>
 {% include "_abas_corrida.html" %}
 
-{% if usuario_logado.eh_admin %}
-    {% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
-    <div class="card mb-3 border-success">
-        <div class="card-header bg-success text-white">
-            ðŸ PrÃ³xima corrida da temporada ativa: <strong>{{ temporada.nome }}</strong>
-        </div>
-        <div class="card-body">
-            <p>
-                Etapa <strong>{{ proxima_corrida_temporada.ordem }}</strong> de {{ temporada.total_corridas() }}:
-                <strong>{{ pista_proxima_temporada.nome }}</strong> ({{ pista_proxima_temporada.pais }},
-                {{ pista_proxima_temporada.extensao_km }} km)
-            </p>
-            <p class="text-muted" style="font-size:0.9em;">
-                Ao rodar essa corrida, o <strong>custo_montagem</strong> dos fornecedores serÃ¡ debitado do orÃ§amento de todas as equipes,
-                e a pontuaÃ§Ã£o (25/18/15/12/10/8/6/4/2/1) serÃ¡ computada no ranking.
-            </p>
-            <form method="POST">
-                <input type="hidden" name="modo" value="temporada">
-                <button type="submit" class="btn btn-success">
-                    â–¶ Rodar corrida da temporada ({{ pista_proxima_temporada.nome }})
-                </button>
-            </form>
-        </div>
-    </div>
-    {% elif temporada and not proxima_corrida_temporada %}
-    <div class="alert alert-info">
-        Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
-        Veja o ranking em <a href="{{ url_for('temporada_view') }}">Temporada</a>.
-    </div>
-    {% endif %}
-
-    <div class="card mb-3">
-        <div class="card-header">Corrida livre (fora da temporada)</div>
-        <div class="card-body">
-            <p class="text-muted" style="font-size:0.9em;">
-                Roda uma corrida qualquer. TambÃ©m debita o custo_montagem, mas NÃƒO conta pra pontuaÃ§Ã£o da temporada.
-            </p>
-            <form method="POST">
-                <label for="pista_id">Pista</label>
-                <select name="pista_id" id="pista_id" required>
-                    {% for p in pistas %}
-                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
-                    {% endfor %}
-                </select>
-                <button type="submit">â–¶ Simular corrida</button>
-            </form>
-        </div>
-    </div>
-{% else %}
-<p class="text-muted">SÃ³ o admin pode simular a corrida. O resultado mais recente aparece abaixo.</p>
-{% endif %}
-
 {% if resultado %}
 <h2>Replay volta a volta</h2>
 <div class="card">
@@ -942,9 +988,9 @@
         Volta <strong id="volta-atual">1</strong> de {{ resultado.posicoes_por_volta|length }}
     </p>
     <div>
-        <button type="button" id="btn-anterior">â® Volta anterior</button>
+        <button type="button" id="btn-anterior">â® Volta anterior</button>
         <button type="button" id="btn-play">â–¶ Play</button>
-        <button type="button" id="btn-proxima">PrÃ³xima volta â­</button>
+        <button type="button" id="btn-proxima">PrÃ³xima volta â¯</button>
     </div>
     <table id="tabela-replay">
         <tr><th>PosiÃ§Ã£o</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>
@@ -1030,6 +1076,10 @@
     });
     renderVolta(0);
 </script>
+{% else %}
+<p class="text-muted" style="margin-top: 15px;">
+    Nenhuma corrida foi executada recentemente. Aguarde o inÃ­cio da sessÃ£o.
+</p>
 {% endif %}
 {% endblock %}
 
@@ -1494,9 +1544,8 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         </div>
 
         <div class="col-md-6">
-            <label class="form-label">Engenheiro (opcional)</label>
-            <select name="engenheiro_fornecedor_id" class="form-select">
-                <option value="">-- sem engenheiro --</option>
+            <label class="form-label">Engenheiro (ObrigatÃ³rio)</label>
+            <select name="engenheiro_fornecedor_id" class="form-select" required>
                 {% for m in engenheiros %}
                 <option value="{{ m.id }}" {% if equipe.engenheiro_fornecedor_id == m.id %}selected{% endif %}>
                     {{ m.nome }} (NÃ­vel {{ m.nivel }}) â€” montagem: {{ m.custo_montagem | dinheiro }}
@@ -1669,91 +1718,275 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 
 ===== templates\estrategia_corrida.html =====
 {% extends "base.html" %}
+{% block title %}EstratÃ©gia de Corrida â€¢ Open Wheel Strategy{% endblock %}
+
 {% block content %}
-<h1 class="h3">EstratÃ©gia de Corrida</h1>
-<p>Defina a estratÃ©gia final da corrida e consulte a sugestÃ£o do estrategista.</p>
+<style>
+    /* Dark mode Pit Wall */
+    .pit-wall-container { display: flex; gap: 20px; align-items: flex-start; margin-top: 20px; }
+    .strategy-editor { flex: 2; background: #1e2430; border-radius: 8px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    .pit-wall-summary { flex: 1; background: #161a23; border: 1px solid #2a3241; border-radius: 8px; padding: 20px; position: sticky; top: 20px; font-family: monospace; }
+    .pit-wall-summary h3 { color: #7a8aa3; font-size: 14px; letter-spacing: 2px; margin-bottom: 20px; border-bottom: 1px solid #2a3241; padding-bottom: 10px; }
+    .summary-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 16px; }
+    .summary-item span:first-child { color: #8c9bb3; }
+    .summary-item strong { color: #ffffff; }
+    
+    .timeline-bar { display: flex; height: 30px; background: #0f1218; border-radius: 4px; overflow: hidden; margin-bottom: 25px; }
+    .timeline-stint { display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 12px; font-family: monospace; transition: width 0.3s; }
+    
+    /* Cores de Pneus 50-900 */
+    .pneu-seco { background-color: #f1c40f; } 
+    .pneu-molhado { background-color: #2ecc71; } 
+    .pneu-encharcado { background-color: #3498db; } 
 
-{% if mensagem %}
-<div class="alert alert-info">{{ mensagem }}</div>
-{% endif %}
+    .stint-card { background: #262d3d; border-left: 4px solid #f1c40f; padding: 15px; margin-bottom: 15px; border-radius: 4px; display: flex; gap: 15px; align-items: center; }
+    .stint-card select, .stint-card input { background: #161a23; border: 1px solid #364156; color: #fff; padding: 8px; border-radius: 4px; font-family: monospace; }
+    .btn-remover-stint { background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-add-stint { background: #2a3241; color: white; border: 1px dashed #7a8aa3; width: 100%; padding: 12px; text-align: center; cursor: pointer; border-radius: 4px; margin-bottom: 20px; }
+    .btn-add-stint:hover { background: #364156; }
+    .btn-save-strategy { background: #ff7a00; color: white; border: none; width: 100%; padding: 15px; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 15px; cursor: pointer; }
+    .btn-save-strategy:hover { background: #e66e00; }
+    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+</style>
 
-<form method="POST" class="form-ows">
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label">Pneu Contratado</label>
-            <input type="text" class="form-control" value="{{ pneu_contratado.nome }}" disabled style="background:#e9ecef;">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">EstratÃ©gia de Corrida</h1>
+    {% if pista %}
+    <span class="badge bg-secondary">PrÃ³xima Corrida: {{ pista.nome }} ({{ voltas_pista }} voltas)</span>
+    {% endif %}
+</div>
+
+<form method="POST" action="{{ url_for('estrategia_corrida_view') }}" id="strategyForm">
+    <div class="config-grid">
+        <div>
+            <label class="form-label text-muted">Config. Motor</label>
+            <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="col-md-6">
-            <label class="form-label">CombustÃ­vel Contratado</label>
-            <input type="text" class="form-control" value="{{ combustivel_contratado.nome }}" disabled style="background:#e9ecef;">
+        <div>
+            <label class="form-label text-muted">Config. CÃ¢mbio</label>
+            <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="col-md-6">
-            <label for="volta_primeiro_pit" class="form-label">Volta do primeiro pit stop</label>
-            <input id="volta_primeiro_pit" type="number" min="1" max="80" name="volta_primeiro_pit" value="{{ equipe.estrategia_volta_pit }}" class="form-control">
+        <div>
+            <label class="form-label text-muted">Config. SuspensÃ£o</label>
+            <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="col-md-6">
-            <label for="outro_pit" class="form-label d-block">Segundo pit stop?</label>
-            <input id="outro_pit" type="checkbox" name="outro_pit" class="form-check-input" {% if equipe.estrategia_dois_pits %}checked{% endif %}>
-            <label class="form-check-label ms-2" for="outro_pit">Sim</label>
+        <div>
+            <label class="form-label text-muted">Mapeamento InjeÃ§Ã£o</label>
+            <select name="modelo_combustivel" class="form-select" style="background:#1e2430; color:#fff;">
+                {% for m in modelos_disponiveis %}
+                <option value="{{ m }}" {% if equipe.modelo_combustivel == m %}selected{% endif %}>Modelo {{ m }}</option>
+                {% endfor %}
+            </select>
         </div>
     </div>
 
-    <div class="card mt-4">
-        <div class="card-header">
-            Modelo dos componentes (50 a 900)
-        </div>
-        <div class="card-body">
-            <p class="text-muted">
-                Escolha por corrida. <strong>Modelo baixo (50)</strong> = mais rÃ¡pido, mas
-                gasta/desgasta mais. <strong>Modelo alto (900)</strong> = mais lento, porÃ©m
-                mais econÃ´mico e durÃ¡vel. Deixe em <em>"PadrÃ£o"</em> pra nÃ£o usar modelo.
-            </p>
-            <div class="row g-3">
-                {% set campos_modelo = [
-                    ('modelo_motor', 'Motor', 'velocidade x consumo'),
-                    ('modelo_combustivel', 'CombustÃ­vel', 'velocidade x consumo'),
-                    ('modelo_pneu', 'Pneu', '50-500 seco / 600-700 molhada / 800-900 encharcada'),
-                    ('modelo_cambio', 'CÃ¢mbio', 'letra A=50 ... J=900 (case com a pista)'),
-                    ('modelo_suspensao', 'SuspensÃ£o', 'letra A=50 ... J=900 (case com a pista)')
-                ] %}
-                {% for campo, titulo, dica in campos_modelo %}
-                <div class="col-md-4">
-                    <label for="{{ campo }}" class="form-label">{{ titulo }}</label>
-                    <select id="{{ campo }}" name="{{ campo }}" class="form-select">
-                        <option value="">PadrÃ£o (sem modelo)</option>
-                        {% for m in modelos_disponiveis %}
-                        <option value="{{ m }}"
-                            {% if equipe and equipe[campo] == m %}selected{% endif %}>
-                            {{ titulo[:2]|upper }}-{{ m }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <small class="text-muted">{{ dica }}</small>
+    <div class="pit-wall-container">
+        <div class="strategy-editor">
+            <h3 style="color:#fff; margin-bottom: 20px;">Plano de Stints</h3>
+            
+            <div class="timeline-bar" id="timelineBar"></div>
+
+            <div id="stintsContainer">
+                {% for stint in stints %}
+                <div class="stint-card stint-row" data-ordem="{{ loop.index }}">
+                    <div style="flex:1;">
+                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">STINT <span class="stint-number">{{ loop.index }}</span></span>
+                        <select name="modelo_pneu[]" class="pneu-select" onchange="updateUI()" style="width:100%;">
+                            {% for m in modelos_disponiveis %}
+                            <option value="{{ m }}" {% if stint.modelo_pneu == m %}selected{% endif %}>
+                                {{ m }} â€” {% if m <= 500 %}ðŸŒ¤ï¸ Seco{% elif m <= 700 %}ðŸŒ§ï¸ Molhada{% else %}â›ˆï¸ Encharcada{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Voltas Alvo</span>
+                        <input type="number" name="voltas[]" value="{{ stint.voltas }}" min="1" max="100" class="input-voltas" onchange="updateUI()" style="width:80px;">
+                    </div>
+                    <div>
+                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">CombustÃ­vel (L)</span>
+                        <input type="number" name="combustivel_litros[]" value="{{ stint.combustivel_litros }}" min="1" max="150" step="0.5" class="input-combustivel" onchange="updateUI()" style="width:100px;">
+                    </div>
+                    <div style="align-self: flex-end;">
+                        <button type="button" class="btn-remover-stint" onclick="removeStint(this)">âœ•</button>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
+
+            <button type="button" class="btn-add-stint" onclick="addStint()">+ ADICIONAR STINT / PIT STOP</button>
+        </div>
+
+        <div class="pit-wall-summary">
+            <h3>PIT WALL - DADOS ALVO</h3>
+            
+            <!-- Aviso dinÃ¢mico JS -->
+            <div id="lapValidationMsg" style="font-weight: bold; margin-bottom: 15px; font-size: 14px;"></div>
+
+            <div class="summary-item">
+                <span>Voltas da Pista</span>
+                <strong id="sumPistaVoltas">{{ voltas_pista if voltas_pista else '-' }}</strong>
+            </div>
+            <div class="summary-item">
+                <span>Voltas Planejadas</span>
+                <strong id="sumVoltasPlanejadas">0</strong>
+            </div>
+            <div class="summary-item">
+                <span>Total CombustÃ­vel</span>
+                <strong id="sumCombustivel">0 L</strong>
+            </div>
+            <div class="summary-item">
+                <span>Paradas no Box</span>
+                <strong id="sumParadas">0</strong>
+            </div>
+            <div class="summary-item">
+                <span>Tempo Estimado</span>
+                <strong style="color:#7a8aa3;">[Fase B]</strong>
+            </div>
+
+            <button type="submit" class="btn-save-strategy">ðŸ’¾ Salvar EstratÃ©gia</button>
         </div>
     </div>
-
-    <button type="submit" class="btn btn-primary mt-3">Salvar estratÃ©gia</button>
 </form>
 
-{% if resultado %}
-<div class="card mt-4">
-    <h2 class="h5">EstratÃ©gia montada</h2>
-    <p>{{ resultado.resumo }}</p>
-    <p><strong>Volta do primeiro pit stop:</strong> {{ resultado.volta_primeiro_pit }}</p>
-    <p><strong>Segundo pit stop:</strong> {% if resultado.outro_pit %}Sim{% else %}NÃ£o{% endif %}</p>
-</div>
-{% endif %}
+<script>
+    const selectOptionsHTML = `
+        {% for m in modelos_disponiveis %}
+        <option value="{{ m }}">{{ m }} â€” {% if m <= 500 %}ðŸŒ¤ï¸ Seco{% elif m <= 700 %}ðŸŒ§ï¸ Molhada{% else %}â›ˆï¸ Encharcada{% endif %}</option>
+        {% endfor %}
+    `;
 
-{% if sugestao %}
-<div class="card mt-3">
-    <h2 class="h5">SugestÃ£o do estrategista</h2>
-    <p>{{ sugestao.resumo }}</p>
-    <p><strong>Volta sugerida:</strong> {{ sugestao.volta_primeiro_pit }}</p>
-</div>
-{% endif %}
+    function getPneuColorClass(modelo) {
+        if (modelo <= 500) return 'pneu-seco';
+        if (modelo <= 700) return 'pneu-molhado';
+        return 'pneu-encharcado';
+    }
+    
+    function getPneuColorBorder(modelo) {
+        if (modelo <= 500) return '#f1c40f';
+        if (modelo <= 700) return '#2ecc71';
+        return '#3498db';
+    }
+
+    function addStint() {
+        const container = document.getElementById('stintsContainer');
+        const div = document.createElement('div');
+        div.className = 'stint-card stint-row';
+        div.innerHTML = `
+            <div style="flex:1;">
+                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">STINT <span class="stint-number">X</span></span>
+                <select name="modelo_pneu[]" class="pneu-select" onchange="updateUI()" style="width:100%;">
+                    ${selectOptionsHTML}
+                </select>
+            </div>
+            <div>
+                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Voltas Alvo</span>
+                <input type="number" name="voltas[]" value="15" min="1" max="100" class="input-voltas" onchange="updateUI()" style="width:80px;">
+            </div>
+            <div>
+                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">CombustÃ­vel (L)</span>
+                <input type="number" name="combustivel_litros[]" value="40" min="1" max="150" step="0.5" class="input-combustivel" onchange="updateUI()" style="width:100px;">
+            </div>
+            <div style="align-self: flex-end;">
+                <button type="button" class="btn-remover-stint" onclick="removeStint(this)">âœ•</button>
+            </div>
+        `;
+        container.appendChild(div);
+        updateUI();
+    }
+
+    function removeStint(btn) {
+        const rows = document.querySelectorAll('.stint-row');
+        if (rows.length <= 1) {
+            alert('A estratÃ©gia deve ter pelo menos 1 stint.');
+            return;
+        }
+        btn.closest('.stint-row').remove();
+        updateUI();
+    }
+
+    function updateUI() {
+        const rows = document.querySelectorAll('.stint-row');
+        let totalVoltas = 0;
+        let totalCombustivel = 0;
+        const timeline = document.getElementById('timelineBar');
+        timeline.innerHTML = '';
+
+        rows.forEach((row, index) => {
+            row.querySelector('.stint-number').innerText = index + 1;
+            const voltas = parseInt(row.querySelector('.input-voltas').value) || 0;
+            const combustivel = parseFloat(row.querySelector('.input-combustivel').value) || 0;
+            const modeloPneu = parseInt(row.querySelector('.pneu-select').value) || 50;
+            
+            totalVoltas += voltas;
+            totalCombustivel += combustivel;
+            row.style.borderLeftColor = getPneuColorBorder(modeloPneu);
+        });
+
+        rows.forEach((row, index) => {
+            const voltas = parseInt(row.querySelector('.input-voltas').value) || 0;
+            const modeloPneu = parseInt(row.querySelector('.pneu-select').value) || 50;
+            let perc = totalVoltas > 0 ? (voltas / totalVoltas) * 100 : 0;
+            
+            if (perc > 0) {
+                const block = document.createElement('div');
+                block.className = `timeline-stint ${getPneuColorClass(modeloPneu)}`;
+                block.style.width = `${perc}%`;
+                block.innerText = voltas;
+                timeline.appendChild(block);
+            }
+        });
+
+        document.getElementById('sumVoltasPlanejadas').innerText = totalVoltas;
+        document.getElementById('sumCombustivel').innerText = totalCombustivel.toFixed(1) + ' L';
+        document.getElementById('sumParadas').innerText = rows.length - 1;
+
+        // VALIDAÃ‡ÃƒO DE VOLTAS E TRAVA DE BOTÃƒO
+        const pistaVoltasText = document.getElementById('sumPistaVoltas').innerText;
+        const pistaVoltas = isNaN(parseInt(pistaVoltasText)) ? 0 : parseInt(pistaVoltasText);
+        const validationMsg = document.getElementById('lapValidationMsg');
+        const btnAdd = document.querySelector('.btn-add-stint');
+
+        if (pistaVoltas > 0) {
+            if (totalVoltas > pistaVoltas) {
+                validationMsg.innerText = `âš ï¸ ${totalVoltas - pistaVoltas} voltas a mais que a corrida`;
+                validationMsg.style.color = '#e74c3c';
+            } else if (totalVoltas < pistaVoltas) {
+                validationMsg.innerText = `âš ï¸ Faltam ${pistaVoltas - totalVoltas} voltas`;
+                validationMsg.style.color = '#f1c40f';
+            } else {
+                validationMsg.innerText = `âœ… Voltas batem certinho`;
+                validationMsg.style.color = '#2ecc71';
+            }
+
+            if (totalVoltas >= pistaVoltas) {
+                btnAdd.disabled = true;
+                btnAdd.innerText = "LIMITE DE VOLTAS ATINGIDO";
+                btnAdd.style.opacity = "0.5";
+                btnAdd.style.cursor = "not-allowed";
+            } else {
+                btnAdd.disabled = false;
+                btnAdd.innerText = "+ ADICIONAR STINT / PIT STOP";
+                btnAdd.style.opacity = "1";
+                btnAdd.style.cursor = "pointer";
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', updateUI);
+</script>
 {% endblock %}
 
 ===== templates\home.html =====
@@ -1937,7 +2170,6 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
     <div class="ows-card">
         <h3>PNEU</h3>
         <div class="ows-value" style="font-size: 20px;">{{ carro.pneu.nome }}</div>
-        <div class="ows-hint">Categoria: {{ carro.pneu.categoria_chuva|default('seco') }}</div>
     </div>
     <div class="ows-card">
         <h3>CHASSI</h3>
@@ -1971,7 +2203,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 
 <!-- Aviso sobre desempenho oculto -->
 <div class="ows-card" style="border-left: 3px solid #ff7a00;">
-    <h3 style="color: #ff8a3d;">SOBRE OS FORNECEDORES</h3>
+        <h3 style="color: #ff8a3d;">SOBRE OS FORNECEDORES</h3>
     <p class="ows-muted" style="margin: 0;">
         O desempenho tÃ©cnico de cada equipamento Ã© mantido em segredo pelos fornecedores.
         VocÃª escolhe com base no nome, na categoria e no custo, sem ver os nÃºmeros exatos.
@@ -2235,7 +2467,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
           {% endfor %}
         </select>
 
-        <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">â–¶ï¸ Rodar treino livre</button>
+        <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">â–¶ï¸ dar uma volta de treino livre</button>
       </form>
     </div>
 

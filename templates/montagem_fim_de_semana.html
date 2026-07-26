@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Montagem do Fim de Semana • Open Wheel Strategy{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Montagem do Fim de Semana</h1>
+</div>
+
+{% if not pista %}
+<div class="ows-card">
+    <h3 style="color:#ff7a00;">Nenhuma corrida no calendário</h3>
+    <p class="ows-muted">Não há nenhuma corrida agendada na temporada ativa no momento. Aguarde o início do campeonato.</p>
+</div>
+{% else %}
+<div class="ows-card" style="margin-bottom: 24px;">
+    <h3>DADOS DA PISTA: {{ pista.nome }} ({{ pista.pais }})</h3>
+    <p class="ows-muted" style="margin-top:4px;">Analise as categorias ideais abaixo para configurar seu carro corretamente.</p>
+    <div class="ows-grid-2" style="margin-top: 16px;">
+        <div>
+            <small class="ows-muted" style="letter-spacing: 1px;">CÂMBIO IDEAL</small>
+            <div style="font-size: 24px; color: #fff; font-weight: bold; margin-top: 4px;">Letra {{ pista.categoria_cambio_ideal }}</div>
+        </div>
+        <div>
+            <small class="ows-muted" style="letter-spacing: 1px;">SUSPENSÃO IDEAL</small>
+            <div style="font-size: 24px; color: #fff; font-weight: bold; margin-top: 4px;">Letra {{ pista.categoria_suspensao_ideal }}</div>
+        </div>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('montagem_fim_de_semana') }}">
+    <div class="ows-card" style="margin-bottom: 24px;">
+        <h3>ESCOLHA O SETUP INICIAL</h3>
+        <p class="ows-muted" style="margin-top:4px;">Selecione o modelo do câmbio e da suspensão para este fim de semana de corrida. 50 (rápido/frágil) a 900 (lento/durável).</p>
+        
+        <div class="ows-grid-2" style="margin-top: 16px;">
+            <div>
+                <label class="form-label text-muted">Modelo de Câmbio</label>
+                <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                    <option value="">-- selecione --</option>
+                    {% for m in modelos_disponiveis %}
+                    <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label text-muted">Modelo de Suspensão</label>
+                <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                    <option value="">-- selecione --</option>
+                    {% for m in modelos_disponiveis %}
+                    <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="padding: 15px; font-weight: bold; text-transform: uppercase;">
+        💾 Salvar Montagem
+    </button>
+</form>
+{% endif %}
+{% endblock %}

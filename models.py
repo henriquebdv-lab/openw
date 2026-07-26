@@ -179,7 +179,7 @@ class Configuracao(db.Model):
     treino_custo_fator = db.Column(db.Float, default=1.0)
     pit_tempo_sem_treino = db.Column(db.Float, default=25.0)
     pit_tempo_treino_completo = db.Column(db.Float, default=9.0)
-    
+
     premio_corrida_pos_1 = db.Column(db.Float, default=12000.0)
     multiplicador_consumo = db.Column(db.Float, default=1.0)
     chance_quebra_base = db.Column(db.Float, default=0.10)
@@ -302,7 +302,7 @@ class CarroJogador(db.Model):
             (desenvolvimento.chassi_percentual_aplicado or 0) / 100.0
         )
         chassi = Chassi(
-            nome=f"Chassi nível {desenvolvimento.nivel_engenheiro_projetista or 1}",
+            nome=f"Chassi nivel {desenvolvimento.nivel_engenheiro_projetista or 1}",
             custo=0.0,
             performance=performance_chassi_efetiva,
         )
@@ -328,7 +328,7 @@ class CarroJogador(db.Model):
             equipe=equipe, motor=motor, combustivel=combustivel, pneu=pneu, chassi=chassi,
             cambio=cambio, suspensao=suspensao, engenheiro=engenheiro,
             combustivel_carregado=self.combustivel_carregado, tempo_pit_stop=tempo_pit_stop,
-            config=config # Passando a configuracao global pro carro!
+            config=config
         )
 
         from constantes import performance_aero_do_nivel
@@ -385,6 +385,20 @@ class CarroJogador(db.Model):
 
 
 EquipeDB = CarroJogador
+
+
+class EstrategiaStint(db.Model):
+    __tablename__ = "estrategia_stint"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    ordem = db.Column(db.Integer, nullable=False)
+    modelo_pneu = db.Column(db.Integer, nullable=False)
+    voltas = db.Column(db.Integer, nullable=False)
+    combustivel_litros = db.Column(db.Float, nullable=False)
+    equipe = db.relationship(
+        "CarroJogador",
+        backref=db.backref("stints", cascade="all, delete-orphan", lazy=True, order_by="EstrategiaStint.ordem"),
+    )
 
 
 class ResultadoClassificacao(db.Model):
@@ -449,3 +463,14 @@ class ResultadoTreinoLivre(db.Model):
         existente.criado_em = datetime.utcnow()
         db.session.commit()
         return existente, True
+
+class SetupFimDeSemana(db.Model):
+    __tablename__ = "setup_fim_de_semana"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    corrida_id = db.Column(db.Integer, nullable=False) # FK lÃ³gica para corridas_agendadas.id
+    modelo_cambio = db.Column(db.Integer, nullable=False)
+    modelo_suspensao = db.Column(db.Integer, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador", backref="setups_fim_de_semana")
