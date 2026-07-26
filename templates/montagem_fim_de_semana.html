@@ -30,9 +30,18 @@
 <form method="POST" action="{{ url_for('montagem_fim_de_semana') }}">
     <div class="ows-card" style="margin-bottom: 24px;">
         <h3>ESCOLHA O SETUP INICIAL</h3>
-        <p class="ows-muted" style="margin-top:4px;">Selecione o modelo do câmbio e da suspensão para este fim de semana de corrida. 50 (rápido/frágil) a 900 (lento/durável).</p>
+        <p class="ows-muted" style="margin-top:4px;">Selecione os modelos do carro para este fim de semana de corrida. 50 (rápido/frágil) a 900 (lento/durável).</p>
         
-        <div class="ows-grid-2" style="margin-top: 16px;">
+        <div class="ows-grid-3" style="margin-top: 16px;">
+            <div>
+                <label class="form-label text-muted">Modelo de Motor</label>
+                <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                    <option value="">-- selecione --</option>
+                    {% for m in modelos_disponiveis %}
+                    <option value="{{ m }}" {% if setup_existente and setup_existente.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div>
                 <label class="form-label text-muted">Modelo de Câmbio</label>
                 <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>

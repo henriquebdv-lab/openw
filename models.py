@@ -468,7 +468,8 @@ class SetupFimDeSemana(db.Model):
     __tablename__ = "setup_fim_de_semana"
     id = db.Column(db.Integer, primary_key=True)
     equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
-    corrida_id = db.Column(db.Integer, nullable=False) # FK lÃ³gica para corridas_agendadas.id
+    corrida_id = db.Column(db.Integer, nullable=False)
+    modelo_motor = db.Column(db.Integer, nullable=False)
     modelo_cambio = db.Column(db.Integer, nullable=False)
     modelo_suspensao = db.Column(db.Integer, nullable=False)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)

@@ -2371,6 +2371,17 @@ class ResultadoTreinoLivre(db.Model):
         db.session.commit()
         return existente, True
 
+class SetupFimDeSemana(db.Model):
+    __tablename__ = "setup_fim_de_semana"
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    corrida_id = db.Column(db.Integer, nullable=False) # FK lÃƒÂ³gica para corridas_agendadas.id
+    modelo_cambio = db.Column(db.Integer, nullable=False)
+    modelo_suspensao = db.Column(db.Integer, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador", backref="setups_fim_de_semana")
+
 ===== models_contrato.py =====
 """
 ContratoFornecedor â€” vÃ­nculo de fornecedor por TEMPORADA (regra do Estrategia F1).
@@ -3517,15 +3528,15 @@ def aplicar_desenvolvimento_da_temporada(desenvolvimento, engenheiro_atual):
 """
 Pacote de rotas do Open Wheel Strategy.
 
-Cada arquivo aqui dentro Ã© uma Ã¡rea pequena do jogo e expÃµe uma funÃ§Ã£o
-`registrar(app)`. Este __init__ sÃ³ chama todas elas, na ordem.
+Cada arquivo aqui dentro ÃƒÂ© uma ÃƒÂ¡rea pequena do jogo e expÃƒÂµe uma funÃƒÂ§ÃƒÂ£o
+`registrar(app)`. Este __init__ sÃƒÂ³ chama todas elas, na ordem.
 
-Por que assim (e nÃ£o Blueprint puro):
+Por que assim (e nÃƒÂ£o Blueprint puro):
 - Blueprint muda o nome da rota (login -> auth.login), o que quebraria TODOS
-  os url_for(...) dos templates. Com este padrÃ£o, o nome da rota continua
-  igual (login, minha_equipe, ...), entÃ£o nenhum template precisa mudar.
+  os url_for(...) dos templates. Com este padrÃƒÂ£o, o nome da rota continua
+  igual (login, minha_equipe, ...), entÃƒÂ£o nenhum template precisa mudar.
 """
-from rotas import auth, equipe, desenvolvimento, treino, corrida, temporada, admin
+from rotas import auth, equipe, desenvolvimento, treino, corrida, temporada, admin, fim_de_semana
 
 
 def registrar_rotas(app):
@@ -3536,6 +3547,7 @@ def registrar_rotas(app):
     corrida.registrar(app)
     temporada.registrar(app)
     admin.registrar(app)
+    fim_de_semana.registrar(app)
 
 ===== rotas\admin.py =====
 """
@@ -4352,7 +4364,7 @@ def registrar(app):
                 eng_basico = FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True).first()
                 engenheiro_id = eng_basico.id if eng_basico else None
 
-            combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
+            combustivel_carregado = TANQUE_MAXIMO_LITROS  # padrao: tanque cheio (campo removido da tela)
             nova_equipe = CarroJogador(
                 usuario_id=usuario.id,
                 nome=request.form["nome"],
@@ -4466,6 +4478,70 @@ def registrar(app):
         db.session.commit()
         flash("Conta resetada. VocÃª pode montar sua equipe do zero.", "info")
         return redirect(url_for("minha_equipe"))
+
+===== rotas\fim_de_semana.py =====
+"""
+Rota de Montagem do Fim de Semana (Etapa 1 do Parc FermÃƒÂ©).
+"""
+from flask import render_template, request, redirect, url_for, session, flash
+from models import db, Usuario, SetupFimDeSemana
+from models_temporada import Temporada
+from extensoes import login_requerido
+from pistas_reais_db import obter_pista_real, criar_banco as criar_banco_pistas_reais
+import modelos_componente
+
+def registrar(app):
+    @app.route("/montar-fim-de-semana", methods=["GET", "POST"])
+    @login_requerido
+    def montagem_fim_de_semana():
+        usuario = Usuario.query.get(session["usuario_id"])
+        if not usuario.equipe:
+            return redirect(url_for("minha_equipe"))
+        
+        equipe = usuario.equipe
+        temporada = Temporada.ativa_atual()
+        proxima_corrida = temporada.proxima_corrida() if temporada else None
+        
+        if not proxima_corrida:
+            return render_template("montagem_fim_de_semana.html", equipe=equipe, pista=None)
+
+        criar_banco_pistas_reais()
+        pista = obter_pista_real(proxima_corrida.pista_real_id)
+
+        setup_existente = SetupFimDeSemana.query.filter_by(
+            equipe_id=equipe.id, corrida_id=proxima_corrida.id
+        ).first()
+
+        if request.method == "POST":
+            mod_cambio = request.form.get("modelo_cambio")
+            mod_susp = request.form.get("modelo_suspensao")
+            
+            if modelos_componente.modelo_valido(mod_cambio) and modelos_componente.modelo_valido(mod_susp):
+                if setup_existente:
+                    setup_existente.modelo_cambio = int(mod_cambio)
+                    setup_existente.modelo_suspensao = int(mod_susp)
+                else:
+                    novo_setup = SetupFimDeSemana(
+                        equipe_id=equipe.id,
+                        corrida_id=proxima_corrida.id,
+                        modelo_cambio=int(mod_cambio),
+                        modelo_suspensao=int(mod_susp)
+                    )
+                    db.session.add(novo_setup)
+                
+                db.session.commit()
+                flash("Montagem do fim de semana salva com sucesso!", "success")
+                return redirect(url_for("montagem_fim_de_semana"))
+            else:
+                flash("Modelos invÃƒÂ¡lidos selecionados.", "danger")
+
+        return render_template(
+            "montagem_fim_de_semana.html",
+            equipe=equipe,
+            pista=pista,
+            modelos_disponiveis=modelos_componente.MODELOS,
+            setup_existente=setup_existente
+        )
 
 ===== rotas\temporada.py =====
 """

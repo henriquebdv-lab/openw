@@ -27,7 +27,6 @@
     .btn-add-stint:hover { background: #364156; }
     .btn-save-strategy { background: #ff7a00; color: white; border: none; width: 100%; padding: 15px; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 15px; cursor: pointer; }
     .btn-save-strategy:hover { background: #e66e00; }
-    .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -38,41 +37,6 @@
 </div>
 
 <form method="POST" action="{{ url_for('estrategia_corrida_view') }}" id="strategyForm">
-    <div class="config-grid">
-        <div>
-            <label class="form-label text-muted">Config. Motor</label>
-            <select name="modelo_motor" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_motor == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label text-muted">Config. Câmbio</label>
-            <select name="modelo_cambio" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_cambio == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label text-muted">Config. Suspensão</label>
-            <select name="modelo_suspensao" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_suspensao == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label text-muted">Mapeamento Injeção</label>
-            <select name="modelo_combustivel" class="form-select" style="background:#1e2430; color:#fff;">
-                {% for m in modelos_disponiveis %}
-                <option value="{{ m }}" {% if equipe.modelo_combustivel == m %}selected{% endif %}>Modelo {{ m }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    </div>
-
     <div class="pit-wall-container">
         <div class="strategy-editor">
             <h3 style="color:#fff; margin-bottom: 20px;">Plano de Stints</h3>

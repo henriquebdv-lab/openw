@@ -1,5 +1,5 @@
 """
-Rota de Montagem do Fim de Semana (Etapa 1 do Parc FermÃ©).
+Rota de Montagem do Fim de Semana (Etapa 1 do Parc Fermé).
 """
 from flask import render_template, request, redirect, url_for, session, flash
 from models import db, Usuario, SetupFimDeSemana
@@ -31,17 +31,26 @@ def registrar(app):
         ).first()
 
         if request.method == "POST":
+            mod_motor = request.form.get("modelo_motor")
             mod_cambio = request.form.get("modelo_cambio")
             mod_susp = request.form.get("modelo_suspensao")
             
-            if modelos_componente.modelo_valido(mod_cambio) and modelos_componente.modelo_valido(mod_susp):
+            valido = (
+                modelos_componente.modelo_valido(mod_motor) and
+                modelos_componente.modelo_valido(mod_cambio) and 
+                modelos_componente.modelo_valido(mod_susp)
+            )
+            
+            if valido:
                 if setup_existente:
+                    setup_existente.modelo_motor = int(mod_motor)
                     setup_existente.modelo_cambio = int(mod_cambio)
                     setup_existente.modelo_suspensao = int(mod_susp)
                 else:
                     novo_setup = SetupFimDeSemana(
                         equipe_id=equipe.id,
                         corrida_id=proxima_corrida.id,
+                        modelo_motor=int(mod_motor),
                         modelo_cambio=int(mod_cambio),
                         modelo_suspensao=int(mod_susp)
                     )
@@ -51,7 +60,7 @@ def registrar(app):
                 flash("Montagem do fim de semana salva com sucesso!", "success")
                 return redirect(url_for("montagem_fim_de_semana"))
             else:
-                flash("Modelos invÃ¡lidos selecionados.", "danger")
+                flash("Modelos inválidos selecionados.", "danger")
 
         return render_template(
             "montagem_fim_de_semana.html",
