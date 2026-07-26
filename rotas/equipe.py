@@ -49,7 +49,7 @@ def registrar(app):
                 eng_basico = FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True).first()
                 engenheiro_id = eng_basico.id if eng_basico else None
 
-            combustivel_carregado = min(TANQUE_MAXIMO_LITROS, max(0.0, float(request.form["combustivel_carregado"])))
+            combustivel_carregado = TANQUE_MAXIMO_LITROS  # padrao: tanque cheio (campo removido da tela)
             nova_equipe = CarroJogador(
                 usuario_id=usuario.id,
                 nome=request.form["nome"],
