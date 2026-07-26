@@ -84,8 +84,11 @@
                 <div style="font-size: 20px; font-weight: bold; color: {% if stint.combustivel_restante < 10 %}#e74c3c{% else %}#fff{% endif %};">{{ stint.combustivel_restante }} L</div>
             </div>
             <div>
-                <small class="ows-muted">Desgaste Pneu</small>
-                <div style="font-size: 20px; font-weight: bold; color: {% if stint.desgaste > 80 %}#e74c3c{% else %}#fff{% endif %};">{{ "%.1f"|format(stint.desgaste) }}%</div>
+                <small class="ows-muted">Vida do Pneu</small>
+                {% set vida_pneu = 100 - stint.desgaste %}
+                {% if vida_pneu < 0 %}{% set vida_pneu = 0 %}{% endif %}
+                {% set cor_vida = '#2ecc71' if vida_pneu > 50 else ('#f1c40f' if vida_pneu >= 20 else '#e74c3c') %}
+                <div style="font-size: 20px; font-weight: bold; color: {{ cor_vida }};">{{ "%.1f"|format(vida_pneu) }}%</div>
             </div>
             <div>
                 <small class="ows-muted">Voltas</small>
@@ -159,6 +162,7 @@
                     <th style="padding:8px; color:#7a8aa3;">V.</th>
                     <th style="padding:8px; color:#7a8aa3;">Tempo</th>
                     <th style="padding:8px; color:#7a8aa3;">Acerto</th>
+                    <th style="padding:8px; color:#7a8aa3;">Vida Pneu</th>
                     <th style="padding:8px; color:#7a8aa3;">Feedback do Piloto</th>
                   </tr>
                 </thead>
@@ -168,11 +172,15 @@
                       <td style="padding:12px 8px;">#{{ v.numero }}</td>
                       <td style="padding:12px 8px; font-weight:bold; color:#fff;">{{ v.tempo | tempo_min }}</td>
                       <td style="padding:12px 8px; color:#2ecc71; font-weight:bold;">{{ v.acerto }}%</td>
+                      {% set v_vida = 100 - v.desgaste_pneu %}
+                      {% if v_vida < 0 %}{% set v_vida = 0 %}{% endif %}
+                      {% set v_cor = '#2ecc71' if v_vida > 50 else ('#f1c40f' if v_vida >= 20 else '#e74c3c') %}
+                      <td style="padding:12px 8px; font-weight:bold; color:{{ v_cor }};">{{ "%.1f"|format(v_vida) }}%</td>
                       <td style="padding:12px 8px;" class="ows-hint">"{{ v.feedback }}"</td>
                     </tr>
                   {% else %}
                   <tr>
-                    <td colspan="4" style="padding:20px; text-align:center;" class="ows-muted">Nenhuma volta completada ainda. Ajuste e acelere.</td>
+                    <td colspan="5" style="padding:20px; text-align:center;" class="ows-muted">Nenhuma volta completada ainda. Ajuste e acelere.</td>
                   </tr>
                   {% endfor %}
                 </tbody>

@@ -225,8 +225,11 @@ def registrar(app):
                     stint["ativo"] = False
                     stint["encerrou_por"] = "Pane Seca (Acabou o Combustível)"
                 else:
-                    # Penalidade no tempo baseada no erro total do setup
-                    tempo_volta = carro.tempo_base() + random.gauss(0, VARIACAO_ALEATORIA_DESVIO_PADRAO) + (erro_absoluto_total * 0.02)
+                    # Penalidade baseada no desgaste ANTES da volta
+                    penalidade = carro.penalidade_desgaste_pneu(stint["desgaste"])
+                    
+                    # Penalidade no tempo baseada no erro total do setup + desgaste
+                    tempo_volta = carro.tempo_base() + random.gauss(0, VARIACAO_ALEATORIA_DESVIO_PADRAO) + (erro_absoluto_total * 0.02) + penalidade
                     
                     stint["combustivel_restante"] -= consumo
                     stint["desgaste"] += carro.desgaste_por_volta()
