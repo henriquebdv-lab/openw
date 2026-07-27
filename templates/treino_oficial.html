@@ -1,42 +1,67 @@
 {% extends "base.html" %}
+{% block title %}Treino Oficial • Open Wheel Strategy{% endblock %}
+
 {% block content %}
-<h1 class="h3">Treino Oficial</h1>
-<p>Use o setup do treino livre e defina pneu, combustível e estratégia para a corrida.</p>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Treino Oficial (Classificação)</h1>
+</div>
 
-{% if mensagem %}
-<div class="alert alert-info">{{ mensagem }}</div>
-{% endif %}
+<div class="ows-card" style="margin-bottom: 24px; background: rgba(46,125,50,.08); border-left: 3px solid #2ecc71;">
+    <h3 style="color: #2ecc71;">PREPARAÇÃO PARA A VOLTA RÁPIDA</h3>
+    <p class="ows-muted" style="margin: 0;">Aqui você define com qual pneu e carga de combustível o piloto fará a volta de classificação. O evento rodará automaticamente no horário agendado. Motor, Câmbio, Suspensão e Ajustes Finos já estão travados e aplicados.</p>
+</div>
 
-<form method="POST" class="form-ows">
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label">Pneu Contratado</label>
-            <input type="text" class="form-control" value="{{ pneu_contratado.nome }}" disabled style="background:#e9ecef;">
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Combustível Contratado</label>
-            <input type="text" class="form-control" value="{{ combustivel_contratado.nome }}" disabled style="background:#e9ecef;">
-        </div>
-        <div class="col-md-6">
-            <label for="volta_primeiro_pit" class="form-label">Volta do primeiro pit stop</label>
-            <input id="volta_primeiro_pit" type="number" min="1" max="80" name="volta_primeiro_pit" value="{{ equipe.estrategia_volta_pit }}" class="form-control">
-        </div>
-        <div class="col-md-6">
-            <label for="outro_pit" class="form-label d-block">Segundo pit stop?</label>
-            <input id="outro_pit" type="checkbox" name="outro_pit" class="form-check-input" {% if equipe.estrategia_dois_pits %}checked{% endif %}>
-            <label class="form-check-label ms-2" for="outro_pit">Sim</label>
+<div class="ows-grid-3" style="margin-bottom: 24px; align-items: start;">
+    <div class="ows-card">
+        <h3>📍 PISTA DA VEZ</h3>
+        <div style="font-size: 20px; font-weight: bold; color: #fff; margin-top: 10px;">{{ pista.nome }}</div>
+        <div class="ows-hint">{{ pista.pais }}</div>
+    </div>
+
+    <div class="ows-card">
+        <h3>🔒 PARC FERMÉ</h3>
+        <ul style="list-style: none; padding: 0; margin-top: 10px; color: #fff;">
+            <li style="margin-bottom: 5px;"><span class="ows-muted">Motor:</span> Mod. {{ setup_fds.modelo_motor }}</li>
+            <li style="margin-bottom: 5px;"><span class="ows-muted">Câmbio:</span> Mod. {{ setup_fds.modelo_cambio }}</li>
+            <li><span class="ows-muted">Suspensão:</span> Mod. {{ setup_fds.modelo_suspensao }}</li>
+        </ul>
+    </div>
+
+    <div class="ows-card">
+        <h3>⚙️ AJUSTE FINO SALVO</h3>
+        <ul style="list-style: none; padding: 0; margin-top: 10px; color: #fff;">
+            <li style="margin-bottom: 5px;"><span class="ows-muted">Câmbio:</span> {{ ajuste.cambio }}</li>
+            <li style="margin-bottom: 5px;"><span class="ows-muted">Suspensão:</span> {{ ajuste.suspensao }}</li>
+            <li style="margin-bottom: 5px;"><span class="ows-muted">Aero Dianteiro:</span> {{ ajuste.aero_dianteiro }}</li>
+            <li><span class="ows-muted">Aero Traseiro:</span> {{ ajuste.aero_traseiro }}</li>
+        </ul>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('treino_oficial_view') }}">
+    <div class="ows-card" style="margin-bottom: 24px;">
+        <h3>ESCOLHAS DA CLASSIFICAÇÃO</h3>
+        <p class="ows-muted" style="margin-top:4px;">Defina o pneu e o combustível. Menos combustível deixa o carro mais leve e rápido, mas o consumo da volta também é descontado.</p>
+        
+        <div class="ows-grid-2" style="margin-top: 16px;">
+            <div>
+                <label class="form-label text-muted">Modelo de Pneu</label>
+                <select name="modelo_pneu" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+                    <option value="">-- selecione --</option>
+                    {% for m in modelos_disponiveis %}
+                    <option value="{{ m }}" {% if dados_classi and dados_classi.modelo_pneu == m %}selected{% endif %}>Modelo {{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label text-muted">Combustível (L)</label>
+                <input type="number" step="0.5" min="1" max="150" name="combustivel_litros" value="{{ dados_classi.combustivel_litros if dados_classi else 10.0 }}" class="form-control" style="background:#1e2430; color:#fff; border: 1px solid #364156;" required>
+            </div>
         </div>
     </div>
-    <button type="submit" class="btn btn-primary mt-3">Concluir treino oficial</button>
-</form>
 
-{% if resultado %}
-<div class="card mt-4">
-    <h2 class="h5">Resumo da sessão</h2>
-    <p><strong>Tempo estimado da volta:</strong> {{ resultado.tempo_volta }} s</p>
-    <p><strong>Pneu:</strong> {{ resultado.pneu }}</p>
-    <p><strong>Combustível:</strong> {{ resultado.combustivel }}</p>
-    <p><strong>Estratégia:</strong> {{ resultado.estrategia }}</p>
-</div>
-{% endif %}
+    <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="padding: 15px; font-weight: bold; text-transform: uppercase;">
+        💾 SALVAR DADOS DA CLASSIFICAÇÃO
+    </button>
+</form>
 {% endblock %}

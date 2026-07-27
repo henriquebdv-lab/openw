@@ -1,131 +1,182 @@
-# Open Wheel Strategy — PONTO DE RETOMADA (continuar depois)
+# Open Wheel Strategy — PONTO DE RETOMADA (documento ÚNICO e vivo)
 
 > **Como usar num chat novo:** cole ESTE arquivo + o `regras.md` +
-> o `openwheel_py.txt` (e o `openwheel_html.txt` se precisar de telas)
-> na primeira mensagem. Diga: "Vamos continuar o Open Wheel Strategy
-> de onde paramos, seguindo o CONTINUAR_AQUI.md."
+> o `openwheel_py.txt` (e `openwheel_html.txt` se precisar de telas).
+> Este é o ÚNICO arquivo de retomada — edite este, não crie versões novas.
 >
-> **Última sessão:** 24/07/2026
+> **Última atualização:** 27/07/2026
 
 ---
 
-## ✅ FEITO NA SESSÃO DE 24/07/2026 (tudo testado e funcionando)
+## ✅ FEITO E FUNCIONANDO (testado)
 
-### 1. DESMEMBRAMENTO DO app.py — CONCLUÍDO ✅
-- **O que era:** `app.py` com 1000+ linhas e ~30 rotas (uma "tripa" só).
-- **O que virou:** `app.py` enxuto (~137 linhas) + rotas divididas em
-  arquivos pequenos dentro da pasta `rotas/`.
-- **Padrão usado:** `registrar(app)` (NÃO Blueprint puro).
-  - Motivo: Blueprint mudaria o nome das rotas (login → auth.login) e
-    quebraria TODOS os `url_for(...)` dos templates. Com `registrar(app)`
-    os nomes das rotas continuam IDÊNTICOS → nenhum template mudou.
-- **Testado:** app sobe, registra as 33 rotas, comandos CLI (init-db,
-  tornar-admin) OK, e o Henrique confirmou: "nenhuma tela quebrada".
+### Base
+- app.py desmembrado em `rotas/` (padrão registrar(app), NÃO Blueprint).
+- Login Google (cada máquina tem seu `.env`).
+- Quick wins: pneu "marca — valor", engenheiro obrigatório, pane seca = abandono.
+- 7 pistas modernas + config de balanceamento no admin.
+- models.py estabilizado (commit de referência 41b5cb7).
 
-#### Estrutura nova de arquivos
+### Parc Fermé + Preparação
+- Parc Fermé Etapa 1+2: tabela SetupFimDeSemana (motor+câmbio+suspensão 50-900 +
+  campo travado). Tela "Montagem Fim de Semana" com aviso de confirmação + trava.
+- Estratégia limpa (removidos configs de motor/câmbio/susp/injeção do topo).
+- Treino Livre INTERATIVO: usa setup travado (read-only), só a pista do FDS,
+  auto-redireciona se não montou. 3 sliders (Câmbio/Suspensão/Aerofólio, 1-99;
+  5 na estrutura). Ideal secreto por pista (IdealPistaSlider). Feedback do piloto
+  + % de acerto. Desgaste PESA no tempo. Exibe VIDA do pneu (100→0).
+- Treino Oficial = "Salvar dados da Classificação" (tabela DadosClassificacao).
+  Simulação genérica 82.0s removida.
+- Estratégia persistida no banco (EstrategiaStint), não mais só na sessão.
+
+### Corrida / Admin
+- Admin "Dia de Corrida": painel de status (Parc Fermé/Quali/Stints) + disparo
+  manual de classificação e corrida só pras equipes elegíveis.
+- seed_teste.py: 2 admins (Razor, senha 123456) + fornecedores + TEMPORADA 1 (10
+  corridas) + equipe dos admins + 40 BOTS prontos pra correr (grid cheio).
+- Replay da Corrida FASE 1 (tabela de posições volta a volta) funcionando + link
+  na sidebar.
+- base.html UTF-8; combustível removido da tela de montar equipe; flash verde ok.
+
+---
+
+## 🔴 MOTOR — FECHAR ANTES DE ABRIR FEATURE NOVA
+> Decisão do Henrique (27/07): não adianta feature nova (duplas/prêmios) com o
+> motor incompleto. Fechar o núcleo primeiro.
+
+- [ ] REPLAY FASE 3 (o que o Henrique QUER ver): carros se movendo no traçado da
+      pista (sprites + SVG/mapa da pista + animação). Hoje só tem a TABELA de
+      posições (Fase 1). É o "sonho" do replay — mais complexo.
+- [ ] BUG: corrida avança sozinha (marcou corridas como executadas sem ter rodado
+      com equipe; ficou na 3ª sem resultado). Não avançar/marcar executada sem
+      equipe elegível que realmente correu.
+- [ ] INCONSISTÊNCIA: a classificação inclui equipe "FORA" (filtro de
+      elegibilidade diferente da corrida). Aplicar o MESMO filtro na quali.
+- [ ] Replay guarda só a ÚLTIMA corrida (ultimo_replay.json sobrescreve). Pra ver
+      replays antigos: salvar 1 por corrida (coluna JSON na CorridaAgendada, ou
+      replay_etapa_N.json).
+- [ ] CSS da tela admin poluído (sem estilo, ✅/❌ soltos) — arrumar visual.
+
+### Fases da visualização do replay (do Henrique)
+1. Fase 1: tabela de tempos volta a volta — ✅ FEITO
+2. Fase 2: tempos + narração/comentários dos pilotos — pendente
+3. Fase 3: carros (sprites IA) se movendo na pista — pendente (o "sonho")
+
+---
+
+## 🆕 FEATURES NOVAS (SÓ depois do motor fechar)
+- [ ] Parc Fermé Etapa 3: Romper o Lacre (taxa R$ 1.000 + largar em último).
+- [ ] Parc Fermé Etapa 4: Pular a Quali (liberado só se o lacre foi rompido).
+- [ ] Parc Fermé Etapa 5: montar_carro puxar motor/câmbio/suspensão do
+      SetupFimDeSemana + limpar setups no fim da temporada.
+- [ ] Premiação de abandono: decidir (0 / valor mínimo / proporcional às voltas).
+- [ ] Sistema de Duplas (parceria entre pilotos na fase de equipe).
+
+---
+
+## 🧪 TESTES AUTOMÁTICOS (quando voltar ao tema)
+- Já existe pasta `tests/`. Expandir com pytest: login, montar_carro, custos,
+  stints, SetupFimDeSemana, DadosClassificacao, validação de voltas, desgaste
+  pesa no tempo, motor/pneu afetam tempo+consumo.
+- Regra de ouro: rodar `pytest` ANTES de commitar mudança da IA.
+- Lição: testes no sandbox já pegaram bug real (desgaste não pesava no tempo).
+
+---
+
+## 🔵 ÉPICO GRANDE (arquitetura — bem depois)
+- [ ] Calendário/Agenda no admin (ex: Seg/Qua/Sex, 19h qualy, 20h corrida).
+- [ ] Agendador automático (qualy/corrida rodam sozinhos no horário).
+      Pra testar sem esperar: botão manual "rodar agora" no /admin (já existe).
+- [ ] Grupos de 20 + fila de espera.
+- [ ] Pirâmide: promoção/rebaixamento (quem sobe = quem desce, dinâmico).
+- Obs: o ranking do treino livre (hoje vazio) depende dos GRUPOS.
+
+---
+
+## 🎨 DEPOIS (finalização)
+- [ ] Refatoração de CSS: tirar style="" inline → tema.css. JUNTO: flash sumir
+      sozinho após alguns segundos. Fazer por partes, testando visual.
+- [ ] UX/UI command center (imagem do carro no box, painéis).
+- [ ] Sprites de carro vista de cima (base recolorível) — usados na Fase 3 do replay.
+
+---
+
+## 🔑 DEFINIÇÃO: onde cada MODELO (50-900) é escolhido
+| Componente  | Onde escolhe              | Comportamento |
+|-------------|---------------------------|---------------|
+| Motor       | Parc Fermé (Montagem FDS) | TRAVA |
+| Câmbio      | Parc Fermé (Montagem FDS) | TRAVA |
+| Suspensão   | Parc Fermé (Montagem FDS) | TRAVA |
+| Pneu        | Estratégia (por stint)    | VARIA |
+| Combustível | Estratégia (por stint)    | VARIA |
+| Injeção     | NÃO EXISTE                | removido |
+
+---
+
+## 🔒 DESIGN DO PARC FERMÉ (referência)
+- Trava MOTOR + CÂMBIO + SUSPENSÃO (peças/modelos) pro fim de semana.
+- Pneu e combustível ficam livres (variam por stint na estratégia).
+- 1ª coisa do FDS: montar o carro. Sem montar = sem carro. Precisa de $.
+- Setup errado NÃO impede correr (anda, mas perde décimos).
+- RÍGIDO: salvou, travou. Só corrige rompendo o lacre.
+- Romper o lacre: taxa R$ 1.000 + larga em último.
+- Se rompeu o lacre: libera pular a quali.
+- Tabelas: SetupFimDeSemana, DadosClassificacao. Limpar no fim da temporada.
+
+---
+
+## 🎚️ MECÂNICA DO AJUSTE FINO (detalhe em MECANICA_AJUSTE_CARRO.md)
+- Sliders 1-99. Cada pista tem valor ideal secreto por slider.
+- Fórmula: ideal = BASE(aleatório fixo por pista) + INFLUENCIA + CONTRATO
+  (Fase 2, peso 0 agora), clamp 1-99.
+- Feedback por faixa de erro (frases NOSSAS) + % geral de acerto.
+- 3 sliders visíveis, 5 na estrutura (+AeroD/T, Freio DLC).
+
+---
+
+## ⚙️ REGRAS DE TRABALHO COM A IA
+- Arquivos COMPLETOS (nunca "procure a linha X"). KISS/DRY.
+- models.py: SÓ adicionar coluna/tabela no final. NUNCA reescrever o arquivo.
+- NÃO inventar regras/colunas/rotas. Perguntar antes.
+- Manter padrão registrar(app) (não Blueprint). Não quebrar url_for.
+- Salvar tudo em UTF-8 (projeto teve mojibake).
+- Chief Engineer (Claude) valida models/arquivos no sandbox ANTES de aplicar.
+- FECHAR o que está aberto antes de abrir frente nova (lição: abrir muita frente
+  ao mesmo tempo gerou confusão e sensação de "não anda").
+- Documentos vivos: este + regras.md + MECANICA_AJUSTE_CARRO.md. Editar incremental.
+
+---
+
+## 🖥️ AMBIENTE
+- Windows (PC casa): RX 6800 16GB, Ryzen 7 2700X, 16GB.
+- Linux (notebook): Mint, Dell E6440, i5 4ª gen, 8GB.
+- Git: https://github.com/henriquebdv-lab/openw (.env e client_secret no .gitignore).
+- ⚠️ SEGURANÇA: o client_secret do Google vazou no chat — considerar revogar/gerar
+  novo no Google Cloud Console.
+
+### Recriar banco (quando muda tabela/coluna)
 ```
-openwheel/
-├── app.py                 ← ~137 linhas: cria app, filtros, contexto, CLI, registra rotas
-├── extensoes.py           ← oauth, migrate, login_requerido, admin_requerido
-├── fornecedores_config.py ← FORNECEDORES_CONFIG + CATEGORIAS_PISTA/CHUVA
-├── rotas/
-│   ├── __init__.py        ← chama registrar() de cada área (NOME: dois underscores de cada lado)
-│   ├── auth.py            ← home, registrar, login, login google + callback, logout
-│   ├── equipe.py          ← minha_equipe, editar_equipe, resetar_equipe
-│   ├── desenvolvimento.py ← desenvolvimento_view, treinamento_view
-│   ├── treino.py          ← treino_livre, ranking, treino_oficial
-│   ├── corrida.py         ← estrategia_corrida, classificacao, corrida (+ helpers)
-│   ├── temporada.py       ← temporada, pistas_reais
-│   └── admin.py           ← todas as rotas /admin
-└── (resto IGUAL: models.py, carro.py, corrida.py, seed_fornecedores.py, etc.)
-```
-> ⚠️ NÃO foram alterados: models.py, models_temporada.py, carro.py,
-> corrida.py (raiz), config.py, seed_fornecedores.py, templates, etc.
-> Só o app.py foi fatiado.
-
-### 2. LOGIN GOOGLE NO LINUX — RESOLVIDO ✅
-- **Sintoma:** erro `invalid_client / OAuth client was not found` no Linux.
-- **Causa:** o `.env` (com GOOGLE_CLIENT_ID/SECRET) está no `.gitignore`,
-  então NÃO veio no `git pull`. No Windows funcionava porque o `.env`
-  existe lá.
-- **Solução:** criar o `.env` manualmente na máquina Linux, copiando as
-  credenciais do `.env` do Windows. (Cada máquina tem seu `.env` local.)
-
-### 3. ADMIN CRIADO ✅
-- `henriquebettegaclaro@gmail.com` virou admin (via `flask tornar-admin`).
-
----
-
-## 🖥️ AMBIENTE DE TRABALHO (2 máquinas)
-
-- **Windows (PC casa):** RX 6800 16GB, Ryzen 7 2700X, 16GB RAM.
-  Onde o login Google já funcionava.
-- **Linux (notebook):** Linux Mint, Dell E6440, i5 4ª gen, 8GB RAM.
-  Onde configuramos o `.env`, o desmembramento e o LM Studio.
-- **Git:** repositório https://github.com/henriquebdv-lab/openw
-  - Email git: `256236843+henriquebdv-lab@users.noreply.github.com`
-  - Convenção nova de commit: adicionar "- feito no Windows" / "- feito no Linux".
-  - PUSH: se der erro de credencial no terminal (vscode-git .sock),
-    fazer o push pelo botão Sync/Push do VS Code (reautoriza a sessão).
-
-### Comandos úteis (fim/começo de sessão)
-```bash
-git pull                          # começo (traz o que fez na outra máquina)
-git add . && git commit -m "..."  # salva
-git push                          # envia (ou pelo botão do VS Code)
+copy jogo.db jogo_backup.db
+del jogo.db
+python criar_banco.py
+python seed_teste.py
 ```
 
-### Gerar os TXT do projeto (pra colar em chat novo)
-```bash
-# Python (inclui a pasta rotas/):
-find . -name "*.py" -not -path "./.venv/*" -not -path "./migrations/*" | sort | while read f; do echo "===== ${f#./} ====="; cat "$f"; echo ""; done > openwheel_py.txt
-
-# HTML (templates):
-find templates -name "*.html" | sort | while read f; do echo "===== $f ====="; cat "$f"; echo ""; done > openwheel_html.txt
+### Gerar TXT (Windows PowerShell)
+```powershell
+Get-ChildItem -Recurse -Filter *.py | Where-Object { $_.FullName -notmatch '\\.venv\\' -and $_.FullName -notmatch '\\migrations\\' } | Sort-Object FullName | ForEach-Object { "===== $($_.FullName.Replace($PWD.Path + '\', '')) ====="; Get-Content $_.FullName; "" } | Out-File -Encoding utf8 openwheel_py.txt
+Get-ChildItem -Path templates -Recurse -Filter *.html | Sort-Object FullName | ForEach-Object { "===== $($_.FullName.Replace($PWD.Path + '\', '')) ====="; Get-Content $_.FullName; "" } | Out-File -Encoding utf8 openwheel_html.txt
 ```
 
 ---
 
-## 🟡 PENDÊNCIAS (não feitas ainda)
-
-### A. BUG do banco (chassi) — PULADO por decisão do Henrique
-- Erro `NOT NULL constraint failed: carros_jogadores.chassi_fornecedor_id`
-  ao criar equipe (banco antigo tem a trava; código novo manda None).
-- Solução pronta era rodar `corrigir_banco.py` UMA VEZ pra remover a trava.
-- STATUS: Henrique optou por NÃO mexer no banco por enquanto.
-  (A função minha_equipe já está com `chassi_fornecedor_id=None`, versão limpa.)
-
-### B. seed_fornecedores.py — gerar_pneus neutro
-- Fazer pneus NOVOS nascerem neutros ("seco") ao gerar fornecedores no admin.
-- Os pneus ATUAIS já foram neutralizados (neutralizar_pneu.py rodado).
-
-### C. 7 pistas modernas SEM dado canônico
-- Definir câmbio/suspensão/box/influências (proposta existe, não aprovada).
-- Circuit of the Americas, Hermanos Rodríguez, Moscow Raceway, Norisring,
-  Oschersleben, Sochi, Yas Marina.
-
-### D. Config de balanceamento editável no admin (ideia aprovada, fazer depois)
+## 🎮 REFERÊNCIA
+Jogo base: "estrategia" (F1). Piloto do Henrique: **Razor**. Bolsa de Valores
+CORTADA da v1.
 
 ---
 
-## 📋 DECISÕES DE REGRA JÁ TOMADAS (do histórico anterior)
-
-1. ✅ Categorias das pistas = Opção A (dados canônicos Ayres, range 5-15 real).
-2. ✅ Pneu é NEUTRO — condição vem do modelo 50-900, não do fornecedor.
-3. ✅ Engenheiro nível 1 automático na conta nova (grátis, não escolhido).
-4. ✅ Chassi/aero projetados pelo engenheiro (não são fornecedor).
-5. ✅ Desmembrar app.py em arquivos pequenos — FEITO nesta sessão.
-
----
-
-## ⚙️ REGRAS DE TRABALHO COM A IA (reforçadas)
-- SEMPRE entregar arquivos COMPLETOS, prontos pra substituir (nunca pedaços
-  ou "procure a linha X").
-- Henrique não é avançado em terminal/Linux/SSH — dar passo a passo claro.
-- KISS/DRY. Explicações diretas.
-
----
-
-## 🎯 PRÓXIMOS PASSOS SUGERIDOS (quando voltar)
-- [ ] Fazer o `git push` do desmembramento (se ainda não subiu).
-- [ ] Escolher a próxima pendência: B (pneu neutro), C (7 pistas) ou D (config admin).
+## 🎯 PRÓXIMO PASSO (decisão do Henrique: MOTOR primeiro)
+1. Corrigir o BUG da corrida avançar sozinha (corrompe a temporada) OU
+2. Fazer o REPLAY FASE 3 (carros na pista).
+Só depois de fechar o motor: features novas (duplas/prêmios/parc fermé 3-4).

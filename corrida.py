@@ -53,7 +53,9 @@ class EstadoCarroNaCorrida:
         # Inicializa o carro com o Stint 1
         stint_inicial = self.stints[0]
         self.combustivel = stint_inicial['combustivel_litros']
-        self.carro.modelo_pneu = stint_inicial['modelo_pneu']
+        
+        # CORREÇÃO: Aplica o modelo de pneu do stint corretamente na mecânica do carro
+        self.carro.definir_modelos(pneu=stint_inicial['modelo_pneu'])
 
         self.desgaste_pneu = 0.0
         self.tempo_acumulado = 0.0
@@ -110,7 +112,10 @@ class EstadoCarroNaCorrida:
             # Abastecimento: soma o combustível atual com o do pit stop, limitado a 150L
             self.combustivel = min(150.0, self.combustivel + proximo_stint['combustivel_litros'])
             self.desgaste_pneu = 0.0  
-            self.carro.modelo_pneu = proximo_stint['modelo_pneu'] 
+            
+            # CORREÇÃO: Aplica o novo pneu na mecânica do carro pro próximo stint
+            self.carro.definir_modelos(pneu=proximo_stint['modelo_pneu'])
+            
             self.pit_stops += 1
             pit_stop_nesta_volta = True
             self.voltas_no_stint_atual = 0

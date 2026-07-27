@@ -500,3 +500,16 @@ class AjusteSalvo(db.Model):
     ajuste_freio = db.Column(db.Integer, default=50)
 
     equipe = db.relationship("CarroJogador", backref="ajustes_salvos")
+
+
+class DadosClassificacao(db.Model):
+    __tablename__ = "dados_classificacao"
+    __table_args__ = (db.UniqueConstraint('equipe_id', 'corrida_id', name='uq_classificacao_equipe_corrida'),)
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    corrida_id = db.Column(db.Integer, nullable=False)
+    modelo_pneu = db.Column(db.Integer, nullable=False)
+    combustivel_litros = db.Column(db.Float, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador", backref="dados_classificacao")

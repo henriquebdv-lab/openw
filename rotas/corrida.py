@@ -11,7 +11,7 @@ from datetime import datetime
 from flask import render_template, request, redirect, url_for, session, flash
 
 from config import BASE_DIR
-from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel, EstrategiaStint
+from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel, EstrategiaStint, SetupFimDeSemana
 from models_temporada import Temporada
 from extensoes import login_requerido
 from pontuacao import pontos_por_posicao, premio_por_posicao
@@ -39,11 +39,27 @@ def _aplicar_dados_pista_no_carro(carro, pista):
     carro.influencia_pista_engenheiro = pista.get("influencia_engenheiro") or 10
 
 
-def _executar_corrida_e_persistir(pista, corrida_agendada=None):
+def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegiveis=None):
     numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
     config = Configuracao.obter()
-    todas_equipes = CarroJogador.query.all()
-    carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+    
+    # MUDANÇA CIRÚRGICA: Usa equipes elegíveis filtradas pelo admin ou fallback para todas
+    todas_equipes = equipes_elegiveis if equipes_elegiveis is not None else CarroJogador.query.all()
+    
+    carros = []
+    for equipe_db in todas_equipes:
+        carro = equipe_db.montar_carro()
+        # MUDANÇA CIRÚRGICA: Injeta as peças travadas no Parc Fermé (SetupFimDeSemana)
+        if corrida_agendada:
+            setup = SetupFimDeSemana.query.filter_by(equipe_id=equipe_db.id, corrida_id=corrida_agendada.id).first()
+            if setup:
+                carro.definir_modelos(
+                    motor=setup.modelo_motor,
+                    cambio=setup.modelo_cambio,
+                    suspensao=setup.modelo_suspensao
+                )
+        carros.append(carro)
+        
     percentuais_treino_box = []
     
     for carro, equipe_db in zip(carros, todas_equipes):
@@ -156,17 +172,6 @@ def registrar(app):
                 voltas_pista, _ = calcular_numero_voltas(pista["extensao_km"])
 
         if request.method == "POST":
-            # Salva modelos gerais de peças
-            campos_modelo = {
-                "modelo_motor": request.form.get("modelo_motor"),
-                "modelo_combustivel": request.form.get("modelo_combustivel"),
-                "modelo_cambio": request.form.get("modelo_cambio"),
-                "modelo_suspensao": request.form.get("modelo_suspensao"),
-            }
-            for campo, valor in campos_modelo.items():
-                if valor and modelos_componente.modelo_valido(valor):
-                    setattr(equipe, campo, int(valor))
-                    
             # Salva os Stints Dinâmicos
             modelos_pneu_stints = request.form.getlist("modelo_pneu[]")
             voltas_stints = request.form.getlist("voltas[]")

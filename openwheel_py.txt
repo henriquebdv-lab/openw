@@ -1593,29 +1593,6 @@ FORNECEDORES_CONFIG = {
                               {"nome": "eficiencia_exata", "label": "EficiÃªncia exata", "tipo": "float"}]},
 }
 
-===== how 41b5cb7models.py =====
-[33m41b5cb7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m quick wins: pneu card, engenheiro obrigatorio, pane seca = abandono
-[33m4fe4754[m sua descricao - feito no Windows
-[33mb9004e4[m sua descricao - feito no Windows
-[33mbbd76cf[m desmembramento do app.py concluido - feito no linux
-[33m2643af0[m Desmembra app.py em rotas/ + atualiza CONTINUAR_AQUI - feito no Linux
-[33m55948ca[m Desmembra app.py em rotas/ (blueprints via registrar) - tudo testado, telas OK
-[33m6d8d95b[m Sessao 23/07: categorias pistas, engenheiro auto, pneu neutro + plano de refatoracao
-[33mf713aad[m tirei sp
-[33mf844882[m Ignora arquivos temporarios de export
-[33m012654f[m ultima
-[33m0378748[m ultima
-[33m04126c0[m Adiciona regras.md
-[33m509a778[m Adiciona regras.md e ajustes
-[33m941b169[m v de hoje
-[33md1a4f3e[m v202623070049
-[33m77df795[m teste de sync
-[33m2b601d5[m Configurando ambiente no Linux
-[33m1c4d9ed[m fim
-[33m5346331[m fim do dia
-[33mcc689c6[m backup inicial
-[33mf3dba41[m backup inicial
-
 ===== importar_todas_pistas.py =====
 """
 Importa TODOS os CSVs de pista real de uma vez, direto da pasta "tracks/"
@@ -2383,6 +2360,43 @@ class SetupFimDeSemana(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     equipe = db.relationship("CarroJogador", backref="setups_fim_de_semana")
+
+
+class IdealPistaSlider(db.Model):
+    __tablename__ = "ideal_pista_slider"
+    __table_args__ = (db.UniqueConstraint('pista_real_id', 'slider', name='uq_ideal_pista_slider'),)
+    id = db.Column(db.Integer, primary_key=True)
+    pista_real_id = db.Column(db.Integer, nullable=False, index=True)
+    slider = db.Column(db.String(50), nullable=False)
+    valor_base = db.Column(db.Integer, nullable=False)
+
+
+class AjusteSalvo(db.Model):
+    __tablename__ = "ajustes_salvos"
+    __table_args__ = (db.UniqueConstraint('equipe_id', 'pista_real_id', name='uq_ajuste_equipe_pista'),)
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    pista_real_id = db.Column(db.Integer, nullable=False)
+    ajuste_cambio = db.Column(db.Integer, default=50)
+    ajuste_suspensao = db.Column(db.Integer, default=50)
+    ajuste_aero_dianteiro = db.Column(db.Integer, default=50)
+    ajuste_aero_traseiro = db.Column(db.Integer, default=50)
+    ajuste_freio = db.Column(db.Integer, default=50)
+
+    equipe = db.relationship("CarroJogador", backref="ajustes_salvos")
+
+
+class DadosClassificacao(db.Model):
+    __tablename__ = "dados_classificacao"
+    __table_args__ = (db.UniqueConstraint('equipe_id', 'corrida_id', name='uq_classificacao_equipe_corrida'),)
+    id = db.Column(db.Integer, primary_key=True)
+    equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), nullable=False)
+    corrida_id = db.Column(db.Integer, nullable=False)
+    modelo_pneu = db.Column(db.Integer, nullable=False)
+    combustivel_litros = db.Column(db.Float, nullable=False)
+    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+
+    equipe = db.relationship("CarroJogador", backref="dados_classificacao")
 
 ===== models_contrato.py =====
 """
@@ -3564,7 +3578,7 @@ from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, flash
 
-from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro, ResultadoClassificacao
+from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro, ResultadoClassificacao, SetupFimDeSemana, DadosClassificacao, EstrategiaStint
 from models_temporada import Temporada, CorridaAgendada
 from extensoes import admin_requerido
 from fornecedores_config import FORNECEDORES_CONFIG, CATEGORIAS_PISTA, CATEGORIAS_CHUVA
@@ -3600,43 +3614,126 @@ def registrar(app):
         pistas_por_id = {p["id"]: p for p in pistas}
         pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
 
+        # --- LÃ“GICA DE STATUS DAS EQUIPES ---
+        todas_equipes = CarroJogador.query.all()
+        status_equipes = []
+        equipes_prontas = []
+
+        if proxima_corrida_temporada:
+            for eq in todas_equipes:
+                setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                tem_stints = len(eq.stints) > 0
+
+                pronta = bool(setup and setup.travado and quali and tem_stints)
+                if pronta:
+                    equipes_prontas.append(eq)
+
+                status_equipes.append({
+                    "equipe": eq,
+                    "setup": setup,
+                    "quali": quali,
+                    "stints": tem_stints,
+                    "pronta": pronta
+                })
+
+        ja_classificou = False
+        if proxima_corrida_temporada:
+             ja_classificou = ResultadoClassificacao.query.count() > 0
+        ja_correu = proxima_corrida_temporada.executada if proxima_corrida_temporada else False
+
         if request.method == "POST":
             acao = request.form.get("acao")
             
             if acao == "classificacao":
+                if not proxima_corrida_temporada:
+                    flash("NÃ£o hÃ¡ corrida pendente.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+                if ja_classificou:
+                    flash("A classificaÃ§Ã£o jÃ¡ foi rodada para esta etapa.", "warning")
+                    return redirect(url_for('admin_dia_corrida'))
+                if not equipes_prontas:
+                    flash("Nenhuma equipe cumpriu os requisitos para classificar.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+
                 # Limpa a classificaÃ§Ã£o anterior para a tela do jogador refletir o novo grid
                 ResultadoClassificacao.query.delete()
-                todas_equipes = CarroJogador.query.all()
-                carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+                
+                carros = []
+                for eq in equipes_prontas:
+                    setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                    quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                    
+                    carro = eq.montar_carro()
+                    # Injeta o Parc FermÃ© e as Escolhas da Quali direto na instÃ¢ncia do Carro
+                    carro.definir_modelos(
+                        motor=setup.modelo_motor,
+                        cambio=setup.modelo_cambio,
+                        suspensao=setup.modelo_suspensao,
+                        pneu=quali.modelo_pneu
+                    )
+                    carro.combustivel_carregado = quali.combustivel_litros
+                    carros.append(carro)
+
                 grid = Classificacao(carros).gerar_grid_largada()
-                for posicao_info, equipe_db in zip(grid, todas_equipes):
-                    db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
-                        tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
+                
+                for posicao_info in grid:
+                    eq_nome = posicao_info["equipe"]
+                    eq_obj = next(e for e in equipes_prontas if e.nome == eq_nome)
+                    db.session.add(ResultadoClassificacao(
+                        equipe_id=eq_obj.id,
+                        tempo_classificacao=posicao_info["tempo_classificacao"],
+                        posicao_grid=posicao_info["posicao_grid"]
+                    ))
                 db.session.commit()
-                flash("ClassificaÃ§Ã£o rodada com sucesso! O grid jÃ¡ estÃ¡ disponÃ­vel para os jogadores.", "success")
+                flash("ClassificaÃ§Ã£o rodada com sucesso! O grid jÃ¡ estÃ¡ disponÃ­vel.", "success")
+                return redirect(url_for('admin_dia_corrida'))
                 
             elif acao == "corrida_temporada":
-                if proxima_corrida_temporada and pista_proxima_temporada:
-                    _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
-                    flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
-                else:
+                if not proxima_corrida_temporada or not pista_proxima_temporada:
                     flash("NÃ£o hÃ¡ corrida pendente nesta temporada.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+                if not ja_classificou:
+                    flash("VocÃª precisa rodar a ClassificaÃ§Ã£o antes da Corrida.", "warning")
+                    return redirect(url_for('admin_dia_corrida'))
+                if ja_correu:
+                    flash("Esta corrida jÃ¡ foi executada.", "warning")
+                    return redirect(url_for('admin_dia_corrida'))
+                if not equipes_prontas:
+                    flash("Nenhuma equipe pronta para correr.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+
+                # Passando explicitamente apenas as equipes preparadas
+                _executar_corrida_e_persistir(
+                    pista_proxima_temporada, 
+                    corrida_agendada=proxima_corrida_temporada,
+                    equipes_elegiveis=equipes_prontas
+                )
+                flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
+                return redirect(url_for('admin_dia_corrida'))
                     
             elif acao == "corrida_livre":
                 pista_id = request.form.get("pista_id")
                 if pista_id:
-                    pista = obter_pista_real(int(pista_id))
-                    if pista:
-                        _executar_corrida_e_persistir(pista, corrida_agendada=None)
-                        flash(f"Corrida Livre ({pista['nome']}) simulada com sucesso!", "success")
+                    p = obter_pista_real(int(pista_id))
+                    if p:
+                        _executar_corrida_e_persistir(p, corrida_agendada=None)
+                        flash(f"Corrida Livre ({p['nome']}) simulada com sucesso!", "success")
+                return redirect(url_for('admin_dia_corrida'))
             
-            return redirect(url_for('admin_dia_corrida'))
-            
+        resultados_classi = []
+        if ja_classificou:
+            resultados_classi = ResultadoClassificacao.query.order_by(ResultadoClassificacao.posicao_grid).all()
+
         return render_template("admin_dia_corrida.html", 
                                temporada=temporada,
                                proxima_corrida_temporada=proxima_corrida_temporada,
                                pista_proxima_temporada=pista_proxima_temporada,
-                               pistas=pistas)
+                               pistas=pistas,
+                               status_equipes=status_equipes,
+                               ja_classificou=ja_classificou,
+                               ja_correu=ja_correu,
+                               resultados_classi=resultados_classi)
 
     @app.route("/admin/gerar-fornecedores", methods=["POST"])
     @admin_requerido
@@ -3997,7 +4094,7 @@ from datetime import datetime
 from flask import render_template, request, redirect, url_for, session, flash
 
 from config import BASE_DIR
-from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel, EstrategiaStint
+from models import db, Usuario, CarroJogador, Configuracao, TreinamentoBox, ResultadoClassificacao, ResultadoCorrida, FornecedorPneu, FornecedorCombustivel, EstrategiaStint, SetupFimDeSemana
 from models_temporada import Temporada
 from extensoes import login_requerido
 from pontuacao import pontos_por_posicao, premio_por_posicao
@@ -4025,11 +4122,27 @@ def _aplicar_dados_pista_no_carro(carro, pista):
     carro.influencia_pista_engenheiro = pista.get("influencia_engenheiro") or 10
 
 
-def _executar_corrida_e_persistir(pista, corrida_agendada=None):
+def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegiveis=None):
     numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
     config = Configuracao.obter()
-    todas_equipes = CarroJogador.query.all()
-    carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+    
+    # MUDANÃ‡A CIRÃšRGICA: Usa equipes elegÃ­veis filtradas pelo admin ou fallback para todas
+    todas_equipes = equipes_elegiveis if equipes_elegiveis is not None else CarroJogador.query.all()
+    
+    carros = []
+    for equipe_db in todas_equipes:
+        carro = equipe_db.montar_carro()
+        # MUDANÃ‡A CIRÃšRGICA: Injeta as peÃ§as travadas no Parc FermÃ© (SetupFimDeSemana)
+        if corrida_agendada:
+            setup = SetupFimDeSemana.query.filter_by(equipe_id=equipe_db.id, corrida_id=corrida_agendada.id).first()
+            if setup:
+                carro.definir_modelos(
+                    motor=setup.modelo_motor,
+                    cambio=setup.modelo_cambio,
+                    suspensao=setup.modelo_suspensao
+                )
+        carros.append(carro)
+        
     percentuais_treino_box = []
     
     for carro, equipe_db in zip(carros, todas_equipes):
@@ -4142,17 +4255,6 @@ def registrar(app):
                 voltas_pista, _ = calcular_numero_voltas(pista["extensao_km"])
 
         if request.method == "POST":
-            # Salva modelos gerais de peÃ§as
-            campos_modelo = {
-                "modelo_motor": request.form.get("modelo_motor"),
-                "modelo_combustivel": request.form.get("modelo_combustivel"),
-                "modelo_cambio": request.form.get("modelo_cambio"),
-                "modelo_suspensao": request.form.get("modelo_suspensao"),
-            }
-            for campo, valor in campos_modelo.items():
-                if valor and modelos_componente.modelo_valido(valor):
-                    setattr(equipe, campo, int(valor))
-                    
             # Salva os Stints DinÃ¢micos
             modelos_pneu_stints = request.form.getlist("modelo_pneu[]")
             voltas_stints = request.form.getlist("voltas[]")
@@ -4597,55 +4699,96 @@ def registrar(app):
 ===== rotas\treino.py =====
 """
 Rotas de treino:
-- /treino-livre            (treino livre real, stint volta a volta)
+- /treino-livre            (treino interativo, 1 clique = 1 volta com sliders)
 - /treino-livre/ranking    (ranking de melhores voltas)
 - /treino-oficial          (define pneu/combustÃ­vel/pit pra corrida)
 """
-from flask import render_template, request, redirect, url_for, session
+import random
+from flask import render_template, request, redirect, url_for, session, flash
 
-from constantes import TANQUE_MAXIMO_LITROS
-from models import Usuario, FornecedorPneu, FornecedorCombustivel, ResultadoTreinoLivre
+from constantes import TANQUE_MAXIMO_LITROS, VARIACAO_ALEATORIA_DESVIO_PADRAO
+from models import db, Usuario, FornecedorPneu, FornecedorCombustivel, ResultadoTreinoLivre, SetupFimDeSemana, IdealPistaSlider, AjusteSalvo, DadosClassificacao
+from models_temporada import Temporada
 from extensoes import login_requerido
-from treino_livre_sim import simular_treino_livre_real
 from pistas_reais_db import (
     criar_banco as criar_banco_pistas_reais,
     listar_pistas_reais, obter_pista_real,
 )
 import modelos_componente
+from rotas.corrida import _aplicar_dados_pista_no_carro
+from equipamentos import Pneu, Combustivel
 
 
-def simular_treino_livre(ajustes):
-    total = sum(ajustes.values())
-    erro = abs(total - 250)
-    tempo_volta = 90.0 + (erro / 10.0)
-    if erro < 20:
-        resumo = "Setup muito bom para esse treino."
-        dicas = "Ajustes prÃ³ximos do ideal; mantenha a consistÃªncia."
-    elif erro < 60:
-        resumo = "Setup razoÃ¡vel, ainda hÃ¡ margem para melhorar."
-        dicas = "Aumente o cÃ¢mbio e a suspensÃ£o em pequenas etapas."
-    else:
-        resumo = "Setup ainda longe do ideal."
-        dicas = "Reduza o excesso de ajuste e busque equilÃ­brio entre freio e aerodinÃ¢mica."
-    return {"tempo_volta": round(tempo_volta, 3), "resumo": resumo, "dicas": dicas}
+def gerar_frase_feedback(componente, erro):
+    """Gera o feedback do piloto baseado na magnitude e direÃ§Ã£o do erro (-98 a +98)."""
+    mag = abs(erro)
+    if mag <= 2: return "O carro tÃ¡ no trilho, perfeito! NÃ£o mexe em nada."
+
+    if componente == "cambio":
+        if erro < 0:
+            if mag <= 10: return "Quase lÃ¡, bate no limite de giro um milÃ©simo antes."
+            if mag <= 25: return "RelaÃ§Ã£o um tiquinho curta, sinto o motor esgoelar leve no fim da reta."
+            if mag <= 50: return "CÃ¢mbio curto demais, tÃ´ perdendo muita velocidade final."
+            if mag <= 75: return "Marchas absurdamente curtas. Chego no limite muito antes da placa de freio."
+            return "Parece marcha de trator! Bate o limite na metade da reta, arruma isso."
+        else:
+            if mag <= 10: return "Quase perfeito, demora um cabelo pra encher a Ãºltima marcha."
+            if mag <= 25: return "TÃ¡ meio longo, nas saÃ­das de baixa o carro fica meio xoxo."
+            if mag <= 50: return "CÃ¢mbio longo demais, o giro despenca muito nas trocas."
+            if mag <= 75: return "Muito longo. Chego no fim da reta e a Ãºltima marcha ainda nÃ£o encheu."
+            return "CÃ¢mbio infinito! O carro nem tem forÃ§a pra puxar essas marchas, tÃ¡ pÃ©ssimo."
+            
+    elif componente == "suspensao":
+        if erro < 0:
+            if mag <= 10: return "Muito perto. Deita um pelinho a mais nas de alta."
+            if mag <= 25: return "Um pouco mole. O carro rola de lado e demora a apoiar."
+            if mag <= 50: return "SuspensÃ£o mole demais, tÃ¡ parecendo uma banheira na zebra."
+            if mag <= 75: return "Mole demais! O chassi tÃ¡ ralando no chÃ£o nas curvas fortes."
+            return "Isso Ã© uma mola ou um pudim? ImpossÃ­vel pilotar assim, amoleceu demais."
+        else:
+            if mag <= 10: return "Quase lÃ¡. O carro tÃ¡ pouca coisa nervoso na entrada."
+            if mag <= 25: return "Meio dura. O volante dÃ¡ uns trancos secos na zebra."
+            if mag <= 50: return "Dura demais. Pula muito e nÃ£o traciona nas ondulaÃ§Ãµes."
+            if mag <= 75: return "Parece um kart duro! Escorrega seco nas saÃ­das de curva."
+            return "Tiraram a suspensÃ£o? Soldaram o eixo? TÃ¡ impossÃ­vel de duro."
+            
+    elif "aero" in componente:
+        if erro < 0:
+            if mag <= 10: return "Falta pouquÃ­ssima asa, escorrega um fiozinho na alta."
+            if mag <= 25: return "Falta pressÃ£o aerodinÃ¢mica. O carro tÃ¡ arisco na entrada de curva."
+            if mag <= 50: return "PouquÃ­ssima asa. NÃ£o tenho aderÃªncia pra atacar as curvas mÃ©dias."
+            if mag <= 75: return "Zero downforce! Tenho que frear no meio da reta pra conseguir contornar."
+            return "Vou decolar! O carro nÃ£o gruda no chÃ£o de jeito nenhum."
+        else:
+            if mag <= 10: return "TÃ¡ com um tiquinho de arrasto a mais do que precisa."
+            if mag <= 25: return "Muita asa. O carro entra bem, mas sinto que prende na reta."
+            if mag <= 50: return "Asa em excesso. O carro prega no chÃ£o mas nÃ£o anda de reta."
+            if mag <= 75: return "Arrasto aerodinÃ¢mico bizarro. Perco um tempÃ£o empurrando vento."
+            return "Colocaram um paraquedas no carro? NÃ£o sai do lugar nas retas!"
+            
+    return "Algo estranho com o acerto, nÃ£o tÃ´ sentindo bem o carro."
 
 
-def simular_treino_oficial(ajustes, pneu, combustivel, volta_primeiro_pit, outro_pit):
-    total = sum(ajustes.values())
-    equilibrio = max(0, 250 - abs(total - 250))
-    tempo_volta = 82.0 + (abs(total - 250) / 20.0) - (pneu.performance / 120.0) - (combustivel.eficiencia / 30.0) + (equilibrio / 100.0)
-    if volta_primeiro_pit <= 8:
-        estrategia = "EstratÃ©gia agressiva: primeiro pit cedo."
-    elif volta_primeiro_pit <= 18:
-        estrategia = "EstratÃ©gia equilibrada: primeiro pit no meio da corrida."
-    else:
-        estrategia = "EstratÃ©gia conservadora: primeiro pit mais tarde."
-    if outro_pit:
-        estrategia += " Um segundo pit tambÃ©m foi previsto."
-    else:
-        estrategia += " A corrida deve terminar com um Ãºnico pit stop."
-    return {"tempo_volta": round(tempo_volta, 3), "estrategia": estrategia,
-            "pneu": pneu.nome, "combustivel": combustivel.nome}
+def get_ideal_slider(pista_id, slider_name):
+    """Busca ou gera de forma determinÃ­stica o valor ideal 1-99 para o slider na pista."""
+    ideal = IdealPistaSlider.query.filter_by(pista_real_id=pista_id, slider=slider_name).first()
+    if not ideal:
+        # Usa seed especÃ­fica para garantir que a pista tenha sempre a mesma base
+        # Como o AerofÃ³lio Ã© um slider Ãºnico na tela, AeroD e AeroT terÃ£o o mesmo ideal por enquanto
+        seed_key = f"aero_{pista_id}" if "aero" in slider_name else f"{slider_name}_{pista_id}"
+        random.seed(seed_key)
+        val = random.randint(1, 99)
+        random.seed()  # Reseta o gerador
+        
+        ideal = IdealPistaSlider(pista_real_id=pista_id, slider=slider_name, valor_base=val)
+        db.session.add(ideal)
+        db.session.commit()
+    
+    # Fase 2: Aplicar AJUSTE_INFLUENCIA e AJUSTE_CONTRATO aqui (atualmente com peso 0)
+    ajuste_influencia = 0 
+    ajuste_contrato = 0
+    final = ideal.valor_base + ajuste_influencia + ajuste_contrato
+    return max(1, min(99, final))
 
 
 def registrar(app):
@@ -4653,82 +4796,201 @@ def registrar(app):
     @app.route("/treino-livre", methods=["GET", "POST"])
     @login_requerido
     def treino_livre_view():
-        """TREINO LIVRE REAL (stint de teste, volta a volta)."""
+        """TREINO LIVRE: Setup de Parque Fechado (Parte A) + Ajuste Fino e Feedback (Parte B)"""
         usuario = Usuario.query.get(session["usuario_id"])
         if not usuario.equipe:
             return redirect(url_for("minha_equipe"))
-        equipe = usuario.equipe
-        criar_banco_pistas_reais()
-        pistas = listar_pistas_reais()
         
+        equipe = usuario.equipe
+        temporada = Temporada.ativa_atual()
+        proxima_corrida = temporada.proxima_corrida() if temporada else None
+
+        if not proxima_corrida:
+            flash("Nenhuma temporada ou corrida ativa. O treino nÃ£o estÃ¡ disponÃ­vel.", "warning")
+            return redirect(url_for("home"))
+
+        criar_banco_pistas_reais()
+        pista = obter_pista_real(proxima_corrida.pista_real_id)
+
+        # PARTE A: ValidaÃ§Ã£o do Parc FermÃ©
+        setup_fds = SetupFimDeSemana.query.filter_by(equipe_id=equipe.id, corrida_id=proxima_corrida.id).first()
+        if not setup_fds:
+            flash("VocÃª precisa montar o seu carro para o fim de semana antes de ir para a pista.", "warning")
+            return redirect(url_for("montagem_fim_de_semana"))
+
+        # Recuperar estado da sessÃ£o (PARTE B)
+        session_key = f"stint_treino_{equipe.id}"
+        stint = session.get(session_key)
+
         pneu_contratado = FornecedorPneu.query.get(equipe.pneu_fornecedor_id)
         combustivel_contratado = FornecedorCombustivel.query.get(equipe.combustivel_fornecedor_id)
-        
-        resultado = None
-        mensagem = None
-        novo_recorde = False
-        escolhas = {
-            "pista_id": (pistas[0]["id"] if pistas else None),
-            "combustivel_litros": 30.0,
-            "modelo_cambio": equipe.modelo_cambio or 500,
-            "modelo_suspensao": equipe.modelo_suspensao or 500,
-            "modelo_pneu": equipe.modelo_pneu or "",
-        }
+
         if request.method == "POST":
-            def _int(nome, padrao=None):
-                valor = request.form.get(nome)
-                try:
-                    return int(valor)
-                except (TypeError, ValueError):
-                    return padrao
-            escolhas["pista_id"] = _int("pista_id", escolhas["pista_id"])
-            try:
-                litros = float(request.form.get("combustivel_litros", 30.0))
-            except (TypeError, ValueError):
-                litros = 30.0
-            litros = min(TANQUE_MAXIMO_LITROS, max(1.0, litros))
-            escolhas["combustivel_litros"] = litros
-            modelo_cambio = _int("modelo_cambio", None)
-            modelo_suspensao = _int("modelo_suspensao", None)
-            modelo_pneu_raw = request.form.get("modelo_pneu")
-            modelo_pneu = (
-                int(modelo_pneu_raw)
-                if (modelo_pneu_raw and modelos_componente.modelo_valido(modelo_pneu_raw))
-                else None
-            )
-            escolhas["modelo_cambio"] = modelo_cambio or ""
-            escolhas["modelo_suspensao"] = modelo_suspensao or ""
-            escolhas["modelo_pneu"] = modelo_pneu or ""
-            
-            pista = obter_pista_real(escolhas["pista_id"]) if escolhas["pista_id"] else None
-            if not pneu_contratado or not combustivel_contratado:
-                mensagem = "VocÃª tem um contrato quebrado de pneu ou combustÃ­vel."
-            else:
-                resultado = simular_treino_livre_real(
-                    equipe, pneu_contratado, combustivel_contratado, litros,
-                    pista=pista,
-                    modelo_cambio=modelo_cambio,
-                    modelo_suspensao=modelo_suspensao,
-                    modelo_pneu=modelo_pneu,
+            acao = request.form.get("acao")
+
+            if acao == "iniciar":
+                combustivel_litros = float(request.form.get("combustivel_litros", 30))
+                modelo_pneu = int(request.form.get("modelo_pneu", 50))
+                
+                session[session_key] = {
+                    "ativo": True,
+                    "combustivel_litros": combustivel_litros,
+                    "combustivel_restante": combustivel_litros,
+                    "modelo_pneu": modelo_pneu,
+                    "desgaste": 0.0,
+                    "voltas": [],
+                    "encerrou_por": None
+                }
+                # Prepara sliders iniciais
+                session[f"treino_sliders_{equipe.id}"] = {
+                    "cambio": 50, "suspensao": 50, "aerofolio": 50
+                }
+                return redirect(url_for("treino_livre_view"))
+
+            elif acao == "fazer_volta":
+                if not stint or not stint.get("ativo"):
+                    return redirect(url_for("treino_livre_view"))
+
+                s_cambio = int(request.form.get("slider_cambio", 50))
+                s_susp = int(request.form.get("slider_suspensao", 50))
+                s_aero = int(request.form.get("slider_aerofolio", 50))
+
+                session[f"treino_sliders_{equipe.id}"] = {
+                    "cambio": s_cambio, "suspensao": s_susp, "aerofolio": s_aero
+                }
+
+                # Resgata Ideais da Pista
+                ideais = {
+                    "cambio": get_ideal_slider(pista["id"], "cambio"),
+                    "suspensao": get_ideal_slider(pista["id"], "suspensao"),
+                    "aero_dianteiro": get_ideal_slider(pista["id"], "aero_dianteiro"),
+                    "aero_traseiro": get_ideal_slider(pista["id"], "aero_traseiro"),
+                    "freio": 50 # DLC Futuro
+                }
+
+                # Calcula Erros (-98 a +98)
+                erros = {
+                    "cambio": s_cambio - ideais["cambio"],
+                    "suspensao": s_susp - ideais["suspensao"],
+                    "aero_dianteiro": s_aero - ideais["aero_dianteiro"],
+                    "aero_traseiro": s_aero - ideais["aero_traseiro"],
+                    "freio": 50 - ideais["freio"]
+                }
+                
+                erro_absoluto_total = sum(abs(e) for e in erros.values())
+                # 490 = 98 max error * 5 components. Calcula porcentagem de acerto.
+                acerto_geral = max(0.0, 100.0 - (erro_absoluto_total / 490.0) * 100.0)
+
+                # Prioriza a frase do pior slider
+                pior_comp = max(erros, key=lambda k: abs(erros[k]))
+                pior_erro = erros[pior_comp]
+                feedback = gerar_frase_feedback(pior_comp, pior_erro)
+
+                # Monta carro 100% da equipe e aplica peÃ§as do Parc FermÃ©
+                carro = equipe.montar_carro()
+                carro.pneu = Pneu(pneu_contratado.nome, pneu_contratado.custo_temporada, pneu_contratado.performance, pneu_contratado.desgaste)
+                carro.combustivel = Combustivel(combustivel_contratado.nome, combustivel_contratado.custo_temporada, combustivel_contratado.eficiencia, combustivel_contratado.aumento_potencia_motor)
+                carro.definir_modelos(
+                    motor=setup_fds.modelo_motor, 
+                    cambio=setup_fds.modelo_cambio, 
+                    suspensao=setup_fds.modelo_suspensao, 
+                    pneu=stint["modelo_pneu"]
                 )
-                from models import db
-                _, novo_recorde = ResultadoTreinoLivre.registrar_se_melhor(equipe.id, resultado)
-                session.setdefault("treino_livre_salvo", {
-                    "ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
-                    "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50,
-                })
-                if novo_recorde:
-                    mensagem = "Treino concluÃ­do â€” novo recorde salvo no ranking!"
+                _aplicar_dados_pista_no_carro(carro, pista)
+
+                consumo = carro.consumo_por_volta()
+                if consumo <= 0: consumo = 0.1
+
+                # Executa LÃ³gica de Fim de Volta
+                if stint["combustivel_restante"] < consumo:
+                    stint["ativo"] = False
+                    stint["encerrou_por"] = "Pane Seca (Acabou o CombustÃ­vel)"
                 else:
-                    mensagem = "Treino concluÃ­do. NÃ£o superou seu melhor tempo; o recorde anterior foi mantido."
+                    # Penalidade baseada no desgaste ANTES da volta
+                    penalidade = carro.penalidade_desgaste_pneu(stint["desgaste"])
+                    
+                    # Penalidade no tempo baseada no erro total do setup + desgaste
+                    tempo_volta = carro.tempo_base() + random.gauss(0, VARIACAO_ALEATORIA_DESVIO_PADRAO) + (erro_absoluto_total * 0.02) + penalidade
+                    
+                    stint["combustivel_restante"] -= consumo
+                    stint["desgaste"] += carro.desgaste_por_volta()
+
+                    if stint["desgaste"] >= 100.0:
+                        stint["ativo"] = False
+                        stint["encerrou_por"] = "Pneu Estourou"
+                        feedback = "Estourou o pneu! Bati o carro e o treino acabou."
+
+                    stint["voltas"].insert(0, {
+                        "numero": len(stint["voltas"]) + 1,
+                        "tempo": round(tempo_volta, 3),
+                        "desgaste_pneu": round(stint["desgaste"], 1),
+                        "combustivel_restante": round(stint["combustivel_restante"], 2),
+                        "feedback": feedback,
+                        "acerto": round(acerto_geral, 1)
+                    })
+
+                    # Registrar Recorde Geral se aplicÃ¡vel
+                    melhor_stint = min(stint["voltas"], key=lambda v: v["tempo"])
+                    if melhor_stint["tempo"] == round(tempo_volta, 3):
+                        res_db = ResultadoTreinoLivre.query.filter_by(equipe_id=equipe.id).first()
+                        if not res_db or not res_db.melhor_volta_tempo or tempo_volta < res_db.melhor_volta_tempo:
+                            ResultadoTreinoLivre.registrar_se_melhor(equipe.id, {
+                                "pneu_nome": pneu_contratado.nome,
+                                "combustivel_nome": combustivel_contratado.nome,
+                                "total_voltas": len(stint["voltas"]),
+                                "melhor_volta_numero": len(stint["voltas"]),
+                                "melhor_volta_tempo": tempo_volta,
+                                "tempo_medio": tempo_volta, # Simplificado para o DB
+                                "erro_setup": round(acerto_geral, 1)
+                            })
+
+                session[session_key] = stint
+                return redirect(url_for("treino_livre_view"))
+
+            elif acao == "salvar_ajuste":
+                s_cambio = int(request.form.get("slider_cambio", 50))
+                s_susp = int(request.form.get("slider_suspensao", 50))
+                s_aero = int(request.form.get("slider_aerofolio", 50))
+
+                ajuste = AjusteSalvo.query.filter_by(equipe_id=equipe.id, pista_real_id=pista["id"]).first()
+                if not ajuste:
+                    ajuste = AjusteSalvo(equipe_id=equipe.id, pista_real_id=pista["id"])
+                    db.session.add(ajuste)
+
+                ajuste.ajuste_cambio = s_cambio
+                ajuste.ajuste_suspensao = s_susp
+                ajuste.ajuste_aero_dianteiro = s_aero
+                ajuste.ajuste_aero_traseiro = s_aero
+                db.session.commit()
+
+                # Save for Treino Oficial compatibility (Fase Posterior)
+                session["treino_livre_salvo"] = {
+                    "ajuste_cambio": s_cambio, "ajuste_suspensao": s_susp, "ajuste_freio": 50,
+                    "ajuste_aerofolio_dianteiro": s_aero, "ajuste_aerofolio_traseiro": s_aero,
+                }
+
+                session.pop(session_key, None)
+                flash("Ajuste refinado salvo com sucesso! O carro estÃ¡ pronto para o Treino Oficial.", "success")
+                return redirect(url_for("treino_oficial_view"))
+
+            elif acao == "descartar":
+                session.pop(session_key, None)
+                return redirect(url_for("treino_livre_view"))
+
+        sliders_atuais = session.get(f"treino_sliders_{equipe.id}", {"cambio": 50, "suspensao": 50, "aerofolio": 50})
         meu_resultado = ResultadoTreinoLivre.query.filter_by(equipe_id=equipe.id).first()
+
         return render_template(
             "treino_livre.html",
-            equipe=equipe, pistas=pistas, 
-            pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado,
+            equipe=equipe, 
+            pista=pista, 
+            setup_fds=setup_fds,
+            stint=stint, 
+            sliders_atuais=sliders_atuais,
             modelos_disponiveis=modelos_componente.MODELOS,
-            escolhas=escolhas, resultado=resultado, mensagem=mensagem,
-            novo_recorde=novo_recorde, meu_resultado=meu_resultado,
+            meu_resultado=meu_resultado,
+            pneu_contratado=pneu_contratado,
+            combustivel_contratado=combustivel_contratado
         )
 
     @app.route("/treino-livre/ranking")
@@ -4753,36 +5015,79 @@ def registrar(app):
         usuario = Usuario.query.get(session["usuario_id"])
         if not usuario.equipe:
             return redirect(url_for("minha_equipe"))
-        ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
-                                                         "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
+            
+        equipe = usuario.equipe
+        temporada = Temporada.ativa_atual()
+        proxima_corrida = temporada.proxima_corrida() if temporada else None
         
-        pneu_contratado = FornecedorPneu.query.get(usuario.equipe.pneu_fornecedor_id)
-        combustivel_contratado = FornecedorCombustivel.query.get(usuario.equipe.combustivel_fornecedor_id)
-        
-        resultado = None
-        mensagem = None
-        if not session.get("treino_livre_salvo"):
-            mensagem = "Complete primeiro o treino livre."
+        if not proxima_corrida:
+            flash("Nenhuma temporada ou corrida ativa.", "warning")
+            return redirect(url_for("home"))
             
-        if request.method == "POST":
-            if not session.get("treino_livre_salvo"):
-                return render_template("treino_oficial.html", ajustes=ajustes, pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=None, mensagem=mensagem, equipe=usuario.equipe)
-            
-            volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
-            outro_pit = request.form.get("outro_pit") == "on"
-            resultado = simular_treino_oficial(ajustes, pneu_contratado, combustivel_contratado, volta_primeiro_pit, outro_pit)
-            
-            from models import db
-            usuario.equipe.estrategia_volta_pit = volta_primeiro_pit
-            usuario.equipe.estrategia_dois_pits = outro_pit
-            db.session.commit()
+        criar_banco_pistas_reais()
+        pista = obter_pista_real(proxima_corrida.pista_real_id)
 
-            session["treino_oficial_salvo"] = {
-                "volta_primeiro_pit": volta_primeiro_pit, "outro_pit": outro_pit,
-            }
-            mensagem = "Treino oficial concluÃ­do e salvo."
+        # 1. Validar Parc FermÃ©
+        setup_fds = SetupFimDeSemana.query.filter_by(equipe_id=equipe.id, corrida_id=proxima_corrida.id).first()
+        if not setup_fds:
+            flash("VocÃª precisa montar o carro no Parc FermÃ© antes de configurar a classificaÃ§Ã£o.", "warning")
+            return redirect(url_for("montagem_fim_de_semana"))
             
-        return render_template("treino_oficial.html", ajustes=ajustes, pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=resultado, mensagem=mensagem, equipe=usuario.equipe)
+        # 2. Validar Ajuste Salvo do Treino Livre
+        ajuste_db = AjusteSalvo.query.filter_by(equipe_id=equipe.id, pista_real_id=pista["id"]).first()
+        ajuste_sessao = session.get("treino_livre_salvo")
+        
+        if not ajuste_db and not ajuste_sessao:
+            flash("FaÃ§a o Treino Livre primeiro para definir o acerto fino do carro.", "warning")
+            return redirect(url_for("treino_livre_view"))
+            
+        # Pega os valores reais para exibiÃ§Ã£o (prefere BD, senÃ£o fallback pra sessÃ£o)
+        ajuste_exibicao = {
+            "cambio": ajuste_db.ajuste_cambio if ajuste_db else ajuste_sessao.get("ajuste_cambio", 50),
+            "suspensao": ajuste_db.ajuste_suspensao if ajuste_db else ajuste_sessao.get("ajuste_suspensao", 50),
+            "aero_dianteiro": ajuste_db.ajuste_aero_dianteiro if ajuste_db else ajuste_sessao.get("ajuste_aerofolio_dianteiro", 50),
+            "aero_traseiro": ajuste_db.ajuste_aero_traseiro if ajuste_db else ajuste_sessao.get("ajuste_aerofolio_traseiro", 50),
+        }
+
+        dados_classi = DadosClassificacao.query.filter_by(equipe_id=equipe.id, corrida_id=proxima_corrida.id).first()
+
+        if request.method == "POST":
+            modelo_pneu = request.form.get("modelo_pneu")
+            try:
+                litros = float(request.form.get("combustivel_litros", 10.0))
+            except ValueError:
+                litros = 10.0
+                
+            litros = max(1.0, min(TANQUE_MAXIMO_LITROS, litros))
+            
+            if modelos_componente.modelo_valido(modelo_pneu):
+                if dados_classi:
+                    dados_classi.modelo_pneu = int(modelo_pneu)
+                    dados_classi.combustivel_litros = litros
+                else:
+                    novo_dados = DadosClassificacao(
+                        equipe_id=equipe.id,
+                        corrida_id=proxima_corrida.id,
+                        modelo_pneu=int(modelo_pneu),
+                        combustivel_litros=litros
+                    )
+                    db.session.add(novo_dados)
+                    
+                db.session.commit()
+                flash("âœ… Dados da classificaÃ§Ã£o salvos! A volta de classificaÃ§Ã£o serÃ¡ executada no horÃ¡rio da corrida.", "success")
+                return redirect(url_for("treino_oficial_view"))
+            else:
+                flash("Modelo de pneu invÃ¡lido.", "danger")
+
+        return render_template(
+            "treino_oficial.html",
+            equipe=equipe,
+            pista=pista,
+            setup_fds=setup_fds,
+            ajuste=ajuste_exibicao,
+            dados_classi=dados_classi,
+            modelos_disponiveis=modelos_componente.MODELOS
+        )
 
 ===== seed_fornecedores.py =====
 """
@@ -5257,44 +5562,57 @@ if __name__ == "__main__":
 """
 Seed de TESTE do Open Wheel Strategy.
 
-Monta um ambiente de teste completo de uma vez sÃ³, pra vocÃª nÃ£o precisar
-recriar cadastro/admin/temporada na mÃ£o toda vez que zerar o banco.
-
-USO (depois de recriar o banco):
+Monta um ambiente de teste completo de uma vez so:
     python criar_banco.py
     python seed_teste.py
 
-O que ele cria:
-    - 2 usuÃ¡rios JÃ admin (senha padrao de teste), com nick "Razor"
-    - Os fornecedores (popular_banco: 100 de cada categoria)
-    - A "TEMPORADA 1" ativa, com as 10 primeiras corridas do calendario
+Cria:
+    - 2 usuarios admin (senha 123456), nick "Razor"
+    - Fornecedores (popular_banco)
+    - "TEMPORADA 1" ativa com 10 corridas
+    - Equipe completa pra cada admin (fornecedores mais baratos + eng nv1)
+    - 40 JOGADORES FAKE (bots) JA PRONTOS pra quali+corrida (grid cheio):
+      fornecedores random, parc ferme random, ajuste fino random, dados de
+      classificacao random e stints random. Assim da pra rodar a corrida no
+      admin e ver o replay com grid cheio.
 
-E idempotente: se rodar de novo, nao duplica (verifica antes de criar).
+Idempotente: nao duplica se rodar de novo.
 """
+import random
+
 from app import app
-from models import db, Usuario, FornecedorMotor
+from models import (
+    db, Usuario, Configuracao, Desenvolvimento, CarroJogador,
+    FornecedorMotor, FornecedorCombustivel, FornecedorPneu,
+    FornecedorCambio, FornecedorSuspensao, FornecedorEngenheiro,
+    SetupFimDeSemana, AjusteSalvo, DadosClassificacao, EstrategiaStint,
+)
 from models_temporada import Temporada, CorridaAgendada
 from seed_fornecedores import popular_banco
 from pistas_reais_db import criar_banco as criar_banco_pistas_reais, listar_pistas_reais
+import modelos_componente
 
 
-# ---- CONFIG DO SEED (mude aqui se quiser) ----
+# ---- CONFIG (mude aqui se quiser) ----
 USUARIOS_ADMIN = [
     "henriquebdv@gmail.com",
     "henriquebettegaclaro@gmail.com",
 ]
-SENHA_PADRAO = "123456"          # so pra teste!
+SENHA_PADRAO = "123456"
 NICK = "Razor"
 NOME_TEMPORADA = "TEMPORADA 1"
 QTD_CORRIDAS = 10
+NOMES_EQUIPE = ["Racing Titans", "Velocity GP"]
+QTD_BOTS = 40          # jogadores fake prontos pra correr (grid cheio)
+MODELOS = modelos_componente.MODELOS  # [50,100,...,900]
 
 
+# ---------------------------------------------------------
 def criar_admins():
     criados = 0
     for email in USUARIOS_ADMIN:
         u = Usuario.query.filter_by(email=email).first()
         if u:
-            # garante que continua admin/nick mesmo se ja existir
             u.eh_admin = True
             if hasattr(u, "nick") and not u.nick:
                 u.nick = NICK
@@ -5306,51 +5624,157 @@ def criar_admins():
         db.session.add(u)
         criados += 1
     db.session.commit()
-    print(f"[OK] Admins: {criados} criado(s), {len(USUARIOS_ADMIN) - criados} ja existia(m). Senha padrao: {SENHA_PADRAO}")
+    print(f"[OK] Admins: {criados} criado(s). Senha padrao: {SENHA_PADRAO}")
 
 
 def criar_fornecedores():
-    # so popula se ainda nao houver fornecedores (evita duplicar)
     if FornecedorMotor.query.count() > 0:
-        print("[SKIP] Fornecedores ja existem (nao populei de novo).")
+        print("[SKIP] Fornecedores ja existem.")
         return
     popular_banco()
-    print("[OK] Fornecedores gerados (100 por categoria).")
+    print("[OK] Fornecedores gerados.")
+
+
+def _mais_barato(Model):
+    return Model.query.filter_by(ativo=True).order_by(Model.custo_temporada).first()
+
+
+def _id_aleatorio(Model):
+    ids = [r.id for r in Model.query.filter_by(ativo=True).all()]
+    return random.choice(ids) if ids else None
+
+
+def criar_equipes_admins():
+    """Equipe completa (fornecedores mais baratos) pra cada admin sem equipe."""
+    config = Configuracao.obter()
+    criadas = 0
+    admins = Usuario.query.filter(Usuario.email.in_(USUARIOS_ADMIN)).order_by(Usuario.id).all()
+    for indice, usuario in enumerate(admins):
+        if usuario.equipe:
+            continue
+        motor = _mais_barato(FornecedorMotor)
+        comb = _mais_barato(FornecedorCombustivel)
+        pneu = _mais_barato(FornecedorPneu)
+        cambio = _mais_barato(FornecedorCambio)
+        susp = _mais_barato(FornecedorSuspensao)
+        eng = (FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True)
+               .order_by(FornecedorEngenheiro.custo_temporada).first())
+        if not all([motor, comb, pneu, cambio, susp]):
+            print("[AVISO] Faltam fornecedores. Rode a geracao antes.")
+            return
+        nome = NOMES_EQUIPE[indice] if indice < len(NOMES_EQUIPE) else f"Equipe {indice+1}"
+        equipe = CarroJogador(
+            usuario_id=usuario.id, nome=nome, orcamento=float(config.orcamento_inicial),
+            motor_fornecedor_id=motor.id, combustivel_fornecedor_id=comb.id,
+            pneu_fornecedor_id=pneu.id, chassi_fornecedor_id=None,
+            cambio_fornecedor_id=cambio.id, suspensao_fornecedor_id=susp.id,
+            engenheiro_fornecedor_id=eng.id if eng else None, combustivel_carregado=110.0,
+        )
+        db.session.add(equipe); db.session.flush()
+        db.session.add(Desenvolvimento(
+            equipe_id=equipe.id, chassi_percentual_aplicado=100.0,
+            aero_percentual_aplicado=100.0, nivel_engenheiro_projetista=1))
+        criadas += 1
+    db.session.commit()
+    print(f"[OK] Equipes dos admins: {criadas} criada(s) (piloto {NICK}).")
+
+
+def criar_bots(proxima_corrida):
+    """Gera QTD_BOTS jogadores fake JA PRONTOS pra quali+corrida da proxima corrida.
+    Fornecedores, parc ferme, ajuste fino, dados de quali e stints todos random."""
+    if not proxima_corrida:
+        print("[AVISO] Sem proxima corrida â€” bots nao gerados.")
+        return
+    if Usuario.query.filter(Usuario.email.like("bot%@fake.com")).count() > 0:
+        print("[SKIP] Bots ja existem.")
+        return
+
+    config = Configuracao.obter()
+    pista_id = proxima_corrida.pista_real_id
+    eng1 = FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True).first()
+    criados = 0
+
+    for i in range(1, QTD_BOTS + 1):
+        u = Usuario(email=f"bot{i}@fake.com", eh_admin=False, nick=f"Bot {i}")
+        u.definir_senha("bot")
+        db.session.add(u); db.session.flush()
+
+        car = CarroJogador(
+            usuario_id=u.id, nome=f"Bot Team {i}", orcamento=float(config.orcamento_inicial),
+            motor_fornecedor_id=_id_aleatorio(FornecedorMotor),
+            combustivel_fornecedor_id=_id_aleatorio(FornecedorCombustivel),
+            pneu_fornecedor_id=_id_aleatorio(FornecedorPneu),
+            chassi_fornecedor_id=None,
+            cambio_fornecedor_id=_id_aleatorio(FornecedorCambio),
+            suspensao_fornecedor_id=_id_aleatorio(FornecedorSuspensao),
+            engenheiro_fornecedor_id=eng1.id if eng1 else None,
+            combustivel_carregado=110.0,
+        )
+        db.session.add(car); db.session.flush()
+        db.session.add(Desenvolvimento(
+            equipe_id=car.id, chassi_percentual_aplicado=100.0,
+            aero_percentual_aplicado=100.0, nivel_engenheiro_projetista=1))
+
+        # Parc Ferme (travado)
+        db.session.add(SetupFimDeSemana(
+            equipe_id=car.id, corrida_id=proxima_corrida.id,
+            modelo_motor=random.choice(MODELOS), modelo_cambio=random.choice(MODELOS),
+            modelo_suspensao=random.choice(MODELOS), travado=True))
+
+        # Ajuste fino (treino livre) random
+        db.session.add(AjusteSalvo(
+            equipe_id=car.id, pista_real_id=pista_id,
+            ajuste_cambio=random.randint(1, 99), ajuste_suspensao=random.randint(1, 99),
+            ajuste_aero_dianteiro=random.randint(1, 99), ajuste_aero_traseiro=random.randint(1, 99),
+            ajuste_freio=50))
+
+        # Dados de classificacao (quali) random
+        db.session.add(DadosClassificacao(
+            equipe_id=car.id, corrida_id=proxima_corrida.id,
+            modelo_pneu=random.choice(MODELOS), combustivel_litros=float(random.randint(5, 12))))
+
+        # Estrategia: 1 a 3 stints random
+        for ordem in range(1, random.randint(1, 3) + 1):
+            db.session.add(EstrategiaStint(
+                equipe_id=car.id, ordem=ordem, modelo_pneu=random.choice(MODELOS),
+                voltas=random.randint(15, 30), combustivel_litros=float(random.randint(40, 110))))
+        criados += 1
+
+    db.session.commit()
+    print(f"[OK] {criados} jogadores FAKE prontos pra quali+corrida (grid cheio).")
 
 
 def criar_temporada():
     existente = Temporada.query.filter_by(nome=NOME_TEMPORADA).first()
     if existente:
         print(f"[SKIP] Temporada '{NOME_TEMPORADA}' ja existe.")
-        return
-
-    # desativa outras temporadas e cria a nova como ativa
+        return existente
     Temporada.query.update({"ativa": False})
     temporada = Temporada(nome=NOME_TEMPORADA, ativa=True)
-    db.session.add(temporada)
-    db.session.flush()  # pega o id
-
+    db.session.add(temporada); db.session.flush()
     criar_banco_pistas_reais()
     pistas = listar_pistas_reais()[:QTD_CORRIDAS]
     for i, pista in enumerate(pistas, start=1):
         db.session.add(CorridaAgendada(
-            temporada_id=temporada.id,
-            pista_real_id=pista["id"],
-            pista_nome=pista["nome"],
-            ordem=i,
-            executada=False,
-        ))
+            temporada_id=temporada.id, pista_real_id=pista["id"],
+            pista_nome=pista["nome"], ordem=i, executada=False))
     db.session.commit()
     print(f"[OK] '{NOME_TEMPORADA}' criada e ativa, com {len(pistas)} corridas.")
+    return temporada
 
 
 def main():
     with app.app_context():
         criar_admins()
         criar_fornecedores()
-        criar_temporada()
+        criar_equipes_admins()
+        temporada = criar_temporada()
+        prox = temporada.proxima_corrida() if temporada else None
+        criar_bots(prox)
         print("\n=== SEED DE TESTE CONCLUIDO ===")
         print(f"Logue com: {USUARIOS_ADMIN[0]} / senha: {SENHA_PADRAO}")
+        print(f"Proxima corrida: {prox.pista_nome if prox else 'â€”'} | {QTD_BOTS} bots prontos.")
+        print("Va no /admin -> Dia de Corrida -> rodar classificacao e corrida.")
 
 
 if __name__ == "__main__":

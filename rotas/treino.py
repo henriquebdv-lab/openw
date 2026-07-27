@@ -8,7 +8,7 @@ import random
 from flask import render_template, request, redirect, url_for, session, flash
 
 from constantes import TANQUE_MAXIMO_LITROS, VARIACAO_ALEATORIA_DESVIO_PADRAO
-from models import db, Usuario, FornecedorPneu, FornecedorCombustivel, ResultadoTreinoLivre, SetupFimDeSemana, IdealPistaSlider, AjusteSalvo
+from models import db, Usuario, FornecedorPneu, FornecedorCombustivel, ResultadoTreinoLivre, SetupFimDeSemana, IdealPistaSlider, AjusteSalvo, DadosClassificacao
 from models_temporada import Temporada
 from extensoes import login_requerido
 from pistas_reais_db import (
@@ -90,24 +90,6 @@ def get_ideal_slider(pista_id, slider_name):
     ajuste_contrato = 0
     final = ideal.valor_base + ajuste_influencia + ajuste_contrato
     return max(1, min(99, final))
-
-
-def simular_treino_oficial(ajustes, pneu, combustivel, volta_primeiro_pit, outro_pit):
-    total = sum(ajustes.values())
-    equilibrio = max(0, 250 - abs(total - 250))
-    tempo_volta = 82.0 + (abs(total - 250) / 20.0) - (pneu.performance / 120.0) - (combustivel.eficiencia / 30.0) + (equilibrio / 100.0)
-    if volta_primeiro_pit <= 8:
-        estrategia = "Estratégia agressiva: primeiro pit cedo."
-    elif volta_primeiro_pit <= 18:
-        estrategia = "Estratégia equilibrada: primeiro pit no meio da corrida."
-    else:
-        estrategia = "Estratégia conservadora: primeiro pit mais tarde."
-    if outro_pit:
-        estrategia += " Um segundo pit também foi previsto."
-    else:
-        estrategia += " A corrida deve terminar com um único pit stop."
-    return {"tempo_volta": round(tempo_volta, 3), "estrategia": estrategia,
-            "pneu": pneu.nome, "combustivel": combustivel.nome}
 
 
 def registrar(app):
@@ -334,33 +316,76 @@ def registrar(app):
         usuario = Usuario.query.get(session["usuario_id"])
         if not usuario.equipe:
             return redirect(url_for("minha_equipe"))
-        ajustes = session.get("treino_livre_salvo") or {"ajuste_cambio": 50, "ajuste_suspensao": 50, "ajuste_freio": 50,
-                                                         "ajuste_aerofolio_dianteiro": 50, "ajuste_aerofolio_traseiro": 50}
+            
+        equipe = usuario.equipe
+        temporada = Temporada.ativa_atual()
+        proxima_corrida = temporada.proxima_corrida() if temporada else None
         
-        pneu_contratado = FornecedorPneu.query.get(usuario.equipe.pneu_fornecedor_id)
-        combustivel_contratado = FornecedorCombustivel.query.get(usuario.equipe.combustivel_fornecedor_id)
-        
-        resultado = None
-        mensagem = None
-        if not session.get("treino_livre_salvo"):
-            mensagem = "Complete primeiro o treino livre."
+        if not proxima_corrida:
+            flash("Nenhuma temporada ou corrida ativa.", "warning")
+            return redirect(url_for("home"))
             
-        if request.method == "POST":
-            if not session.get("treino_livre_salvo"):
-                return render_template("treino_oficial.html", ajustes=ajustes, pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=None, mensagem=mensagem, equipe=usuario.equipe)
-            
-            volta_primeiro_pit = int(request.form.get("volta_primeiro_pit", 10))
-            outro_pit = request.form.get("outro_pit") == "on"
-            resultado = simular_treino_oficial(ajustes, pneu_contratado, combustivel_contratado, volta_primeiro_pit, outro_pit)
-            
-            from models import db
-            usuario.equipe.estrategia_volta_pit = volta_primeiro_pit
-            usuario.equipe.estrategia_dois_pits = outro_pit
-            db.session.commit()
+        criar_banco_pistas_reais()
+        pista = obter_pista_real(proxima_corrida.pista_real_id)
 
-            session["treino_oficial_salvo"] = {
-                "volta_primeiro_pit": volta_primeiro_pit, "outro_pit": outro_pit,
-            }
-            mensagem = "Treino oficial concluído e salvo."
+        # 1. Validar Parc Fermé
+        setup_fds = SetupFimDeSemana.query.filter_by(equipe_id=equipe.id, corrida_id=proxima_corrida.id).first()
+        if not setup_fds:
+            flash("Você precisa montar o carro no Parc Fermé antes de configurar a classificação.", "warning")
+            return redirect(url_for("montagem_fim_de_semana"))
             
-        return render_template("treino_oficial.html", ajustes=ajustes, pneu_contratado=pneu_contratado, combustivel_contratado=combustivel_contratado, resultado=resultado, mensagem=mensagem, equipe=usuario.equipe)
+        # 2. Validar Ajuste Salvo do Treino Livre
+        ajuste_db = AjusteSalvo.query.filter_by(equipe_id=equipe.id, pista_real_id=pista["id"]).first()
+        ajuste_sessao = session.get("treino_livre_salvo")
+        
+        if not ajuste_db and not ajuste_sessao:
+            flash("Faça o Treino Livre primeiro para definir o acerto fino do carro.", "warning")
+            return redirect(url_for("treino_livre_view"))
+            
+        # Pega os valores reais para exibição (prefere BD, senão fallback pra sessão)
+        ajuste_exibicao = {
+            "cambio": ajuste_db.ajuste_cambio if ajuste_db else ajuste_sessao.get("ajuste_cambio", 50),
+            "suspensao": ajuste_db.ajuste_suspensao if ajuste_db else ajuste_sessao.get("ajuste_suspensao", 50),
+            "aero_dianteiro": ajuste_db.ajuste_aero_dianteiro if ajuste_db else ajuste_sessao.get("ajuste_aerofolio_dianteiro", 50),
+            "aero_traseiro": ajuste_db.ajuste_aero_traseiro if ajuste_db else ajuste_sessao.get("ajuste_aerofolio_traseiro", 50),
+        }
+
+        dados_classi = DadosClassificacao.query.filter_by(equipe_id=equipe.id, corrida_id=proxima_corrida.id).first()
+
+        if request.method == "POST":
+            modelo_pneu = request.form.get("modelo_pneu")
+            try:
+                litros = float(request.form.get("combustivel_litros", 10.0))
+            except ValueError:
+                litros = 10.0
+                
+            litros = max(1.0, min(TANQUE_MAXIMO_LITROS, litros))
+            
+            if modelos_componente.modelo_valido(modelo_pneu):
+                if dados_classi:
+                    dados_classi.modelo_pneu = int(modelo_pneu)
+                    dados_classi.combustivel_litros = litros
+                else:
+                    novo_dados = DadosClassificacao(
+                        equipe_id=equipe.id,
+                        corrida_id=proxima_corrida.id,
+                        modelo_pneu=int(modelo_pneu),
+                        combustivel_litros=litros
+                    )
+                    db.session.add(novo_dados)
+                    
+                db.session.commit()
+                flash("✅ Dados da classificação salvos! A volta de classificação será executada no horário da corrida.", "success")
+                return redirect(url_for("treino_oficial_view"))
+            else:
+                flash("Modelo de pneu inválido.", "danger")
+
+        return render_template(
+            "treino_oficial.html",
+            equipe=equipe,
+            pista=pista,
+            setup_fds=setup_fds,
+            ajuste=ajuste_exibicao,
+            dados_classi=dados_classi,
+            modelos_disponiveis=modelos_componente.MODELOS
+        )

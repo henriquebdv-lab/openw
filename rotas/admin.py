@@ -10,7 +10,7 @@ from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, flash
 
-from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro, ResultadoClassificacao
+from models import db, Usuario, CarroJogador, Configuracao, Desenvolvimento, FornecedorEngenheiro, ResultadoClassificacao, SetupFimDeSemana, DadosClassificacao, EstrategiaStint
 from models_temporada import Temporada, CorridaAgendada
 from extensoes import admin_requerido
 from fornecedores_config import FORNECEDORES_CONFIG, CATEGORIAS_PISTA, CATEGORIAS_CHUVA
@@ -46,43 +46,126 @@ def registrar(app):
         pistas_por_id = {p["id"]: p for p in pistas}
         pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
 
+        # --- LÓGICA DE STATUS DAS EQUIPES ---
+        todas_equipes = CarroJogador.query.all()
+        status_equipes = []
+        equipes_prontas = []
+
+        if proxima_corrida_temporada:
+            for eq in todas_equipes:
+                setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                tem_stints = len(eq.stints) > 0
+
+                pronta = bool(setup and setup.travado and quali and tem_stints)
+                if pronta:
+                    equipes_prontas.append(eq)
+
+                status_equipes.append({
+                    "equipe": eq,
+                    "setup": setup,
+                    "quali": quali,
+                    "stints": tem_stints,
+                    "pronta": pronta
+                })
+
+        ja_classificou = False
+        if proxima_corrida_temporada:
+             ja_classificou = ResultadoClassificacao.query.count() > 0
+        ja_correu = proxima_corrida_temporada.executada if proxima_corrida_temporada else False
+
         if request.method == "POST":
             acao = request.form.get("acao")
             
             if acao == "classificacao":
+                if not proxima_corrida_temporada:
+                    flash("Não há corrida pendente.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+                if ja_classificou:
+                    flash("A classificação já foi rodada para esta etapa.", "warning")
+                    return redirect(url_for('admin_dia_corrida'))
+                if not equipes_prontas:
+                    flash("Nenhuma equipe cumpriu os requisitos para classificar.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+
                 # Limpa a classificação anterior para a tela do jogador refletir o novo grid
                 ResultadoClassificacao.query.delete()
-                todas_equipes = CarroJogador.query.all()
-                carros = [equipe_db.montar_carro() for equipe_db in todas_equipes]
+                
+                carros = []
+                for eq in equipes_prontas:
+                    setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                    quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                    
+                    carro = eq.montar_carro()
+                    # Injeta o Parc Fermé e as Escolhas da Quali direto na instância do Carro
+                    carro.definir_modelos(
+                        motor=setup.modelo_motor,
+                        cambio=setup.modelo_cambio,
+                        suspensao=setup.modelo_suspensao,
+                        pneu=quali.modelo_pneu
+                    )
+                    carro.combustivel_carregado = quali.combustivel_litros
+                    carros.append(carro)
+
                 grid = Classificacao(carros).gerar_grid_largada()
-                for posicao_info, equipe_db in zip(grid, todas_equipes):
-                    db.session.add(ResultadoClassificacao(equipe_id=equipe_db.id,
-                        tempo_classificacao=posicao_info["tempo_classificacao"], posicao_grid=posicao_info["posicao_grid"]))
+                
+                for posicao_info in grid:
+                    eq_nome = posicao_info["equipe"]
+                    eq_obj = next(e for e in equipes_prontas if e.nome == eq_nome)
+                    db.session.add(ResultadoClassificacao(
+                        equipe_id=eq_obj.id,
+                        tempo_classificacao=posicao_info["tempo_classificacao"],
+                        posicao_grid=posicao_info["posicao_grid"]
+                    ))
                 db.session.commit()
-                flash("Classificação rodada com sucesso! O grid já está disponível para os jogadores.", "success")
+                flash("Classificação rodada com sucesso! O grid já está disponível.", "success")
+                return redirect(url_for('admin_dia_corrida'))
                 
             elif acao == "corrida_temporada":
-                if proxima_corrida_temporada and pista_proxima_temporada:
-                    _executar_corrida_e_persistir(pista_proxima_temporada, corrida_agendada=proxima_corrida_temporada)
-                    flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
-                else:
+                if not proxima_corrida_temporada or not pista_proxima_temporada:
                     flash("Não há corrida pendente nesta temporada.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+                if not ja_classificou:
+                    flash("Você precisa rodar a Classificação antes da Corrida.", "warning")
+                    return redirect(url_for('admin_dia_corrida'))
+                if ja_correu:
+                    flash("Esta corrida já foi executada.", "warning")
+                    return redirect(url_for('admin_dia_corrida'))
+                if not equipes_prontas:
+                    flash("Nenhuma equipe pronta para correr.", "danger")
+                    return redirect(url_for('admin_dia_corrida'))
+
+                # Passando explicitamente apenas as equipes preparadas
+                _executar_corrida_e_persistir(
+                    pista_proxima_temporada, 
+                    corrida_agendada=proxima_corrida_temporada,
+                    equipes_elegiveis=equipes_prontas
+                )
+                flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
+                return redirect(url_for('admin_dia_corrida'))
                     
             elif acao == "corrida_livre":
                 pista_id = request.form.get("pista_id")
                 if pista_id:
-                    pista = obter_pista_real(int(pista_id))
-                    if pista:
-                        _executar_corrida_e_persistir(pista, corrida_agendada=None)
-                        flash(f"Corrida Livre ({pista['nome']}) simulada com sucesso!", "success")
+                    p = obter_pista_real(int(pista_id))
+                    if p:
+                        _executar_corrida_e_persistir(p, corrida_agendada=None)
+                        flash(f"Corrida Livre ({p['nome']}) simulada com sucesso!", "success")
+                return redirect(url_for('admin_dia_corrida'))
             
-            return redirect(url_for('admin_dia_corrida'))
-            
+        resultados_classi = []
+        if ja_classificou:
+            resultados_classi = ResultadoClassificacao.query.order_by(ResultadoClassificacao.posicao_grid).all()
+
         return render_template("admin_dia_corrida.html", 
                                temporada=temporada,
                                proxima_corrida_temporada=proxima_corrida_temporada,
                                pista_proxima_temporada=pista_proxima_temporada,
-                               pistas=pistas)
+                               pistas=pistas,
+                               status_equipes=status_equipes,
+                               ja_classificou=ja_classificou,
+                               ja_correu=ja_correu,
+                               resultados_classi=resultados_classi)
 
     @app.route("/admin/gerar-fornecedores", methods=["POST"])
     @admin_requerido
