@@ -1,0 +1,5 @@
+.eq-form-block { display: block; }
+.eq-card-highlight { border-left: 3px solid var(--color-primary); }
+.eq-title-primary { color: var(--color-primary-light); }
+.eq-card-warning { background: var(--color-primary-faded); }
+.eq-btn-submit { font-size: 15px; padding: 14px 32px; }

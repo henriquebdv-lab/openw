@@ -1,160 +1,154 @@
 {% extends "admin_base.html" %}
 {% set secao_admin = 'dia_corrida' %}
 
-{% block admin_content %}
-<h1 class="h3 mb-4">Dia de Corrida (Controle)</h1>
+<!-- Correção: Usando admin_css_extra para não sobrescrever o menu do admin_base -->
+{% block admin_css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/admin_dia_corrida.css') }}">
+{% endblock %}
 
-<div class="alert alert-warning">
+{% block admin_content %}
+<h1 class="admin-corrida-title ows-mb-md">Dia de Corrida (Controle)</h1>
+
+<div class="ows-alert ows-alert-warning">
     <strong>Atenção:</strong> Este controle manual é provisório. Futuramente, a qualificação e a corrida serão executadas automaticamente por um agendador no horário programado.
 </div>
 
 {% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
-<div class="card mb-4 border-primary">
-    <div class="card-header bg-primary text-white">
+<div class="ows-card admin-corrida-next-race ows-mb-lg">
+    <div class="admin-corrida-header">
         Próxima Etapa: {{ proxima_corrida_temporada.ordem }}ª Corrida - {{ pista_proxima_temporada.nome }} ({{ pista_proxima_temporada.pais }})
     </div>
-    <div class="card-body">
-        <h5 class="card-title">Status de Preparação das Equipes</h5>
-        <p class="text-muted small">Apenas as equipes com todos os itens prontos (✅) participarão da classificação e da corrida.</p>
-        
-        <table class="table table-sm table-bordered mt-3">
-            <thead class="table-light">
-                <tr>
-                    <th>Equipe</th>
-                    <th class="text-center">Parc Fermé (Setup)</th>
-                    <th class="text-center">Qualificação (Dados)</th>
-                    <th class="text-center">Corrida (Stints)</th>
-                    <th class="text-center">Status Final</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for eq_status in status_equipes %}
-                <tr class="{% if eq_status.pronta %}table-success{% else %}table-danger{% endif %}">
-                    <td>{{ eq_status.equipe.nome }}</td>
-                    <td class="text-center">{% if eq_status.setup and eq_status.setup.travado %}✅{% else %}❌{% endif %}</td>
-                    <td class="text-center">{% if eq_status.quali %}✅{% else %}❌{% endif %}</td>
-                    <td class="text-center">{% if eq_status.stints %}✅{% else %}❌{% endif %}</td>
-                    <td class="text-center fw-bold">
-                        {% if eq_status.pronta %}
-                            <span class="text-success">ELEGÍVEL</span>
-                        {% else %}
-                            <span class="text-danger">FORA</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" class="text-muted text-center">Nenhuma equipe cadastrada.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    
+    <h5 class="ows-strong">Status de Preparação Das Equipes</h5>
+    <p class="admin-corrida-help-text ows-mb-md">Apenas as equipes com todos os itens prontos (✅) participarão da classificação e da corrida.</p>
+    
+    <table class="admin-corrida-table">
+        <thead>
+            <tr>
+                <th>Equipe</th>
+                <th class="center">Parc Fermé (Setup)</th>
+                <th class="center">Qualificação (Dados)</th>
+                <th class="center">Corrida (Stints)</th>
+                <th class="center">Status Final</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eq_status in status_equipes %}
+            <tr class="{% if eq_status.pronta %}table-success{% else %}table-danger{% endif %}">
+                <td>{{ eq_status.equipe.nome }}</td>
+                <td class="center">{% if eq_status.setup and eq_status.setup.travado %}✅{% else %}❌{% endif %}</td>
+                <td class="center">{% if eq_status.quali %}✅{% else %}❌{% endif %}</td>
+                <td class="center">{% if eq_status.stints %}✅{% else %}❌{% endif %}</td>
+                <td class="center ows-strong">
+                    {% if eq_status.pronta %}
+                        <span class="ows-text-success">ELEGÍVEL</span>
+                    {% else %}
+                        <span class="ows-text-danger">FORA</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="center ows-muted">Nenhuma equipe cadastrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
-<div class="row g-4 mb-4">
+<div class="ows-grid-2 admin-corrida-grid ows-mb-lg">
     <!-- 1. CLASSIFICAÇÃO -->
-    <div class="col-md-6">
-        <div class="card h-100 {% if ja_classificou %}border-success{% endif %}">
-            <div class="card-header {% if ja_classificou %}bg-success text-white{% endif %}">1. Classificação (Qualifying)</div>
-            <div class="card-body">
-                {% if ja_classificou %}
-                    <p class="text-success fw-bold">✅ Classificação já executada.</p>
-                    <table class="table table-sm mt-3">
-                        <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo</th></tr></thead>
-                        <tbody>
-                            {% for r in resultados_classi %}
-                            <tr>
-                                <td>{{ r.posicao_grid }}º</td>
-                                <td>{{ r.equipe.nome if r.equipe else 'Equipe #'~r.equipe_id }}</td>
-                                <td>{{ r.tempo_classificacao | tempo_min }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p class="text-muted small">
-                        Gera o grid de largada baseado nos Dados de Classificação escolhidos pelas equipes elegíveis.
-                    </p>
-                    <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
-                        <input type="hidden" name="acao" value="classificacao">
-                        <button type="submit" class="btn btn-primary w-100">Rodar Classificação</button>
-                    </form>
-                {% endif %}
-            </div>
-        </div>
+    <div class="ows-card">
+        <h3 class="ows-strong">1. Classificação (Qualifying)</h3>
+        {% if ja_classificou %}
+            <span class="admin-corrida-status-success ows-mb-md">✅ Classificação já executada.</span>
+            <table class="admin-corrida-table">
+                <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo</th></tr></thead>
+                <tbody>
+                    {% for r in resultados_classi %}
+                    <tr>
+                        <td>{{ r.posicao_grid }}º</td>
+                        <td>{{ r.equipe.nome if r.equipe else 'Equipe #'~r.equipe_id }}</td>
+                        <td>{{ r.tempo_classificacao | tempo_min }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="admin-corrida-help-text ows-mb-md">
+                Gera o grid de largada baseado nos Dados de Classificação escolhidos pelas equipes elegíveis.
+            </p>
+            <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+                <input type="hidden" name="acao" value="classificacao">
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Rodar Classificação</button>
+            </form>
+        {% endif %}
     </div>
 
     <!-- 2. CORRIDA DA TEMPORADA -->
-    <div class="col-md-6">
-        <div class="card h-100 {% if ja_correu %}border-success{% endif %}">
-            <div class="card-header {% if ja_correu %}bg-success text-white{% endif %}">2. Corrida Oficial</div>
-            <div class="card-body">
-                {% if ja_correu %}
-                    <p class="text-success fw-bold">✅ Corrida já executada.</p>
-                    <a href="{{ url_for('corrida_view') }}" class="btn btn-outline-primary mb-3 w-100">🎬 Ver Replay da Corrida</a>
-                    <table class="table table-sm mt-3">
-                        <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo Total</th><th>Pits</th></tr></thead>
-                        <tbody>
-                            {% for r in proxima_corrida_temporada.resultados()|sort(attribute='posicao') %}
-                            <tr class="{% if r.abandonou %}table-danger text-muted{% endif %}">
-                                <td>{{ r.posicao }}º</td>
-                                <td>{{ r.equipe_nome }}</td>
-                                <td>{% if r.abandonou %}Abandono{% else %}{{ r.tempo_total | tempo_min }}{% endif %}</td>
-                                <td>{{ r.get('pit_stops', '-') }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p class="text-muted small">
-                        Simula a corrida oficial usando o grid de largada, o Parc Fermé e a Estratégia de Stints de cada equipe.
-                    </p>
-                    <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
-                        <input type="hidden" name="acao" value="corrida_temporada">
-                        <button type="submit" class="btn btn-success w-100" {% if not ja_classificou %}disabled{% endif %}>
-                            ▶ Rodar Corrida Oficial
-                        </button>
-                    </form>
-                    {% if not ja_classificou %}
-                    <small class="text-danger d-block mt-2">Rode a classificação primeiro.</small>
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
+    <div class="ows-card">
+        <h3 class="ows-strong">2. Corrida Oficial</h3>
+        {% if ja_correu %}
+            <span class="admin-corrida-status-success ows-mb-md">✅ Corrida já executada.</span>
+            <a href="{{ url_for('corrida_view') }}" class="ows-btn ows-btn-ghost ows-btn-full admin-corrida-action-mb ows-mb-md">🎥 Ver Replay da Corrida</a>
+            <table class="admin-corrida-table">
+                <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo Total</th><th>Pits</th></tr></thead>
+                <tbody>
+                    {% for r in proxima_corrida_temporada.resultados()|sort(attribute='posicao') %}
+                    <tr class="{% if r.abandonou %}table-danger ows-muted{% endif %}">
+                        <td>{{ r.posicao }}º</td>
+                        <td>{{ r.equipe_nome }}</td>
+                        <td>{% if r.abandonou %}Abandono{% else %}{{ r.tempo_total | tempo_min }}{% endif %}</td>
+                        <td>{{ r.get('pit_stops', '-') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="admin-corrida-help-text ows-mb-md">
+                Simula a corrida oficial usando o grid de largada, o Parc Fermé e a Estratégia de Stints de cada equipe.
+            </p>
+            <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+                <input type="hidden" name="acao" value="corrida_temporada">
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" {% if not ja_classificou %}disabled{% endif %}>
+                    ▶ Rodar Corrida Oficial
+                </button>
+            </form>
+            {% if not ja_classificou %}
+            <span class="admin-corrida-status-danger ows-mt-sm">Rode a classificação primeiro.</span>
+            {% endif %}
+        {% endif %}
     </div>
 </div>
 
 {% elif temporada and not proxima_corrida_temporada %}
-<div class="alert alert-info mb-4">
+<div class="ows-alert ows-alert-info">
     Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
 </div>
 {% else %}
-<div class="alert alert-warning mb-4">
+<div class="ows-alert ows-alert-warning">
     Nenhuma temporada ativa. Acesse a aba Temporadas para iniciar uma.
 </div>
 {% endif %}
 
 <!-- 3. CORRIDA LIVRE -->
-<div class="card mb-4">
-    <div class="card-header">Corrida Livre (Testes)</div>
-    <div class="card-body">
-        <p class="text-muted" style="font-size:0.9em;">
-            Roda uma corrida qualquer sem filtros de elegibilidade. O custo de montagem será debitado, mas NÃO conta para pontuação oficial da temporada.
-        </p>
-        <form method="POST" action="{{ url_for('admin_dia_corrida') }}" class="row g-3 align-items-center">
-            <input type="hidden" name="acao" value="corrida_livre">
-            <div class="col-auto">
-                <label for="pista_id" class="visually-hidden">Pista</label>
-                <select name="pista_id" id="pista_id" class="form-select" required>
-                    <option value="">-- Escolha uma pista --</option>
-                    {% for p in pistas %}
-                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-secondary">▶ Simular Corrida Livre</button>
-            </div>
-        </form>
-    </div>
+<div class="ows-card">
+    <h3 class="ows-strong">Corrida Livre (Testes)</h3>
+    <p class="admin-corrida-help-text ows-mb-md">
+        Roda uma corrida qualquer sem filtros de elegibilidade. O custo de montagem será debitado, mas NÃO conta para pontuação oficial da temporada.
+    </p>
+    <form method="POST" action="{{ url_for('admin_dia_corrida') }}" class="admin-corrida-form-inline ows-form">
+        <input type="hidden" name="acao" value="corrida_livre">
+        <div>
+            <label for="pista_id" class="admin-corrida-hidden">Pista</label>
+            <select name="pista_id" id="pista_id" class="ows-select" required>
+                <option value="">-- Escolha uma pista --</option>
+                {% for p in pistas %}
+                    <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="ows-btn ows-btn-ghost">▶ Simular Corrida Livre</button>
+        </div>
+    </form>
 </div>
 {% endblock %}

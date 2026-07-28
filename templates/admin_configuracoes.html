@@ -1,122 +1,59 @@
 {% extends "admin_base.html" %}
 {% set secao_admin = 'configuracoes' %}
-
 {% block admin_content %}
-<h1 class="h3 mb-4">Configurações do jogo</h1>
-
-<form method="POST">
-    <div class="card mb-3">
-        <div class="card-header">💰 Economia</div>
-        <div class="card-body">
-            <label class="form-label">Orçamento inicial (R$)</label>
-            <input type="number" step="1000" name="orcamento_inicial"
-                   value="{{ config.orcamento_inicial }}" class="form-control" required>
-            <small class="text-muted">Valor com o qual novos jogadores começam. Manual sugere R$ 55.000.</small>
+<h1 class="ows-mb-md">Configurações do jogo</h1>
+<form method="POST" class="ows-form">
+    <div class="ows-card ows-mb-md">
+        <h3>💰 Economia</h3>
+        <div class="ows-mt-sm">
+            <label class="ows-label">Orçamento inicial (R$)</label>
+            <input class="ows-input" type="number" step="1000" name="orcamento_inicial" value="{{ config.orcamento_inicial }}" required>
+            <div class="ows-hint">Valor com o qual novos jogadores começam. Manual sugere R$ 55.000.</div>
         </div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header">🏁 Corridas e Mecânica</div>
-        <div class="card-body row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Prêmio por Vitória (1º Lugar - R$)</label>
-                <input type="number" step="100" name="premio_corrida_pos_1"
-                       value="{{ config.premio_corrida_pos_1 }}" class="form-control" required>
-                <small class="text-muted">Os demais prêmios escalam proporcionalmente.</small>
+    <div class="ows-card ows-mb-md">
+        <h3>🏁 Corridas e Mecânica</h3>
+        <div class="ows-grid-2 ows-mt-sm">
+            <div>
+                <label class="ows-label">Prêmio por Vitória (1º Lugar - R$)</label>
+                <input class="ows-input" type="number" step="100" name="premio_corrida_pos_1" value="{{ config.premio_corrida_pos_1 }}" required>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Multiplicador de Consumo</label>
-                <input type="number" step="0.01" name="multiplicador_consumo"
-                       value="{{ config.multiplicador_consumo }}" class="form-control" required>
-                <small class="text-muted">1.0 é o normal. Maior = gasta mais gasolina.</small>
+            <div>
+                <label class="ows-label">Multiplicador de Consumo</label>
+                <input class="ows-input" type="number" step="0.01" name="multiplicador_consumo" value="{{ config.multiplicador_consumo }}" required>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Chance de Quebra Base (0 a 1)</label>
-                <input type="number" step="0.01" name="chance_quebra_base"
-                       value="{{ config.chance_quebra_base }}" class="form-control" required>
-                <small class="text-muted">Ex: 0.10 = 10% de chance sem treino de box.</small>
+            <div>
+                <label class="ows-label">Chance de Quebra Base (0 a 1)</label>
+                <input class="ows-input" type="number" step="0.01" name="chance_quebra_base" value="{{ config.chance_quebra_base }}" required>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Chance de Quebra Mínima (0 a 1)</label>
-                <input type="number" step="0.01" name="chance_quebra_minima"
-                       value="{{ config.chance_quebra_minima }}" class="form-control" required>
-                <small class="text-muted">Ex: 0.02 = 2% de chance com treino 100%.</small>
+            <div>
+                <label class="ows-label">Chance de Quebra Mínima (0 a 1)</label>
+                <input class="ows-input" type="number" step="0.01" name="chance_quebra_minima" value="{{ config.chance_quebra_minima }}" required>
             </div>
         </div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header">🔬 Desenvolvimento (chassi/aero)</div>
-        <div class="card-body row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Incremento por avanço (%)</label>
-                <input type="number" step="0.1" name="dev_incremento_percentual"
-                       value="{{ config.dev_incremento_percentual }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo base (horas)</label>
-                <input type="number" step="0.1" name="dev_tempo_base_horas"
-                       value="{{ config.dev_tempo_base_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo fator (horas)</label>
-                <input type="number" step="0.1" name="dev_tempo_fator_horas"
-                       value="{{ config.dev_tempo_fator_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo base (R$)</label>
-                <input type="number" step="1000" name="dev_custo_base"
-                       value="{{ config.dev_custo_base }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo fator</label>
-                <input type="number" step="0.1" name="dev_custo_fator"
-                       value="{{ config.dev_custo_fator }}" class="form-control" required>
-            </div>
+    <div class="ows-card ows-mb-md">
+        <h3>🔬 Desenvolvimento (chassi/aero)</h3>
+        <div class="ows-grid-2 ows-mt-sm">
+            <div><label class="ows-label">Incremento por avanço (%)</label><input class="ows-input" type="number" step="0.1" name="dev_incremento_percentual" value="{{ config.dev_incremento_percentual }}" required></div>
+            <div><label class="ows-label">Tempo base (horas)</label><input class="ows-input" type="number" step="0.1" name="dev_tempo_base_horas" value="{{ config.dev_tempo_base_horas }}" required></div>
+            <div><label class="ows-label">Tempo fator (horas)</label><input class="ows-input" type="number" step="0.1" name="dev_tempo_fator_horas" value="{{ config.dev_tempo_fator_horas }}" required></div>
+            <div><label class="ows-label">Custo base (R$)</label><input class="ows-input" type="number" step="1000" name="dev_custo_base" value="{{ config.dev_custo_base }}" required></div>
+            <div><label class="ows-label">Custo fator</label><input class="ows-input" type="number" step="0.1" name="dev_custo_fator" value="{{ config.dev_custo_fator }}" required></div>
         </div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header">🔧 Treinamento de box (pit stop)</div>
-        <div class="card-body row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Incremento (%)</label>
-                <input type="number" step="0.1" name="treino_incremento_percentual"
-                       value="{{ config.treino_incremento_percentual }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo base (h)</label>
-                <input type="number" step="0.1" name="treino_tempo_base_horas"
-                       value="{{ config.treino_tempo_base_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo fator (h)</label>
-                <input type="number" step="0.1" name="treino_tempo_fator_horas"
-                       value="{{ config.treino_tempo_fator_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo base (R$)</label>
-                <input type="number" step="1000" name="treino_custo_base"
-                       value="{{ config.treino_custo_base }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo fator</label>
-                <input type="number" step="0.1" name="treino_custo_fator"
-                       value="{{ config.treino_custo_fator }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Pit sem treino (s)</label>
-                <input type="number" step="0.1" name="pit_tempo_sem_treino"
-                       value="{{ config.pit_tempo_sem_treino }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Pit treino completo (s)</label>
-                <input type="number" step="0.1" name="pit_tempo_treino_completo"
-                       value="{{ config.pit_tempo_treino_completo }}" class="form-control" required>
-            </div>
+    <div class="ows-card ows-mb-md">
+        <h3>🔧 Treinamento de box (pit stop)</h3>
+        <div class="ows-grid-2 ows-mt-sm">
+            <div><label class="ows-label">Incremento (%)</label><input class="ows-input" type="number" step="0.1" name="treino_incremento_percentual" value="{{ config.treino_incremento_percentual }}" required></div>
+            <div><label class="ows-label">Tempo base (h)</label><input class="ows-input" type="number" step="0.1" name="treino_tempo_base_horas" value="{{ config.treino_tempo_base_horas }}" required></div>
+            <div><label class="ows-label">Tempo fator (h)</label><input class="ows-input" type="number" step="0.1" name="treino_tempo_fator_horas" value="{{ config.treino_tempo_fator_horas }}" required></div>
+            <div><label class="ows-label">Custo base (R$)</label><input class="ows-input" type="number" step="1000" name="treino_custo_base" value="{{ config.treino_custo_base }}" required></div>
+            <div><label class="ows-label">Custo fator</label><input class="ows-input" type="number" step="0.1" name="treino_custo_fator" value="{{ config.treino_custo_fator }}" required></div>
+            <div><label class="ows-label">Pit sem treino (s)</label><input class="ows-input" type="number" step="0.1" name="pit_tempo_sem_treino" value="{{ config.pit_tempo_sem_treino }}" required></div>
+            <div><label class="ows-label">Pit treino completo (s)</label><input class="ows-input" type="number" step="0.1" name="pit_tempo_treino_completo" value="{{ config.pit_tempo_treino_completo }}" required></div>
         </div>
     </div>
-
-    <button type="submit" class="btn btn-primary">💾 Salvar configurações</button>
+    <button type="submit" class="ows-btn ows-btn-primary">💾 Salvar configurações</button>
 </form>
 {% endblock %}

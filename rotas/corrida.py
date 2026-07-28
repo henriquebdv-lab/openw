@@ -39,8 +39,14 @@ def _aplicar_dados_pista_no_carro(carro, pista):
     carro.influencia_pista_engenheiro = pista.get("influencia_engenheiro") or 10
 
 
-def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegiveis=None):
-    numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
+def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegiveis=None, voltas_customizadas=None):
+    # Nova Lógica: Aceita imposição de voltas customizadas do Evento Especial
+    if voltas_customizadas is not None:
+        numero_voltas = int(voltas_customizadas)
+        distancia_total = round(numero_voltas * pista["extensao_km"], 2)
+    else:
+        numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
+        
     config = Configuracao.obter()
     
     todas_equipes = equipes_elegiveis if equipes_elegiveis is not None else CarroJogador.query.all()

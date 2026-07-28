@@ -1,0 +1,193 @@
+/* ============================================================
+   OPEN WHEEL STRATEGY - Tela: Estratégia
+   ============================================================ */
+
+.estrategia-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.estrategia-header h1 {
+    margin-bottom: 0;
+}
+
+.pit-wall-container {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+    margin-top: var(--spacing-md);
+}
+
+.strategy-editor {
+    flex: 2;
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-card);
+}
+
+.pit-wall-summary {
+    flex: 1;
+    background: var(--bg-card-start);
+    border: 1px solid var(--border-main);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-lg);
+    font-family: var(--font-mono);
+}
+
+.pit-wall-summary h3 {
+    color: var(--text-label);
+    font-size: 14px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-dark);
+    padding-bottom: 10px;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.summary-item span:first-child {
+    color: var(--text-muted);
+}
+
+.summary-item strong {
+    color: var(--text-white);
+}
+
+.timeline-bar {
+    display: flex;
+    height: 30px;
+    background: var(--bg-body);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-bottom: 25px;
+}
+
+.timeline-stint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000;
+    font-weight: 700;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    transition: width 0.3s;
+}
+
+.pneu-seco {
+    background-color: var(--color-warning);
+}
+
+.pneu-molhado {
+    background-color: var(--color-success);
+}
+
+.pneu-encharcado {
+    background-color: var(--color-info);
+}
+
+.stint-card {
+    background: var(--bg-card-end);
+    /* Borda inicial base; será sobrescrita pelo JS dependendo do pneu */
+    border-left: 4px solid var(--color-warning); 
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.btn-remover-stint {
+    background: var(--color-danger);
+    color: var(--text-white);
+    border: none;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.btn-add-stint {
+    background: var(--bg-sidebar);
+    color: var(--text-white);
+    border: 1px dashed var(--text-label);
+    width: 100%;
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+}
+
+.btn-add-stint:hover:not(:disabled) {
+    background: var(--bg-hover);
+}
+
+.btn-add-stint:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.estrategia-btn-save {
+    padding: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 15px;
+}
+
+.estrategia-title {
+    color: var(--text-white);
+    margin-bottom: 20px;
+}
+
+.estrategia-stint-col-flex {
+    flex: 1;
+}
+
+.estrategia-stint-label {
+    color: var(--text-muted);
+    font-size: 12px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.estrategia-select-full {
+    width: 100%;
+}
+
+.estrategia-input-sm {
+    width: 80px;
+}
+
+.estrategia-input-md {
+    width: 100px;
+}
+
+.estrategia-col-end {
+    align-self: flex-end;
+}
+
+.estrategia-validation-msg {
+    font-weight: 700;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.estrategia-fase-b {
+    color: var(--text-label);
+}
+
+/* Classes dinâmicas injetadas via JS para a cor da borda do card */
+.stint-border-seco { border-left-color: var(--color-warning) !important; }
+.stint-border-molhado { border-left-color: var(--color-success) !important; }
+.stint-border-encharcado { border-left-color: var(--color-info) !important; }

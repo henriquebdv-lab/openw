@@ -1,0 +1,5 @@
+.mq-section-title { font-size: 14px; letter-spacing: 3px; color: var(--text-label); }
+.mq-value-md { font-size: 20px; font-weight: 700; color: var(--text-white); }
+.mq-text-disabled { font-size: 20px; color: var(--text-dark); }
+.mq-card-highlight { border-left: 3px solid var(--color-primary); }
+.mq-title-primary { color: var(--color-primary-light); }

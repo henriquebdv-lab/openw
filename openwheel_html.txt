@@ -33,502 +33,380 @@
 ===== templates/admin_base.html =====
 {% extends "base.html" %}
 
-{#
-  Layout base para todas as telas de admin: sidebar fixa à esquerda,
-  conteúdo à direita. Cada admin_*.html estende esse arquivo em vez
-  do base.html direto, e coloca o conteúdo em {% block admin_content %}.
-#}
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/admin.css') }}">
+{% block admin_css_extra %}{% endblock %}
+{% endblock %}
 
 {% block content %}
-<div class="row g-4">
-    {# ---------- SIDEBAR FIXA ---------- #}
-    <div class="col-lg-3 col-md-4">
-        <div class="list-group sticky-top" style="top: 1rem;">
-            <a href="{{ url_for('admin_dashboard') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'dashboard' %}active{% endif %}">
-                🏠 Painel
-            </a>
-            <a href="{{ url_for('admin_dia_corrida') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'dia_corrida' %}active{% endif %}">
-                🏁 Dia de Corrida
-            </a>
-            <a href="{{ url_for('admin_configuracoes') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'configuracoes' %}active{% endif %}">
-                ⚙️ Configurações
-            </a>
-            <a href="{{ url_for('admin_pistas_reais') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'pistas' %}active{% endif %}">
-                🛣️ Pistas Reais
-            </a>
-            <a href="{{ url_for('admin_temporadas') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'temporadas' %}active{% endif %}">
-                🏆 Temporadas
-            </a>
-            <a href="{{ url_for('admin_usuarios') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'usuarios' %}active{% endif %}">
-                👥 Usuários
-            </a>
+<div class="ows-admin-container">
 
-            {# Fornecedores agrupados: quando você tá em qualquer categoria
-               aparece o submenu com as 7 categorias #}
-            <div class="list-group-item {% if secao_admin == 'fornecedores' %}active{% endif %}"
-                 style="font-weight: bold;">
-                🔧 Fornecedores
-            </div>
-            {% if categorias_fornecedor %}
-                {% for chave, cfg in categorias_fornecedor.items() %}
-                <a href="{{ url_for('admin_fornecedores', categoria=chave) }}"
-                   class="list-group-item list-group-item-action {% if categoria_fornecedor_atual == chave %}active{% endif %}"
-                   style="padding-left: 2rem; font-size: 0.9em;">
-                    {{ cfg.titulo }}
-                </a>
-                {% endfor %}
-            {% endif %}
-        </div>
-    </div>
+    <!-- NOVO MENU HORIZONTAL (Navegação em Botões) -->
+    <nav class="ows-admin-nav">
+        <a href="{{ url_for('admin_dashboard') }}" class="ows-admin-nav-item {% if secao_admin == 'dashboard' %}active{% endif %}">🏠 Painel</a>
+        <a href="{{ url_for('admin_dia_corrida') }}" class="ows-admin-nav-item {% if secao_admin == 'dia_corrida' %}active{% endif %}">🏁 Dia de Corrida</a>
+        <a href="{{ url_for('admin_configuracoes') }}" class="ows-admin-nav-item {% if secao_admin == 'configuracoes' %}active{% endif %}">⚙️ Config.</a>
+        <a href="{{ url_for('admin_pistas_reais') }}" class="ows-admin-nav-item {% if secao_admin == 'pistas' %}active{% endif %}">🛣️ Pistas</a>
+        <a href="{{ url_for('admin_temporadas') }}" class="ows-admin-nav-item {% if secao_admin == 'temporadas' %}active{% endif %}">🏆 Temporadas</a>
+        <a href="{{ url_for('admin_usuarios') }}" class="ows-admin-nav-item {% if secao_admin == 'usuarios' %}active{% endif %}">👥 Usuários</a>
 
-    {# ---------- CONTEÚDO ---------- #}
-    <div class="col-lg-9 col-md-8">
+        <div class="ows-admin-nav-divider"></div>
+
+        <div class="ows-admin-nav-label">🔧 Fornecedores:</div>
+        {% if categorias_fornecedor %}
+            {% for chave, cfg in categorias_fornecedor.items() %}
+            <a href="{{ url_for('admin_fornecedores', categoria=chave) }}" class="ows-admin-nav-item {% if categoria_fornecedor_atual == chave %}active{% endif %}">{{ cfg.titulo }}</a>
+            {% endfor %}
+        {% endif %}
+    </nav>
+
+    <!-- ÁREA DE CONTEÚDO (Que agora ocupa 100% da largura) -->
+    <div class="ows-admin-content">
         {% block admin_content %}{% endblock %}
     </div>
+
 </div>
 {% endblock %}
 ===== templates/admin_configuracoes.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'configuracoes' %}
-
 {% block admin_content %}
-<h1 class="h3 mb-4">Configurações do jogo</h1>
-
-<form method="POST">
-    <div class="card mb-3">
-        <div class="card-header">💰 Economia</div>
-        <div class="card-body">
-            <label class="form-label">Orçamento inicial (R$)</label>
-            <input type="number" step="1000" name="orcamento_inicial"
-                   value="{{ config.orcamento_inicial }}" class="form-control" required>
-            <small class="text-muted">Valor com o qual novos jogadores começam. Manual sugere R$ 55.000.</small>
+<h1 class="ows-mb-md">Configurações do jogo</h1>
+<form method="POST" class="ows-form">
+    <div class="ows-card ows-mb-md">
+        <h3>💰 Economia</h3>
+        <div class="ows-mt-sm">
+            <label class="ows-label">Orçamento inicial (R$)</label>
+            <input class="ows-input" type="number" step="1000" name="orcamento_inicial" value="{{ config.orcamento_inicial }}" required>
+            <div class="ows-hint">Valor com o qual novos jogadores começam. Manual sugere R$ 55.000.</div>
         </div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header">🏁 Corridas e Mecânica</div>
-        <div class="card-body row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Prêmio por Vitória (1º Lugar - R$)</label>
-                <input type="number" step="100" name="premio_corrida_pos_1"
-                       value="{{ config.premio_corrida_pos_1 }}" class="form-control" required>
-                <small class="text-muted">Os demais prêmios escalam proporcionalmente.</small>
+    <div class="ows-card ows-mb-md">
+        <h3>🏁 Corridas e Mecânica</h3>
+        <div class="ows-grid-2 ows-mt-sm">
+            <div>
+                <label class="ows-label">Prêmio por Vitória (1º Lugar - R$)</label>
+                <input class="ows-input" type="number" step="100" name="premio_corrida_pos_1" value="{{ config.premio_corrida_pos_1 }}" required>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Multiplicador de Consumo</label>
-                <input type="number" step="0.01" name="multiplicador_consumo"
-                       value="{{ config.multiplicador_consumo }}" class="form-control" required>
-                <small class="text-muted">1.0 é o normal. Maior = gasta mais gasolina.</small>
+            <div>
+                <label class="ows-label">Multiplicador de Consumo</label>
+                <input class="ows-input" type="number" step="0.01" name="multiplicador_consumo" value="{{ config.multiplicador_consumo }}" required>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Chance de Quebra Base (0 a 1)</label>
-                <input type="number" step="0.01" name="chance_quebra_base"
-                       value="{{ config.chance_quebra_base }}" class="form-control" required>
-                <small class="text-muted">Ex: 0.10 = 10% de chance sem treino de box.</small>
+            <div>
+                <label class="ows-label">Chance de Quebra Base (0 a 1)</label>
+                <input class="ows-input" type="number" step="0.01" name="chance_quebra_base" value="{{ config.chance_quebra_base }}" required>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Chance de Quebra Mínima (0 a 1)</label>
-                <input type="number" step="0.01" name="chance_quebra_minima"
-                       value="{{ config.chance_quebra_minima }}" class="form-control" required>
-                <small class="text-muted">Ex: 0.02 = 2% de chance com treino 100%.</small>
+            <div>
+                <label class="ows-label">Chance de Quebra Mínima (0 a 1)</label>
+                <input class="ows-input" type="number" step="0.01" name="chance_quebra_minima" value="{{ config.chance_quebra_minima }}" required>
             </div>
         </div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header">🔬 Desenvolvimento (chassi/aero)</div>
-        <div class="card-body row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Incremento por avanço (%)</label>
-                <input type="number" step="0.1" name="dev_incremento_percentual"
-                       value="{{ config.dev_incremento_percentual }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo base (horas)</label>
-                <input type="number" step="0.1" name="dev_tempo_base_horas"
-                       value="{{ config.dev_tempo_base_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo fator (horas)</label>
-                <input type="number" step="0.1" name="dev_tempo_fator_horas"
-                       value="{{ config.dev_tempo_fator_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo base (R$)</label>
-                <input type="number" step="1000" name="dev_custo_base"
-                       value="{{ config.dev_custo_base }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo fator</label>
-                <input type="number" step="0.1" name="dev_custo_fator"
-                       value="{{ config.dev_custo_fator }}" class="form-control" required>
-            </div>
+    <div class="ows-card ows-mb-md">
+        <h3>🔬 Desenvolvimento (chassi/aero)</h3>
+        <div class="ows-grid-2 ows-mt-sm">
+            <div><label class="ows-label">Incremento por avanço (%)</label><input class="ows-input" type="number" step="0.1" name="dev_incremento_percentual" value="{{ config.dev_incremento_percentual }}" required></div>
+            <div><label class="ows-label">Tempo base (horas)</label><input class="ows-input" type="number" step="0.1" name="dev_tempo_base_horas" value="{{ config.dev_tempo_base_horas }}" required></div>
+            <div><label class="ows-label">Tempo fator (horas)</label><input class="ows-input" type="number" step="0.1" name="dev_tempo_fator_horas" value="{{ config.dev_tempo_fator_horas }}" required></div>
+            <div><label class="ows-label">Custo base (R$)</label><input class="ows-input" type="number" step="1000" name="dev_custo_base" value="{{ config.dev_custo_base }}" required></div>
+            <div><label class="ows-label">Custo fator</label><input class="ows-input" type="number" step="0.1" name="dev_custo_fator" value="{{ config.dev_custo_fator }}" required></div>
         </div>
     </div>
-
-    <div class="card mb-3">
-        <div class="card-header">🔧 Treinamento de box (pit stop)</div>
-        <div class="card-body row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Incremento (%)</label>
-                <input type="number" step="0.1" name="treino_incremento_percentual"
-                       value="{{ config.treino_incremento_percentual }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo base (h)</label>
-                <input type="number" step="0.1" name="treino_tempo_base_horas"
-                       value="{{ config.treino_tempo_base_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Tempo fator (h)</label>
-                <input type="number" step="0.1" name="treino_tempo_fator_horas"
-                       value="{{ config.treino_tempo_fator_horas }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo base (R$)</label>
-                <input type="number" step="1000" name="treino_custo_base"
-                       value="{{ config.treino_custo_base }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Custo fator</label>
-                <input type="number" step="0.1" name="treino_custo_fator"
-                       value="{{ config.treino_custo_fator }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Pit sem treino (s)</label>
-                <input type="number" step="0.1" name="pit_tempo_sem_treino"
-                       value="{{ config.pit_tempo_sem_treino }}" class="form-control" required>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Pit treino completo (s)</label>
-                <input type="number" step="0.1" name="pit_tempo_treino_completo"
-                       value="{{ config.pit_tempo_treino_completo }}" class="form-control" required>
-            </div>
+    <div class="ows-card ows-mb-md">
+        <h3>🔧 Treinamento de box (pit stop)</h3>
+        <div class="ows-grid-2 ows-mt-sm">
+            <div><label class="ows-label">Incremento (%)</label><input class="ows-input" type="number" step="0.1" name="treino_incremento_percentual" value="{{ config.treino_incremento_percentual }}" required></div>
+            <div><label class="ows-label">Tempo base (h)</label><input class="ows-input" type="number" step="0.1" name="treino_tempo_base_horas" value="{{ config.treino_tempo_base_horas }}" required></div>
+            <div><label class="ows-label">Tempo fator (h)</label><input class="ows-input" type="number" step="0.1" name="treino_tempo_fator_horas" value="{{ config.treino_tempo_fator_horas }}" required></div>
+            <div><label class="ows-label">Custo base (R$)</label><input class="ows-input" type="number" step="1000" name="treino_custo_base" value="{{ config.treino_custo_base }}" required></div>
+            <div><label class="ows-label">Custo fator</label><input class="ows-input" type="number" step="0.1" name="treino_custo_fator" value="{{ config.treino_custo_fator }}" required></div>
+            <div><label class="ows-label">Pit sem treino (s)</label><input class="ows-input" type="number" step="0.1" name="pit_tempo_sem_treino" value="{{ config.pit_tempo_sem_treino }}" required></div>
+            <div><label class="ows-label">Pit treino completo (s)</label><input class="ows-input" type="number" step="0.1" name="pit_tempo_treino_completo" value="{{ config.pit_tempo_treino_completo }}" required></div>
         </div>
     </div>
-
-    <button type="submit" class="btn btn-primary">💾 Salvar configurações</button>
+    <button type="submit" class="ows-btn ows-btn-primary">💾 Salvar configurações</button>
 </form>
 {% endblock %}
 ===== templates/admin_dashboard.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'dashboard' %}
-
 {% block admin_content %}
-<h1 class="h3 mb-4">Painel Admin</h1>
-
-<div class="card mb-4">
-    <div class="card-body">
-        <p>Gera novos fornecedores em cada categoria (100 fornecedores, 10 tiers).
-           <strong>Segurança:</strong> fornecedores em uso por alguma equipe são apenas
-           desativados, não apagados.</p>
-        <form method="POST" action="{{ url_for('admin_gerar_fornecedores') }}"
-              onsubmit="return confirm('Vai gerar 100 novos fornecedores de cada categoria e desativar os antigos não usados. Confirma?');">
-            <button type="submit" class="btn btn-primary">🎲 Gerar 100 fornecedores de cada categoria</button>
-        </form>
-    </div>
+<h1 class="ows-mb-md">Painel Admin</h1>
+<div class="ows-card ows-mb-md">
+    <p class="ows-muted">Gera novos fornecedores em cada categoria. <strong>Segurança:</strong> fornecedores em uso por alguma equipe são apenas desativados, não apagados.</p>
+    <form method="POST" action="{{ url_for('admin_gerar_fornecedores') }}" onsubmit="return confirm('Vai gerar 100 novos fornecedores de cada categoria e desativar os antigos não usados. Confirma?');">
+        <button type="submit" class="ows-btn ows-btn-primary">🎲 Gerar 100 fornecedores de cada categoria</button>
+    </form>
 </div>
-
-<div class="card">
-    <div class="card-header">Contagens atuais</div>
-    <table class="table mb-0">
-        <thead>
-            <tr><th>Categoria</th><th>Total</th></tr>
-        </thead>
+<div class="ows-card">
+    <h3 class="ows-mb-sm">Contagens atuais</h3>
+    <table class="ows-admin-table ows-m-0">
+        <thead><tr><th>Categoria</th><th>Total</th></tr></thead>
         <tbody>
-            {% for chave, cfg in categorias.items() %}
-            <tr>
-                <td>{{ cfg.titulo }}</td>
-                <td>{{ contagens[chave] }}</td>
-            </tr>
-            {% endfor %}
+            {% for chave, cfg in categorias.items() %}<tr><td>{{ cfg.titulo }}</td><td>{{ contagens[chave] }}</td></tr>{% endfor %}
             <tr><td>Temporadas</td><td>{{ total_temporadas }}</td></tr>
             <tr><td>Usuários</td><td>{{ total_usuarios }}</td></tr>
         </tbody>
     </table>
 </div>
 {% endblock %}
-
 ===== templates/admin_dia_corrida.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'dia_corrida' %}
 
-{% block admin_content %}
-<h1 class="h3 mb-4">Dia de Corrida (Controle)</h1>
+<!-- Correção: Usando admin_css_extra para não sobrescrever o menu do admin_base -->
+{% block admin_css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/admin_dia_corrida.css') }}">
+{% endblock %}
 
-<div class="alert alert-warning">
+{% block admin_content %}
+<h1 class="admin-corrida-title ows-mb-md">Dia de Corrida (Controle)</h1>
+
+<div class="ows-alert ows-alert-warning">
     <strong>Atenção:</strong> Este controle manual é provisório. Futuramente, a qualificação e a corrida serão executadas automaticamente por um agendador no horário programado.
 </div>
 
 {% if temporada and proxima_corrida_temporada and pista_proxima_temporada %}
-<div class="card mb-4 border-primary">
-    <div class="card-header bg-primary text-white">
+<div class="ows-card admin-corrida-next-race ows-mb-lg">
+    <div class="admin-corrida-header">
         Próxima Etapa: {{ proxima_corrida_temporada.ordem }}ª Corrida - {{ pista_proxima_temporada.nome }} ({{ pista_proxima_temporada.pais }})
     </div>
-    <div class="card-body">
-        <h5 class="card-title">Status de Preparação das Equipes</h5>
-        <p class="text-muted small">Apenas as equipes com todos os itens prontos (✅) participarão da classificação e da corrida.</p>
-        
-        <table class="table table-sm table-bordered mt-3">
-            <thead class="table-light">
-                <tr>
-                    <th>Equipe</th>
-                    <th class="text-center">Parc Fermé (Setup)</th>
-                    <th class="text-center">Qualificação (Dados)</th>
-                    <th class="text-center">Corrida (Stints)</th>
-                    <th class="text-center">Status Final</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for eq_status in status_equipes %}
-                <tr class="{% if eq_status.pronta %}table-success{% else %}table-danger{% endif %}">
-                    <td>{{ eq_status.equipe.nome }}</td>
-                    <td class="text-center">{% if eq_status.setup and eq_status.setup.travado %}✅{% else %}❌{% endif %}</td>
-                    <td class="text-center">{% if eq_status.quali %}✅{% else %}❌{% endif %}</td>
-                    <td class="text-center">{% if eq_status.stints %}✅{% else %}❌{% endif %}</td>
-                    <td class="text-center fw-bold">
-                        {% if eq_status.pronta %}
-                            <span class="text-success">ELEGÍVEL</span>
-                        {% else %}
-                            <span class="text-danger">FORA</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" class="text-muted text-center">Nenhuma equipe cadastrada.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    
+    <h5 class="ows-strong">Status de Preparação Das Equipes</h5>
+    <p class="admin-corrida-help-text ows-mb-md">Apenas as equipes com todos os itens prontos (✅) participarão da classificação e da corrida.</p>
+    
+    <table class="admin-corrida-table">
+        <thead>
+            <tr>
+                <th>Equipe</th>
+                <th class="center">Parc Fermé (Setup)</th>
+                <th class="center">Qualificação (Dados)</th>
+                <th class="center">Corrida (Stints)</th>
+                <th class="center">Status Final</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eq_status in status_equipes %}
+            <tr class="{% if eq_status.pronta %}table-success{% else %}table-danger{% endif %}">
+                <td>{{ eq_status.equipe.nome }}</td>
+                <td class="center">{% if eq_status.setup and eq_status.setup.travado %}✅{% else %}❌{% endif %}</td>
+                <td class="center">{% if eq_status.quali %}✅{% else %}❌{% endif %}</td>
+                <td class="center">{% if eq_status.stints %}✅{% else %}❌{% endif %}</td>
+                <td class="center ows-strong">
+                    {% if eq_status.pronta %}
+                        <span class="ows-text-success">ELEGÍVEL</span>
+                    {% else %}
+                        <span class="ows-text-danger">FORA</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="center ows-muted">Nenhuma equipe cadastrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
-<div class="row g-4 mb-4">
+<div class="ows-grid-2 admin-corrida-grid ows-mb-lg">
     <!-- 1. CLASSIFICAÇÃO -->
-    <div class="col-md-6">
-        <div class="card h-100 {% if ja_classificou %}border-success{% endif %}">
-            <div class="card-header {% if ja_classificou %}bg-success text-white{% endif %}">1. Classificação (Qualifying)</div>
-            <div class="card-body">
-                {% if ja_classificou %}
-                    <p class="text-success fw-bold">✅ Classificação já executada.</p>
-                    <table class="table table-sm mt-3">
-                        <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo</th></tr></thead>
-                        <tbody>
-                            {% for r in resultados_classi %}
-                            <tr>
-                                <td>{{ r.posicao_grid }}º</td>
-                                <td>{{ r.equipe.nome if r.equipe else 'Equipe #'~r.equipe_id }}</td>
-                                <td>{{ r.tempo_classificacao | tempo_min }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p class="text-muted small">
-                        Gera o grid de largada baseado nos Dados de Classificação escolhidos pelas equipes elegíveis.
-                    </p>
-                    <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
-                        <input type="hidden" name="acao" value="classificacao">
-                        <button type="submit" class="btn btn-primary w-100">Rodar Classificação</button>
-                    </form>
-                {% endif %}
-            </div>
-        </div>
+    <div class="ows-card">
+        <h3 class="ows-strong">1. Classificação (Qualifying)</h3>
+        {% if ja_classificou %}
+            <span class="admin-corrida-status-success ows-mb-md">✅ Classificação já executada.</span>
+            <table class="admin-corrida-table">
+                <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo</th></tr></thead>
+                <tbody>
+                    {% for r in resultados_classi %}
+                    <tr>
+                        <td>{{ r.posicao_grid }}º</td>
+                        <td>{{ r.equipe.nome if r.equipe else 'Equipe #'~r.equipe_id }}</td>
+                        <td>{{ r.tempo_classificacao | tempo_min }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="admin-corrida-help-text ows-mb-md">
+                Gera o grid de largada baseado nos Dados de Classificação escolhidos pelas equipes elegíveis.
+            </p>
+            <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+                <input type="hidden" name="acao" value="classificacao">
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Rodar Classificação</button>
+            </form>
+        {% endif %}
     </div>
 
     <!-- 2. CORRIDA DA TEMPORADA -->
-    <div class="col-md-6">
-        <div class="card h-100 {% if ja_correu %}border-success{% endif %}">
-            <div class="card-header {% if ja_correu %}bg-success text-white{% endif %}">2. Corrida Oficial</div>
-            <div class="card-body">
-                {% if ja_correu %}
-                    <p class="text-success fw-bold">✅ Corrida já executada.</p>
-                    <a href="{{ url_for('corrida_view') }}" class="btn btn-outline-primary mb-3 w-100">🎬 Ver Replay da Corrida</a>
-                    <table class="table table-sm mt-3">
-                        <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo Total</th><th>Pits</th></tr></thead>
-                        <tbody>
-                            {% for r in proxima_corrida_temporada.resultados()|sort(attribute='posicao') %}
-                            <tr class="{% if r.abandonou %}table-danger text-muted{% endif %}">
-                                <td>{{ r.posicao }}º</td>
-                                <td>{{ r.equipe_nome }}</td>
-                                <td>{% if r.abandonou %}Abandono{% else %}{{ r.tempo_total | tempo_min }}{% endif %}</td>
-                                <td>{{ r.get('pit_stops', '-') }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p class="text-muted small">
-                        Simula a corrida oficial usando o grid de largada, o Parc Fermé e a Estratégia de Stints de cada equipe.
-                    </p>
-                    <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
-                        <input type="hidden" name="acao" value="corrida_temporada">
-                        <button type="submit" class="btn btn-success w-100" {% if not ja_classificou %}disabled{% endif %}>
-                            ▶ Rodar Corrida Oficial
-                        </button>
-                    </form>
-                    {% if not ja_classificou %}
-                    <small class="text-danger d-block mt-2">Rode a classificação primeiro.</small>
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
+    <div class="ows-card">
+        <h3 class="ows-strong">2. Corrida Oficial</h3>
+        {% if ja_correu %}
+            <span class="admin-corrida-status-success ows-mb-md">✅ Corrida já executada.</span>
+            <a href="{{ url_for('corrida_view') }}" class="ows-btn ows-btn-ghost ows-btn-full admin-corrida-action-mb ows-mb-md">🎥 Ver Replay da Corrida</a>
+            <table class="admin-corrida-table">
+                <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo Total</th><th>Pits</th></tr></thead>
+                <tbody>
+                    {% for r in proxima_corrida_temporada.resultados()|sort(attribute='posicao') %}
+                    <tr class="{% if r.abandonou %}table-danger ows-muted{% endif %}">
+                        <td>{{ r.posicao }}º</td>
+                        <td>{{ r.equipe_nome }}</td>
+                        <td>{% if r.abandonou %}Abandono{% else %}{{ r.tempo_total | tempo_min }}{% endif %}</td>
+                        <td>{{ r.get('pit_stops', '-') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="admin-corrida-help-text ows-mb-md">
+                Simula a corrida oficial usando o grid de largada, o Parc Fermé e a Estratégia de Stints de cada equipe.
+            </p>
+            <form method="POST" action="{{ url_for('admin_dia_corrida') }}">
+                <input type="hidden" name="acao" value="corrida_temporada">
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" {% if not ja_classificou %}disabled{% endif %}>
+                    ▶ Rodar Corrida Oficial
+                </button>
+            </form>
+            {% if not ja_classificou %}
+            <span class="admin-corrida-status-danger ows-mt-sm">Rode a classificação primeiro.</span>
+            {% endif %}
+        {% endif %}
     </div>
 </div>
 
 {% elif temporada and not proxima_corrida_temporada %}
-<div class="alert alert-info mb-4">
+<div class="ows-alert ows-alert-info">
     Todas as corridas da temporada <strong>{{ temporada.nome }}</strong> foram executadas.
 </div>
 {% else %}
-<div class="alert alert-warning mb-4">
+<div class="ows-alert ows-alert-warning">
     Nenhuma temporada ativa. Acesse a aba Temporadas para iniciar uma.
 </div>
 {% endif %}
 
 <!-- 3. CORRIDA LIVRE -->
-<div class="card mb-4">
-    <div class="card-header">Corrida Livre (Testes)</div>
-    <div class="card-body">
-        <p class="text-muted" style="font-size:0.9em;">
-            Roda uma corrida qualquer sem filtros de elegibilidade. O custo de montagem será debitado, mas NÃO conta para pontuação oficial da temporada.
-        </p>
-        <form method="POST" action="{{ url_for('admin_dia_corrida') }}" class="row g-3 align-items-center">
-            <input type="hidden" name="acao" value="corrida_livre">
-            <div class="col-auto">
-                <label for="pista_id" class="visually-hidden">Pista</label>
-                <select name="pista_id" id="pista_id" class="form-select" required>
-                    <option value="">-- Escolha uma pista --</option>
-                    {% for p in pistas %}
-                        <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-secondary">▶ Simular Corrida Livre</button>
-            </div>
-        </form>
-    </div>
+<div class="ows-card">
+    <h3 class="ows-strong">Corrida Livre (Testes)</h3>
+    <p class="admin-corrida-help-text ows-mb-md">
+        Roda uma corrida qualquer sem filtros de elegibilidade. O custo de montagem será debitado, mas NÃO conta para pontuação oficial da temporada.
+    </p>
+    <form method="POST" action="{{ url_for('admin_dia_corrida') }}" class="admin-corrida-form-inline ows-form">
+        <input type="hidden" name="acao" value="corrida_livre">
+        <div>
+            <label for="pista_id" class="admin-corrida-hidden">Pista</label>
+            <select name="pista_id" id="pista_id" class="ows-select" required>
+                <option value="">-- Escolha uma pista --</option>
+                {% for p in pistas %}
+                    <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="ows-btn ows-btn-ghost">▶ Simular Corrida Livre</button>
+        </div>
+    </form>
 </div>
 {% endblock %}
 ===== templates/admin_fornecedor_editar.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'fornecedores' %}
-
 {% block admin_content %}
-<h1>Editar: {{ item.nome }}</h1>
-<form method="POST" class="form-ows">
-    <div class="mb-3">
-        <label for="nome" class="form-label">Nome</label>
-        <input id="nome" type="text" name="nome" value="{{ item.nome }}" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label for="custo_temporada" class="form-label">Custo por temporada</label>
-        <input id="custo_temporada" type="number" name="custo_temporada" step="1000" value="{{ item.custo_temporada }}" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label for="custo_montagem" class="form-label">Custo de montagem (por corrida)</label>
-        <input id="custo_montagem" type="number" name="custo_montagem" step="100" value="{{ item.custo_montagem }}" class="form-control" required>
-    </div>
-    {% for campo in cfg.campos %}
-    <div class="mb-3">
-        <label for="{{ campo.nome }}" class="form-label">{{ campo.label }}</label>
-        {% if campo.tipo == 'string' %}
-            {% if campo.nome in ['categoria_pista'] %}
-            <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
-                {% for categoria in categorias_pista %}
-                <option value="{{ categoria }}" {% if (item | attr(campo.nome)) == categoria %}selected{% endif %}>{{ categoria }}</option>
-                {% endfor %}
-            </select>
-            {% elif campo.nome in ['categoria_chuva'] %}
-            <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
-                {% for categoria in categorias_chuva %}
-                <option value="{{ categoria }}" {% if (item | attr(campo.nome)) == categoria %}selected{% endif %}>{{ categoria }}</option>
-                {% endfor %}
-            </select>
+<h1 class="ows-mb-md">Editar: {{ item.nome }}</h1>
+<div class="ows-card">
+    <form method="POST" class="ows-form">
+        <div class="ows-mb-md">
+            <label class="ows-label" for="nome">Nome</label>
+            <input class="ows-input" id="nome" type="text" name="nome" value="{{ item.nome }}" required>
+        </div>
+        <div class="ows-grid-2 ows-mb-md">
+            <div>
+                <label class="ows-label" for="custo_temporada">Custo por temporada</label>
+                <input class="ows-input" id="custo_temporada" type="number" name="custo_temporada" step="1000" value="{{ item.custo_temporada }}" required>
+            </div>
+            <div>
+                <label class="ows-label" for="custo_montagem">Custo de montagem (por corrida)</label>
+                <input class="ows-input" id="custo_montagem" type="number" name="custo_montagem" step="100" value="{{ item.custo_montagem }}" required>
+            </div>
+        </div>
+        {% for campo in cfg.campos %}
+        <div class="ows-mb-md">
+            <label class="ows-label" for="{{ campo.nome }}">{{ campo.label }}</label>
+            {% if campo.tipo == 'string' %}
+                {% if campo.nome in ['categoria_pista'] %}
+                <select class="ows-select" id="{{ campo.nome }}" name="{{ campo.nome }}">
+                    {% for categoria in categorias_pista %}<option value="{{ categoria }}" {% if (item | attr(campo.nome)) == categoria %}selected{% endif %}>{{ categoria }}</option>{% endfor %}
+                </select>
+                {% elif campo.nome in ['categoria_chuva'] %}
+                <select class="ows-select" id="{{ campo.nome }}" name="{{ campo.nome }}">
+                    {% for categoria in categorias_chuva %}<option value="{{ categoria }}" {% if (item | attr(campo.nome)) == categoria %}selected{% endif %}>{{ categoria }}</option>{% endfor %}
+                </select>
+                {% else %}
+                <input class="ows-input" id="{{ campo.nome }}" type="text" name="{{ campo.nome }}" value="{{ item | attr(campo.nome) }}">
+                {% endif %}
             {% else %}
-            <input id="{{ campo.nome }}" type="text" name="{{ campo.nome }}" value="{{ item | attr(campo.nome) }}" class="form-control">
+            <input class="ows-input" id="{{ campo.nome }}" type="number" step="0.001" name="{{ campo.nome }}" value="{{ item | attr(campo.nome) }}">
             {% endif %}
-        {% else %}
-        <input id="{{ campo.nome }}" type="number" step="0.001" name="{{ campo.nome }}" value="{{ item | attr(campo.nome) }}" class="form-control">
-        {% endif %}
-    </div>
-    {% endfor %}
-    <div class="form-check mb-3">
-        <input id="ativo" type="checkbox" name="ativo" class="form-check-input" {% if item.ativo %}checked{% endif %}>
-        <label for="ativo" class="form-check-label">Ativo</label>
-    </div>
-    <button type="submit" class="btn btn-primary">Salvar</button>
-    <a href="{{ url_for('admin_fornecedores', categoria=categoria) }}" class="btn btn-secondary">Cancelar</a>
-</form>
+        </div>
+        {% endfor %}
+        <div class="ows-mb-md">
+            <input id="ativo" type="checkbox" name="ativo" {% if item.ativo %}checked{% endif %}>
+            <label for="ativo">Ativo</label>
+        </div>
+        <div class="ows-mt-md">
+            <button type="submit" class="ows-btn ows-btn-primary">Salvar</button>
+            <a href="{{ url_for('admin_fornecedores', categoria=categoria) }}" class="ows-btn ows-btn-ghost">Cancelar</a>
+        </div>
+    </form>
+</div>
 {% endblock %}
-
 ===== templates/admin_fornecedor_lista.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'fornecedores' %}
-
 {% block admin_content %}
-<h1 class="h3">{{ cfg.titulo }}</h1>
-<p>{{ total }} cadastrados</p>
-
-<div class="card mb-4">
-    <div class="card-header">Cadastrar novo</div>
-    <div class="card-body">
-        <form method="POST" class="form-ows">
-            <div class="mb-3">
-                <label for="nome" class="form-label">Nome</label>
-                <input id="nome" type="text" name="nome" class="form-control" placeholder="Nome do fornecedor" required>
+<h1 class="ows-mb-xs">{{ cfg.titulo }}</h1>
+<p class="ows-muted ows-mb-md">{{ total }} cadastrados</p>
+<div class="ows-card ows-mb-md">
+    <h3 class="ows-mb-sm">Cadastrar novo</h3>
+    <form method="POST" class="ows-form">
+        <div class="ows-mb-md">
+            <label class="ows-label" for="nome">Nome</label>
+            <input class="ows-input" id="nome" type="text" name="nome" placeholder="Nome do fornecedor" required>
+        </div>
+        <div class="ows-grid-2 ows-mb-md">
+            <div>
+                <label class="ows-label" for="custo_temporada">Custo por temporada</label>
+                <input class="ows-input" id="custo_temporada" type="number" name="custo_temporada" step="1000" value="0" required>
             </div>
-            <div class="mb-3">
-                <label for="custo_temporada" class="form-label">Custo por temporada</label>
-                <input id="custo_temporada" type="number" name="custo_temporada" step="1000" value="0" class="form-control" required>
+            <div>
+                <label class="ows-label" for="custo_montagem">Custo de montagem (por corrida)</label>
+                <input class="ows-input" id="custo_montagem" type="number" name="custo_montagem" step="100" value="0" required>
             </div>
-            <div class="mb-3">
-                <label for="custo_montagem" class="form-label">Custo de montagem (por corrida)</label>
-                <input id="custo_montagem" type="number" name="custo_montagem" step="100" value="0" class="form-control" required>
-            </div>
-            {% for campo in cfg.campos %}
-            <div class="mb-3">
-                <label for="{{ campo.nome }}" class="form-label">{{ campo.label }}</label>
-                {% if campo.tipo == 'string' %}
-                    {% if campo.nome in ['categoria_pista'] %}
-                    <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
-                        {% for categoria in categorias_pista %}
-                        <option value="{{ categoria }}">{{ categoria }}</option>
-                        {% endfor %}
-                    </select>
-                    {% elif campo.nome in ['categoria_chuva'] %}
-                    <select id="{{ campo.nome }}" name="{{ campo.nome }}" class="form-select">
-                        {% for categoria in categorias_chuva %}
-                        <option value="{{ categoria }}">{{ categoria }}</option>
-                        {% endfor %}
-                    </select>
-                    {% else %}
-                    <input id="{{ campo.nome }}" type="text" name="{{ campo.nome }}" class="form-control">
-                    {% endif %}
+        </div>
+        {% for campo in cfg.campos %}
+        <div class="ows-mb-md">
+            <label class="ows-label" for="{{ campo.nome }}">{{ campo.label }}</label>
+            {% if campo.tipo == 'string' %}
+                {% if campo.nome in ['categoria_pista'] %}
+                <select class="ows-select" id="{{ campo.nome }}" name="{{ campo.nome }}">
+                    {% for categoria in categorias_pista %}<option value="{{ categoria }}">{{ categoria }}</option>{% endfor %}
+                </select>
+                {% elif campo.nome in ['categoria_chuva'] %}
+                <select class="ows-select" id="{{ campo.nome }}" name="{{ campo.nome }}">
+                    {% for categoria in categorias_chuva %}<option value="{{ categoria }}">{{ categoria }}</option>{% endfor %}
+                </select>
                 {% else %}
-                <input id="{{ campo.nome }}" type="number" step="0.001" name="{{ campo.nome }}" value="0" class="form-control">
+                <input class="ows-input" id="{{ campo.nome }}" type="text" name="{{ campo.nome }}">
                 {% endif %}
-            </div>
-            {% endfor %}
-            <button type="submit" class="btn btn-primary">Cadastrar</button>
-        </form>
-    </div>
+            {% else %}
+            <input class="ows-input" id="{{ campo.nome }}" type="number" step="0.001" name="{{ campo.nome }}" value="0">
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="ows-btn ows-btn-primary">Cadastrar</button>
+    </form>
 </div>
-
-<h2 class="h5">Lista (página {{ pagina }} de {{ total_paginas }})</h2>
-<table class="table table-sm">
+<h3 class="ows-mb-sm">Lista (página {{ pagina }} de {{ total_paginas }})</h3>
+<table class="ows-admin-table">
     <thead>
-        <tr>
-            <th>Nome</th><th>Temporada</th><th>Montagem</th>
-            {% for campo in cfg.campos %}<th>{{ campo.label }}</th>{% endfor %}
-            <th>Ativo</th><th></th>
-        </tr>
+        <tr><th>Nome</th><th>Temporada</th><th>Montagem</th>{% for campo in cfg.campos %}<th>{{ campo.label }}</th>{% endfor %}<th>Ativo</th><th></th></tr>
     </thead>
     <tbody>
     {% for item in itens %}
@@ -538,21 +416,16 @@
         <td>{{ "{:,.0f}".format(item.custo_montagem) }}</td>
         {% for campo in cfg.campos %}<td>{{ item | attr(campo.nome) }}</td>{% endfor %}
         <td>{{ "Sim" if item.ativo else "Não" }}</td>
-        <td><a href="{{ url_for('admin_fornecedor_editar', categoria=categoria, item_id=item.id) }}">Editar</a></td>
+        <td><a href="{{ url_for('admin_fornecedor_editar', categoria=categoria, item_id=item.id) }}" class="ows-orange">Editar</a></td>
     </tr>
     {% endfor %}
     </tbody>
 </table>
 <p>
-    {% if pagina > 1 %}
-        <a href="{{ url_for('admin_fornecedores', categoria=categoria, pagina=pagina-1) }}">← Anterior</a>
-    {% endif %}
-    {% if pagina < total_paginas %}
-        <a href="{{ url_for('admin_fornecedores', categoria=categoria, pagina=pagina+1) }}">Próxima →</a>
-    {% endif %}
+    {% if pagina > 1 %}<a href="{{ url_for('admin_fornecedores', categoria=categoria, pagina=pagina-1) }}" class="ows-btn ows-btn-ghost">← Anterior</a>{% endif %}
+    {% if pagina < total_paginas %}<a href="{{ url_for('admin_fornecedores', categoria=categoria, pagina=pagina+1) }}" class="ows-btn ows-btn-ghost">Próxima →</a>{% endif %}
 </p>
 {% endblock %}
-
 ===== templates/admin_pista_editar.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'pistas' %}
@@ -665,53 +538,37 @@
 {% endblock %}
 
 ===== templates/admin_temporada_editar.html =====
-{% extends "base.html" %}
-{% block content %}
-<h1 class="h3">Editar temporada: {{ temporada.nome }}</h1>
-<p><a href="{{ url_for('admin_temporadas') }}">← Voltar</a></p>
+{% extends "admin_base.html" %}
+{% set secao_admin = 'temporadas' %}
 
-<div class="card mb-4">
-    <div class="card-header">Renomear</div>
-    <div class="card-body">
-        <form method="POST" class="row g-2">
-            <input type="hidden" name="acao" value="renomear">
-            <div class="col-md-8">
-                <input type="text" name="nome" class="form-control" value="{{ temporada.nome }}" required>
-            </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-secondary w-100">Salvar nome</button>
-            </div>
-        </form>
-    </div>
+{% block admin_content %}
+<h1 class="ows-mb-xs">Editar temporada: {{ temporada.nome }}</h1>
+<p class="ows-mb-md"><a href="{{ url_for('admin_temporadas') }}" class="ows-orange">← Voltar</a></p>
+
+<div class="ows-card ows-mb-md">
+    <h3 class="ows-mb-sm">Renomear</h3>
+    <form method="POST" class="ows-form ows-grid-2">
+        <input type="hidden" name="acao" value="renomear">
+        <input class="ows-input" type="text" name="nome" value="{{ temporada.nome }}" required>
+        <button type="submit" class="ows-btn ows-btn-ghost">Salvar nome</button>
+    </form>
 </div>
 
-<div class="card mb-4">
-    <div class="card-header">Adicionar corrida ao calendário</div>
-    <div class="card-body">
-        <form method="POST" class="row g-2">
-            <input type="hidden" name="acao" value="adicionar_pista">
-            <div class="col-md-8">
-                <select name="pista_id" class="form-select" required>
-                    <option value="">-- escolha uma pista --</option>
-                    {% for p in pistas %}
-                    <option value="{{ p.id }}">{{ p.nome }} ({{ p.pais }}, {{ p.extensao_km }} km)</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-primary w-100">➕ Adicionar</button>
-            </div>
-        </form>
-    </div>
+<div class="ows-card ows-mb-md">
+    <h3 class="ows-mb-sm">Adicionar corrida ao calendário</h3>
+    <form method="POST" class="ows-form ows-grid-2">
+        <input type="hidden" name="acao" value="adicionar_pista">
+        <select class="ows-select" name="pista_id" required>
+            <option value="">-- escolha uma pista --</option>
+            {% for p in pistas %}<option value="{{ p.id }}">{{ p.nome }} ({{ p.pais }}, {{ p.extensao_km }} km)</option>{% endfor %}
+        </select>
+        <button type="submit" class="ows-btn ows-btn-primary">➕ Adicionar</button>
+    </form>
 </div>
 
-<h2 class="h5">Calendário</h2>
-<table class="table">
-    <thead>
-        <tr>
-            <th>#</th><th>Pista</th><th>País</th><th>Status</th><th></th>
-        </tr>
-    </thead>
+<h3 class="ows-mb-sm">Calendário</h3>
+<table class="ows-admin-table">
+    <thead><tr><th>#</th><th>Pista</th><th>País</th><th>Status</th><th></th></tr></thead>
     <tbody>
         {% for corrida in temporada.corridas_agendadas %}
         {% set pista = pistas_por_id.get(corrida.pista_real_id) %}
@@ -719,184 +576,128 @@
             <td>{{ corrida.ordem }}</td>
             <td>{{ corrida.pista_nome }}</td>
             <td>{{ pista.pais if pista else '-' }}</td>
-            <td>
-                {% if corrida.executada %}
-                    ✅ Executada
-                {% else %}
-                    ⏳ Aguardando
-                {% endif %}
-            </td>
+            <td>{% if corrida.executada %}✅ Executada{% else %}⏳ Aguardando{% endif %}</td>
             <td>
                 {% if not corrida.executada %}
-                <form method="POST" action="{{ url_for('admin_temporada_remover_corrida', corrida_id=corrida.id) }}" style="display:inline;"
-                      onsubmit="return confirm('Remover essa corrida do calendário?');">
-                    <button type="submit" class="btn btn-sm btn-outline-danger">🗑</button>
+                <form method="POST" action="{{ url_for('admin_temporada_remover_corrida', corrida_id=corrida.id) }}" class="ows-admin-inline-form" onsubmit="return confirm('Remover essa corrida do calendário?');">
+                    <button type="submit" class="ows-btn ows-btn-danger">🗑</button>
                 </form>
                 {% endif %}
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="text-muted">Nenhuma corrida ainda. Adicione acima.</td></tr>
+        <tr><td colspan="5" class="ows-muted">Nenhuma corrida ainda. Adicione acima.</td></tr>
         {% endfor %}
     </tbody>
 </table>
 {% endblock %}
-
 ===== templates/admin_temporadas.html =====
 {% extends "admin_base.html" %}
 {% set secao_admin = 'temporadas' %}
-
 {% block admin_content %}
-<h1 class="h3 mb-4">Temporadas</h1>
-
-<div class="card mb-4">
-    <div class="card-header">Criar nova temporada</div>
-    <div class="card-body">
-        <form method="POST" class="row g-2">
-            <div class="col-md-8">
-                <input type="text" name="nome" class="form-control" placeholder="Ex: Temporada 2026" required>
-            </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-primary w-100">➕ Criar</button>
-            </div>
-        </form>
-    </div>
+<h1 class="ows-mb-md">Temporadas</h1>
+<div class="ows-card ows-mb-md">
+    <h3 class="ows-mb-sm">Criar nova temporada</h3>
+    <form method="POST" class="ows-form ows-grid-2">
+        <input class="ows-input" type="text" name="nome" placeholder="Ex: Temporada 2026" required>
+        <button type="submit" class="ows-btn ows-btn-primary">➕ Criar</button>
+    </form>
 </div>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Nome</th><th>Corridas</th><th>Executadas</th><th>Status</th><th></th>
-        </tr>
-    </thead>
+<table class="ows-admin-table">
+    <thead><tr><th>Nome</th><th>Corridas</th><th>Executadas</th><th>Status</th><th></th></tr></thead>
     <tbody>
         {% for t in temporadas %}
         <tr>
             <td>{{ t.nome }}</td>
             <td>{{ t.total_corridas() }}</td>
             <td>{{ t.corridas_executadas() }}</td>
+            <td>{% if t.ativa %}<span class="ows-badge-value ows-text-success">Ativa</span>{% else %}<span class="ows-badge-label">Inativa</span>{% endif %}</td>
             <td>
-                {% if t.ativa %}<span class="badge bg-success">Ativa</span>
-                {% else %}<span class="badge bg-secondary">Inativa</span>
-                {% endif %}
-            </td>
-            <td>
-                <a href="{{ url_for('admin_temporada_editar', temporada_id=t.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                <a href="{{ url_for('admin_temporada_editar', temporada_id=t.id) }}" class="ows-btn ows-btn-ghost">Editar</a>
                 {% if t.ativa %}
-                    <form method="POST" action="{{ url_for('admin_temporada_desativar', temporada_id=t.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">Desativar</button>
+                    <form method="POST" action="{{ url_for('admin_temporada_desativar', temporada_id=t.id) }}" class="ows-admin-inline-form">
+                        <button type="submit" class="ows-btn ows-btn-ghost">Desativar</button>
                     </form>
                 {% else %}
-                    <form method="POST" action="{{ url_for('admin_temporada_ativar', temporada_id=t.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-outline-success">Ativar</button>
+                    <form method="POST" action="{{ url_for('admin_temporada_ativar', temporada_id=t.id) }}" class="ows-admin-inline-form">
+                        <button type="submit" class="ows-btn ows-btn-primary">Ativar</button>
                     </form>
                 {% endif %}
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="text-muted">Nenhuma temporada.</td></tr>
+        <tr><td colspan="5" class="ows-muted">Nenhuma temporada.</td></tr>
         {% endfor %}
     </tbody>
 </table>
-
-<p class="text-muted mt-3" style="font-size:0.9em;">
-    Só uma temporada pode estar ativa por vez. Ativar uma temporada desativa a anterior.
-</p>
+<p class="ows-hint ows-mt-md">Só uma temporada pode estar ativa por vez. Ativar uma temporada desativa a anterior.</p>
 {% endblock %}
-
 ===== templates/admin_usuarios.html =====
-{% extends "base.html" %}
-{% block content %}
-<h1 class="h3 mb-4">Usuários (admin)</h1>
-<p><a href="{{ url_for('admin_dashboard') }}">← Voltar ao painel admin</a></p>
+{% extends "admin_base.html" %}
+{% set secao_admin = 'usuarios' %}
 
-<p>Aqui você define <strong>grupo</strong> (divisão do campeonato) e <strong>classe</strong> (categoria) de cada jogador. Na Fase 2, jogadores só podem convidar pra dupla quem estiver no mesmo grupo + classe.</p>
+{% block admin_content %}
+<h1 class="ows-mb-xs">Usuários (admin)</h1>
+<p class="ows-mb-md"><a href="{{ url_for('admin_dashboard') }}" class="ows-orange">← Voltar ao painel admin</a></p>
 
-<div class="card mb-4">
-    <div class="card-header">Filtros</div>
-    <div class="card-body">
-        <form method="GET" class="row g-2">
-            <div class="col-md-3">
-                <label class="form-label">E-mail</label>
-                <input type="text" name="email" value="{{ filtro_email }}" class="form-control" placeholder="parte do email">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Grupo</label>
-                <select name="grupo" class="form-select">
-                    <option value="">-- todos --</option>
-                    {% for g in grupos_existentes %}
-                    <option value="{{ g }}" {% if filtro_grupo == g %}selected{% endif %}>{{ g }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Classe</label>
-                <select name="classe" class="form-select">
-                    <option value="">-- todas --</option>
-                    {% for c in classes_existentes %}
-                    <option value="{{ c }}" {% if filtro_classe == c %}selected{% endif %}>{{ c }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">🔍 Filtrar</button>
-            </div>
-        </form>
-    </div>
+<p class="ows-mb-md ows-muted">Aqui você define <strong>grupo</strong> e <strong>classe</strong> de cada jogador.</p>
+
+<div class="ows-card ows-mb-md">
+    <h3 class="ows-mb-sm">Filtros</h3>
+    <form method="GET" class="ows-form ows-grid-4">
+        <div>
+            <label class="ows-label">E-mail</label>
+            <input class="ows-input" type="text" name="email" value="{{ filtro_email }}" placeholder="parte do email">
+        </div>
+        <div>
+            <label class="ows-label">Grupo</label>
+            <select class="ows-select" name="grupo">
+                <option value="">-- todos --</option>
+                {% for g in grupos_existentes %}<option value="{{ g }}" {% if filtro_grupo == g %}selected{% endif %}>{{ g }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="ows-label">Classe</label>
+            <select class="ows-select" name="classe">
+                <option value="">-- todas --</option>
+                {% for c in classes_existentes %}<option value="{{ c }}" {% if filtro_classe == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+            </select>
+        </div>
+        <div style="display: flex; align-items: flex-end;">
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">🔍 Filtrar</button>
+        </div>
+    </form>
 </div>
 
-<p><strong>{{ usuarios|length }}</strong> usuário(s) encontrado(s).</p>
+<p class="ows-mb-sm"><strong class="ows-strong">{{ usuarios|length }}</strong> usuário(s) encontrado(s).</p>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>E-mail</th>
-            <th>Grupo</th>
-            <th>Classe</th>
-            <th>Admin</th>
-            <th>Carro?</th>
-            <th>Salvar</th>
-        </tr>
-    </thead>
+<table class="ows-admin-table">
+    <thead><tr><th>E-mail</th><th>Grupo</th><th>Classe</th><th>Admin</th><th>Carro?</th><th>Salvar</th></tr></thead>
     <tbody>
         {% for u in usuarios %}
         <tr>
-            <form method="POST" action="{{ url_for('admin_usuario_editar', usuario_id=u.id, grupo=filtro_grupo, classe=filtro_classe, email=filtro_email) }}">
+            <form method="POST" action="{{ url_for('admin_usuario_editar', usuario_id=u.id, grupo=filtro_grupo, classe=filtro_classe, email=filtro_email) }}" class="ows-form">
+                <td>{{ u.email }} {% if u.id == usuario_logado.id %}<span class="ows-badge-value ows-text-info">você</span>{% endif %}</td>
+                <td><input class="ows-input admin-input-sm" type="text" name="grupo" value="{{ u.grupo or '' }}" placeholder="ex: A"></td>
+                <td><input class="ows-input admin-input-md" type="text" name="classe" value="{{ u.classe or '' }}" placeholder="ex: Ouro"></td>
                 <td>
-                    {{ u.email }}
-                    {% if u.id == usuario_logado.id %}<span class="badge bg-info">você</span>{% endif %}
-                </td>
-                <td>
-                    <input type="text" name="grupo" value="{{ u.grupo or '' }}" class="form-control form-control-sm" placeholder="ex: A" style="width:100px;">
-                </td>
-                <td>
-                    <input type="text" name="classe" value="{{ u.classe or '' }}" class="form-control form-control-sm" placeholder="ex: Ouro" style="width:120px;">
-                </td>
-                <td>
-                    <select name="eh_admin" class="form-select form-select-sm" style="width:90px;">
+                    <select class="ows-select admin-input-sm" name="eh_admin">
                         <option value="0" {% if not u.eh_admin %}selected{% endif %}>Não</option>
                         <option value="1" {% if u.eh_admin %}selected{% endif %}>Sim</option>
                     </select>
                 </td>
-                <td>
-                    {% if u.equipe %}✅ {{ u.equipe.nome }}{% else %}—{% endif %}
-                </td>
-                <td>
-                    <button type="submit" class="btn btn-sm btn-outline-success">💾</button>
-                </td>
+                <td>{% if u.equipe %}✅ {{ u.equipe.nome }}{% else %}—{% endif %}</td>
+                <td><button type="submit" class="ows-btn ows-btn-ghost">💾</button></td>
             </form>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="text-muted">Nenhum usuário encontrado.</td></tr>
+        <tr><td colspan="6" class="ows-muted">Nenhum usuário encontrado.</td></tr>
         {% endfor %}
     </tbody>
 </table>
 
-<p class="text-muted mt-3" style="font-size:0.9em;">
-    Grupo e classe são texto livre. Sugestão: usar "A", "B", "C" pra grupo (divisões) e "Ouro", "Prata", "Bronze" pra classe. Você pode inventar o que quiser — jogadores só se agrupam por esses rótulos.
-</p>
+<p class="ows-hint ows-mt-md">Grupo e classe são texto livre.</p>
 {% endblock %}
-
 ===== templates/base.html =====
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -904,7 +705,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Open Wheel Strategy{% endblock %}</title>
-    <link href="{{ url_for('static', filename='css/tema.css') }}" rel="stylesheet">
+    
+    <!-- CSS Globais (Ordem Importante) -->
+    <link href="{{ url_for('static', filename='css/variaveis.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/base.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/componentes.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/formularios.css') }}" rel="stylesheet">
+    
+    <!-- CSS Específicos por Tela (Injetados dinamicamente) -->
+    {% block css_extra %}{% endblock %}
 </head>
 <body>
 {% if usuario_logado %}
@@ -959,11 +768,12 @@
         </header>
 
         <div class="ows-content">
-            <!-- MENSAGENS FLASH (confirmacao verde) -->
+            <!-- MENSAGENS FLASH -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="ows-alert" style="margin-bottom: 20px; {% if category == 'success' %}background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;{% endif %}">
+                        <!-- Traduz as categorias Bootstrap (success, danger, etc) para nossas novas classes -->
+                        <div class="ows-alert ows-alert-{{ category }}">
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -994,13 +804,18 @@
 </html>
 ===== templates/classificacao.html =====
 {% extends "base.html" %}
+
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/classificacao.css') }}">
+{% endblock %}
+
 {% block content %}
-<h1 class="h3">Dia de Corrida</h1>
+<h1 class="classi-title">Dia de Corrida</h1>
 {% include "_abas_corrida.html" %}
 
 {% if resultado %}
-<h2>Grid de largada</h2>
-<table>
+<h2 class="classi-subtitle">Grid de largada</h2>
+<table class="classi-table">
     <tr><th>Posição</th><th>Equipe</th><th>Tempo</th></tr>
     {% for r in resultado %}
     <tr>
@@ -1011,7 +826,7 @@
     {% endfor %}
 </table>
 {% else %}
-<p class="text-muted" style="margin-top: 15px;">
+<p class="ows-muted classi-empty-msg">
     A classificação para a próxima corrida ainda não foi realizada. Aguarde o fechamento do grid.
 </p>
 {% endif %}
@@ -1042,44 +857,49 @@
 {% endblock %}
 ===== templates/corrida.html =====
 {% extends "base.html" %}
+
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/corrida.css') }}">
+{% endblock %}
+
 {% block content %}
-<h1 class="h3">Dia de Corrida</h1>
+<h1 class="corrida-title ows-mb-md">Dia de Corrida</h1>
 {% include "_abas_corrida.html" %}
 
 {% if resultado %}
-<h2>Replay volta a volta</h2>
-<div class="card">
-    <p>
-        <strong>{{ resultado.pista.nome }}</strong> ({{ resultado.pista.pais }}) -
+<h2 class="corrida-subtitle ows-mt-lg ows-mb-md">Replay volta a volta</h2>
+<div class="ows-card ows-mb-lg">
+    <p class="ows-muted">
+        <strong class="ows-strong">{{ resultado.pista.nome }}</strong> ({{ resultado.pista.pais }}) -
         {{ resultado.posicoes_por_volta|length }} voltas, {{ resultado.distancia_total }} km total -
         pit stop base: {{ resultado.pista.tempo_pit_stop_segundos }}s |
         câmbio: {{ resultado.pista.categoria_cambio_ideal }} | suspensão: {{ resultado.pista.categoria_suspensao_ideal }}
     </p>
-    <p>
+    <p class="ows-muted">
         Temperaturas por trecho:
-        <strong>{{ resultado.temperaturas_trechos[0] }}°C</strong> /
-        <strong>{{ resultado.temperaturas_trechos[1] }}°C</strong> /
-        <strong>{{ resultado.temperaturas_trechos[2] }}°C</strong> /
-        <strong>{{ resultado.temperaturas_trechos[3] }}°C</strong>
+        <strong class="ows-strong">{{ resultado.temperaturas_trechos[0] }}°C</strong> /
+        <strong class="ows-strong">{{ resultado.temperaturas_trechos[1] }}°C</strong> /
+        <strong class="ows-strong">{{ resultado.temperaturas_trechos[2] }}°C</strong> /
+        <strong class="ows-strong">{{ resultado.temperaturas_trechos[3] }}°C</strong>
     </p>
-    <p>
-        Volta <strong id="volta-atual">1</strong> de {{ resultado.posicoes_por_volta|length }}
+    <p class="ows-muted">
+        Volta <strong class="ows-strong" id="volta-atual">1</strong> de {{ resultado.posicoes_por_volta|length }}
     </p>
-    <div>
-        <button type="button" id="btn-anterior">❮ Volta anterior</button>
-        <button type="button" id="btn-play">▶ Play</button>
-        <button type="button" id="btn-proxima">Próxima volta ❯</button>
+    <div class="corrida-controls ows-mt-md ows-mb-md">
+        <button type="button" id="btn-anterior" class="ows-btn ows-btn-ghost">❮ Volta anterior</button>
+        <button type="button" id="btn-play" class="ows-btn ows-btn-primary">▶ Play</button>
+        <button type="button" id="btn-proxima" class="ows-btn ows-btn-ghost">Próxima volta ❯</button>
     </div>
-    <table id="tabela-replay">
+    <table id="tabela-replay" class="corrida-table">
         <tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>
     </table>
 </div>
 
-<h2>Resultado final</h2>
-<table>
+<h2 class="corrida-subtitle ows-mt-lg ows-mb-md">Resultado final</h2>
+<table class="corrida-table">
     <tr><th>Posição</th><th>Equipe</th><th>Tempo total</th><th>Pit stops</th><th>Comb. qualifying</th></tr>
     {% for r in resultado.classificacao_final %}
-    <tr class="{% if r.abandonou %}table-danger{% endif %}">
+    <tr class="{% if r.abandonou %}corrida-row-danger{% endif %}">
         <td>P{{ r.posicao }}</td>
         <td>{{ r.equipe }}</td>
         {% if r.abandonou %}
@@ -1098,11 +918,13 @@
     let voltaIndex = 0;
     let playing = false;
     let playInterval = null;
+    
     function formatarTempo(s) {
         const m = Math.floor(s / 60);
         const seg = (s % 60).toFixed(3).padStart(6, "0");
         return `${m}:${seg}`;
     }
+    
     function formatarDiferenca(pos, dif, abandonou) {
         if (abandonou) return "ABANDONOU";
         if (pos === 1) return "-";
@@ -1114,11 +936,14 @@
         }
         return `+${dif.toFixed(3)}s`;
     }
+    
     function renderVolta(index) {
+        if (!posicoesPorVolta || posicoesPorVolta.length === 0) return;
         const volta = posicoesPorVolta[index];
         document.getElementById("volta-atual").textContent = index + 1;
         const tabela = document.getElementById("tabela-replay");
         tabela.innerHTML = "<tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>";
+        
         volta.forEach(linha => {
             const tr = document.createElement("tr");
             tr.innerHTML = `<td>P${linha.posicao}</td><td>${linha.equipe}</td>` +
@@ -1128,15 +953,27 @@
             tabela.appendChild(tr);
         });
     }
+    
     document.getElementById("btn-proxima").addEventListener("click", () => {
-        if (voltaIndex < posicoesPorVolta.length - 1) { voltaIndex++; renderVolta(voltaIndex); }
+        if (posicoesPorVolta && voltaIndex < posicoesPorVolta.length - 1) { 
+            voltaIndex++; 
+            renderVolta(voltaIndex); 
+        }
     });
+    
     document.getElementById("btn-anterior").addEventListener("click", () => {
-        if (voltaIndex > 0) { voltaIndex--; renderVolta(voltaIndex); }
+        if (posicoesPorVolta && voltaIndex > 0) { 
+            voltaIndex--; 
+            renderVolta(voltaIndex); 
+        }
     });
+    
     document.getElementById("btn-play").addEventListener("click", function() {
+        if (!posicoesPorVolta || posicoesPorVolta.length === 0) return;
+        
         playing = !playing;
         this.textContent = playing ? "⏸ Pausar" : "▶ Play";
+        
         if (playing) {
             playInterval = setInterval(() => {
                 if (voltaIndex < posicoesPorVolta.length - 1) {
@@ -1152,10 +989,13 @@
             clearInterval(playInterval);
         }
     });
-    renderVolta(0);
+    
+    if (posicoesPorVolta && posicoesPorVolta.length > 0) {
+        renderVolta(0);
+    }
 </script>
 {% else %}
-<p class="text-muted" style="margin-top: 15px;">
+<p class="ows-muted ows-mt-md">
     Nenhuma corrida foi executada recentemente. Aguarde o início da sessão.
 </p>
 {% endif %}
@@ -1163,200 +1003,122 @@
 ===== templates/desenvolvimento.html =====
 {% extends "base.html" %}
 {% block title %}Desenvolvimento • Open Wheel Strategy{% endblock %}
-
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/desenvolvimento.css') }}">
+{% endblock %}
 {% block content %}
 
-<div class="ows-hero" style="margin-bottom: 24px;">
+<div class="ows-hero ows-mb-lg">
     <span class="ows-hero-label">DESENVOLVIMENTO</span>
     <h1>CHASSI E AERODINÂMICA</h1>
     <div class="ows-hero-sub">
         Seu engenheiro contratado projeta o chassi e a aerodinâmica para a
-        <strong>próxima temporada</strong>. O que está sendo construído agora só
-        passa a valer quando a temporada terminar. Para participar da próxima
-        temporada, ambos precisam chegar a 100%.
+        <strong class="ows-strong">próxima temporada</strong>. O que está sendo construído agora só passa a valer quando a temporada terminar.
     </div>
-
     <div class="ows-hero-meta">
-        <div>
-            <small>NÍVEL PROJETISTA ATUAL</small>
-            <strong>Nível {{ registro.nivel_engenheiro_projetista or 1 }}</strong>
-        </div>
-        <div>
-            <small>CHASSI EM CONSTRUÇÃO</small>
-            <strong>{{ "%.1f"|format(registro.chassi_percentual_em_construcao or 0) }}%</strong>
-        </div>
-        <div>
-            <small>AERO EM CONSTRUÇÃO</small>
-            <strong>{{ "%.1f"|format(registro.aero_percentual_em_construcao or 0) }}%</strong>
-        </div>
+        <div><small>NÍVEL PROJETISTA ATUAL</small><strong class="ows-strong">Nível {{ registro.nivel_engenheiro_projetista or 1 }}</strong></div>
+        <div><small>CHASSI EM CONSTRUÇÃO</small><strong class="ows-strong">{{ "%.1f"|format(registro.chassi_percentual_em_construcao or 0) }}%</strong></div>
+        <div><small>AERO EM CONSTRUÇÃO</small><strong class="ows-strong">{{ "%.1f"|format(registro.aero_percentual_em_construcao or 0) }}%</strong></div>
     </div>
 </div>
 
 {% if mensagem %}
-<div class="ows-card" style="margin-bottom: 18px; background: rgba(255,120,0,.08);">
-    <p style="margin: 0;">{{ mensagem }}</p>
+<div class="ows-card desenv-card-info ows-mb-lg">
+    <p class="ows-m-0">{{ mensagem }}</p>
 </div>
 {% endif %}
 
 {% if not equipe.engenheiro_fornecedor_id %}
-<div class="ows-card" style="margin-bottom: 18px; border-left: 3px solid #b93030;">
-    <h3 style="color: #ff8a8a;">SEM ENGENHEIRO CONTRATADO</h3>
-    <p class="ows-muted" style="margin: 0;">
-        Você não tem engenheiro contratado. Sem engenheiro, você não pode desenvolver
-        chassi ou aerodinâmica, e não vai participar da próxima temporada.
-        Contrate um engenheiro entre temporadas na tela <a href="{{ url_for('editar_equipe') }}" class="ows-orange">Editar Equipe</a>.
-    </p>
+<div class="ows-card desenv-card-danger ows-mb-lg">
+    <h3 class="desenv-title-danger">SEM ENGENHEIRO CONTRATADO</h3>
+    <p class="ows-muted ows-m-0">Você não tem engenheiro contratado. Contrate na tela <a href="{{ url_for('editar_equipe') }}" class="ows-orange">Editar Equipe</a>.</p>
 </div>
 {% endif %}
 
-<div class="ows-grid-2" style="margin-bottom: 18px;">
-    <!-- CHASSI -->
+<div class="ows-grid-2 ows-mb-lg">
     <div class="ows-card">
-        <h3>🏎 CHASSI</h3>
-        <div class="ows-value" style="font-size: 42px;">{{ "%.0f"|format(registro.chassi_percentual_em_construcao or 0) }}%</div>
-        <div class="ows-hint">Em construção pra próxima temporada</div>
-
-        <hr style="border-color: #1e2c47; margin: 16px 0;">
-
+        <h3>🏎️ CHASSI</h3>
+        <div class="ows-value desenv-value-lg">{{ "%.0f"|format(registro.chassi_percentual_em_construcao or 0) }}%</div>
+        <div class="ows-hint">Em construção pra próxima temporada</div><hr>
         <div>
-            <div class="ows-muted" style="font-size: 12px;">Próximo avanço custa:</div>
-            <div style="font-size: 18px; font-weight: 600; color: #fff;">
-                R$ {{ "{:,.0f}".format(proximo_custo_chassi or 0)|replace(",", ".") }}
-            </div>
+            <div class="ows-muted desenv-cost-label">Próximo avanço custa:</div>
+            <div class="desenv-cost-value">R$ {{ "{:,.0f}".format(proximo_custo_chassi or 0)|replace(",", ".") }}</div>
         </div>
-
-        <div style="margin-top: 10px;">
-            <div class="ows-muted" style="font-size: 12px;">Tempo até ficar pronto:</div>
-            <div style="font-size: 18px; font-weight: 600; color: #fff;">
-                {{ "%.1f"|format(proximo_tempo_chassi or 0) }} horas
-            </div>
+        <div class="ows-mt-sm">
+            <div class="ows-muted desenv-cost-label">Tempo até ficar pronto:</div>
+            <div class="desenv-cost-value">{{ "%.1f"|format(proximo_tempo_chassi or 0) }} horas</div>
         </div>
-
         {% if not registro.em_progresso and (registro.chassi_percentual_em_construcao or 0) < 100 %}
-        <form method="POST" style="margin-top: 16px;">
+        <form method="POST" class="ows-mt-md">
             <input type="hidden" name="peca" value="chassi">
-            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">
-                Avançar Chassi
-            </button>
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Avançar Chassi</button>
         </form>
         {% elif (registro.chassi_percentual_em_construcao or 0) >= 100 %}
-        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
-            ✓ Chassi Completo
-        </div>
+        <div class="ows-btn ows-btn-ghost ows-btn-full desenv-btn-text ows-mt-md">✓ Chassi Completo</div>
         {% else %}
-        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
-            Trabalho em andamento…
-        </div>
+        <div class="ows-btn ows-btn-ghost ows-btn-full desenv-btn-text ows-mt-md">Trabalho em andamento…</div>
         {% endif %}
     </div>
 
-    <!-- AERODINÂMICA -->
     <div class="ows-card">
         <h3>💨 AERODINÂMICA</h3>
-        <div class="ows-value" style="font-size: 42px;">{{ "%.0f"|format(registro.aero_percentual_em_construcao or 0) }}%</div>
-        <div class="ows-hint">Em construção pra próxima temporada</div>
-
-        <hr style="border-color: #1e2c47; margin: 16px 0;">
-
+        <div class="ows-value desenv-value-lg">{{ "%.0f"|format(registro.aero_percentual_em_construcao or 0) }}%</div>
+        <div class="ows-hint">Em construção pra próxima temporada</div><hr>
         <div>
-            <div class="ows-muted" style="font-size: 12px;">Próximo avanço custa:</div>
-            <div style="font-size: 18px; font-weight: 600; color: #fff;">
-                R$ {{ "{:,.0f}".format(proximo_custo_aero or 0)|replace(",", ".") }}
-            </div>
+            <div class="ows-muted desenv-cost-label">Próximo avanço custa:</div>
+            <div class="desenv-cost-value">R$ {{ "{:,.0f}".format(proximo_custo_aero or 0)|replace(",", ".") }}</div>
         </div>
-
-        <div style="margin-top: 10px;">
-            <div class="ows-muted" style="font-size: 12px;">Tempo até ficar pronto:</div>
-            <div style="font-size: 18px; font-weight: 600; color: #fff;">
-                {{ "%.1f"|format(proximo_tempo_aero or 0) }} horas
-            </div>
+        <div class="ows-mt-sm">
+            <div class="ows-muted desenv-cost-label">Tempo até ficar pronto:</div>
+            <div class="desenv-cost-value">{{ "%.1f"|format(proximo_tempo_aero or 0) }} horas</div>
         </div>
-
         {% if not registro.em_progresso and (registro.aero_percentual_em_construcao or 0) < 100 %}
-        <form method="POST" style="margin-top: 16px;">
+        <form method="POST" class="ows-mt-md">
             <input type="hidden" name="peca" value="aero">
-            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">
-                Avançar Aerodinâmica
-            </button>
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Avançar Aerodinâmica</button>
         </form>
         {% elif (registro.aero_percentual_em_construcao or 0) >= 100 %}
-        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
-            ✓ Aero Completa
-        </div>
+        <div class="ows-btn ows-btn-ghost ows-btn-full desenv-btn-text ows-mt-md">✓ Aero Completa</div>
         {% else %}
-        <div class="ows-btn ows-btn-ghost ows-btn-full" style="text-align: center; margin-top: 16px;">
-            Trabalho em andamento…
-        </div>
+        <div class="ows-btn ows-btn-ghost ows-btn-full desenv-btn-text ows-mt-md">Trabalho em andamento…</div>
         {% endif %}
     </div>
 </div>
 
-<!-- Requisitos para próxima temporada -->
-<div class="ows-card" style="margin-bottom: 18px;">
+<div class="ows-card ows-mb-lg">
     <h3>REQUISITOS PARA A PRÓXIMA TEMPORADA</h3>
-    <p class="ows-muted" style="margin-top: 8px;">
-        No fim da temporada atual, para o carro passar pra próxima com o desenvolvimento aplicado,
-        os 3 requisitos abaixo precisam estar cumpridos:
-    </p>
-
-    <div style="margin-top: 16px;">
-        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
-            {% if equipe.engenheiro_fornecedor_id %}
-            <span style="color: #4caf50; font-size: 20px;">✓</span>
-            <span>Engenheiro contratado</span>
-            {% else %}
-            <span style="color: #b93030; font-size: 20px;">✗</span>
-            <span>Engenheiro contratado</span>
-            {% endif %}
+    <p class="ows-muted ows-mt-xs">Para o carro passar pra próxima temporada, cumpra os requisitos:</p>
+    <div class="ows-mt-md">
+        <div class="desenv-req-item">
+            {% if equipe.engenheiro_fornecedor_id %}<span class="desenv-icon-success">✓</span><span>Engenheiro contratado</span>
+            {% else %}<span class="desenv-icon-danger">✕</span><span>Engenheiro contratado</span>{% endif %}
         </div>
-
-        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
-            {% if (registro.chassi_percentual_em_construcao or 0) >= 100 %}
-            <span style="color: #4caf50; font-size: 20px;">✓</span>
-            <span>Chassi 100%</span>
-            {% else %}
-            <span style="color: #b93030; font-size: 20px;">✗</span>
-            <span>Chassi 100% (faltam {{ "%.0f"|format(100 - (registro.chassi_percentual_em_construcao or 0)) }}%)</span>
-            {% endif %}
+        <div class="desenv-req-item">
+            {% if (registro.chassi_percentual_em_construcao or 0) >= 100 %}<span class="desenv-icon-success">✓</span><span>Chassi 100%</span>
+            {% else %}<span class="desenv-icon-danger">✕</span><span>Chassi 100% (faltam {{ "%.0f"|format(100 - (registro.chassi_percentual_em_construcao or 0)) }}%)</span>{% endif %}
         </div>
-
-        <div style="display: flex; gap: 12px; align-items: center; padding: 8px 0;">
-            {% if (registro.aero_percentual_em_construcao or 0) >= 100 %}
-            <span style="color: #4caf50; font-size: 20px;">✓</span>
-            <span>Aerodinâmica 100%</span>
-            {% else %}
-            <span style="color: #b93030; font-size: 20px;">✗</span>
-            <span>Aerodinâmica 100% (faltam {{ "%.0f"|format(100 - (registro.aero_percentual_em_construcao or 0)) }}%)</span>
-            {% endif %}
+        <div class="desenv-req-item">
+            {% if (registro.aero_percentual_em_construcao or 0) >= 100 %}<span class="desenv-icon-success">✓</span><span>Aerodinâmica 100%</span>
+            {% else %}<span class="desenv-icon-danger">✕</span><span>Aerodinâmica 100% (faltam {{ "%.0f"|format(100 - (registro.aero_percentual_em_construcao or 0)) }}%)</span>{% endif %}
         </div>
     </div>
 </div>
 
-<!-- Estado do carro atual -->
 <div class="ows-card">
     <h3>CARRO ATUAL (usa nas corridas)</h3>
-    <div class="ows-grid-2" style="margin-top: 10px;">
+    <div class="ows-grid-2 ows-mt-sm">
         <div>
-            <div class="ows-muted" style="font-size: 12px;">Chassi aplicado</div>
-            <div style="font-size: 20px; font-weight: 600; color: #fff;">
-                {{ "%.0f"|format(registro.chassi_percentual_aplicado or 0) }}% (nível {{ registro.nivel_engenheiro_projetista or 1 }})
-            </div>
+            <div class="ows-muted desenv-cost-label">Chassi aplicado</div>
+            <div class="desenv-current-value">{{ "%.0f"|format(registro.chassi_percentual_aplicado or 0) }}% (nível {{ registro.nivel_engenheiro_projetista or 1 }})</div>
         </div>
         <div>
-            <div class="ows-muted" style="font-size: 12px;">Aerodinâmica aplicada</div>
-            <div style="font-size: 20px; font-weight: 600; color: #fff;">
-                {{ "%.0f"|format(registro.aero_percentual_aplicado or 0) }}% (nível {{ registro.nivel_engenheiro_projetista or 1 }})
-            </div>
+            <div class="ows-muted desenv-cost-label">Aerodinâmica aplicada</div>
+            <div class="desenv-current-value">{{ "%.0f"|format(registro.aero_percentual_aplicado or 0) }}% (nível {{ registro.nivel_engenheiro_projetista or 1 }})</div>
         </div>
     </div>
-    <p class="ows-muted" style="margin-top: 12px; font-size: 12px;">
-        Esses valores são os que estão em uso nas corridas da temporada atual.
-        Só mudam quando a temporada termina e o desenvolvimento em construção é aplicado.
-    </p>
+    <p class="ows-muted ows-mt-xs desenv-cost-label">Só mudam quando a temporada termina e o desenvolvimento é aplicado.</p>
 </div>
-
 {% endblock %}
-
 ===== templates/editar_cor_carro.html =====
 {% extends "base.html" %}
 {% block content %}
@@ -1647,196 +1409,110 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 ===== templates/equipes.html =====
 {% extends "base.html" %}
 {% block title %}Montar Equipe • Open Wheel Strategy{% endblock %}
-
+{% block css_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/equipes.css') }}">{% endblock %}
 {% block content %}
-
-<div class="ows-hero" style="margin-bottom: 24px;">
+<div class="ows-hero ows-mb-lg">
     <span class="ows-hero-label">MONTAR EQUIPE</span>
     <h1>ASSINE OS CONTRATOS DA TEMPORADA</h1>
-    <div class="ows-hero-sub">
-        Escolha os fornecedores da sua equipe. Motor, combustível, pneu, câmbio e suspensão
-        são contratos anuais obrigatórios. Sua equipe já começa com um <strong>Engenheiro
-        nível 1</strong> (grátis), que entrega chassi e aerodinâmica de nível 1 prontos.
-    </div>
-
+    <div class="ows-hero-sub">Escolha os fornecedores da sua equipe. Motor, combustível, pneu, câmbio e suspensão são contratos anuais obrigatórios.</div>
     <div class="ows-hero-meta">
-        <div>
-            <small>ORÇAMENTO INICIAL</small>
-            <strong>R$ {{ "{:,.0f}".format(orcamento_inicial or 0)|replace(",", ".") }}</strong>
-        </div>
-        <div>
-            <small>REGRA</small>
-            <strong>Contratos anuais</strong>
-        </div>
-        <div>
-            <small>ENGENHEIRO + CHASSI E AERO</small>
-            <strong>Grátis (nível 1)</strong>
-        </div>
+        <div><small>ORÇAMENTO INICIAL</small><strong class="ows-strong">R$ {{ "{:,.0f}".format(orcamento_inicial or 0)|replace(",", ".") }}</strong></div>
+        <div><small>REGRA</small><strong class="ows-strong">Contratos anuais</strong></div>
+        <div><small>ENGENHEIRO + CHASSI E AERO</small><strong class="ows-strong">Grátis (nível 1)</strong></div>
     </div>
 </div>
-
-<form method="POST" class="ows-form" style="display:block;">
-
-    <div class="ows-card" style="margin-bottom: 18px;">
+<form method="POST" class="ows-form eq-form-block">
+    <div class="ows-card ows-mb-md">
         <h3>IDENTIDADE DA EQUIPE</h3>
-        <div style="margin-top: 10px;">
-            <label for="nome">Nome da equipe</label>
-            <input type="text" id="nome" name="nome" required placeholder="Ex: Racing Titans">
+        <div class="ows-mt-sm">
+            <label class="ows-label" for="nome">Nome da equipe</label>
+            <input class="ows-input" type="text" id="nome" name="nome" required placeholder="Ex: Racing Titans">
         </div>
     </div>
-
-    <div class="ows-card" style="margin-bottom: 18px;">
+    <div class="ows-card ows-mb-md">
         <h3>CONTRATOS OBRIGATÓRIOS</h3>
-        <p class="ows-muted" style="margin-top: 4px;">
-            O desempenho técnico de cada fornecedor não aparece: escolha pelo custo e o nome.
-            Alguns fornecedores baratos entregam mais do que parecem. Ordenados do mais barato ao mais caro.
-        </p>
-
-        <div class="ows-grid-2" style="margin-top: 16px;">
+        <p class="ows-muted ows-mt-xs">O desempenho técnico de cada fornecedor não aparece: escolha pelo custo e o nome.</p>
+        <div class="ows-grid-2 ows-mt-md">
             <div>
-                <label for="motor_fornecedor_id">Motor</label>
-                <select id="motor_fornecedor_id" name="motor_fornecedor_id" required>
+                <label class="ows-label" for="motor_fornecedor_id">Motor</label>
+                <select class="ows-select" id="motor_fornecedor_id" name="motor_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in motores|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in motores|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="combustivel_fornecedor_id">Combustível</label>
-                <select id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" required>
+                <label class="ows-label" for="combustivel_fornecedor_id">Combustível</label>
+                <select class="ows-select" id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in combustiveis|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in combustiveis|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="pneu_fornecedor_id">Pneu</label>
-                <select id="pneu_fornecedor_id" name="pneu_fornecedor_id" required>
+                <label class="ows-label" for="pneu_fornecedor_id">Pneu</label>
+                <select class="ows-select" id="pneu_fornecedor_id" name="pneu_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in pneus|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in pneus|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="cambio_fornecedor_id">Câmbio</label>
-                <select id="cambio_fornecedor_id" name="cambio_fornecedor_id" required>
+                <label class="ows-label" for="cambio_fornecedor_id">Câmbio</label>
+                <select class="ows-select" id="cambio_fornecedor_id" name="cambio_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in cambios|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in cambios|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="suspensao_fornecedor_id">Suspensão</label>
-                <select id="suspensao_fornecedor_id" name="suspensao_fornecedor_id" required>
+                <label class="ows-label" for="suspensao_fornecedor_id">Suspensão</label>
+                <select class="ows-select" id="suspensao_fornecedor_id" name="suspensao_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in suspensoes|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in suspensoes|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
         </div>
     </div>
-
-    <div class="ows-card" style="margin-bottom: 18px; border-left: 3px solid #ff7a00;">
-        <h3 style="color: #ff8a3d;">ENGENHEIRO NÍVEL 1 — INCLUSO</h3>
-        <p class="ows-muted" style="margin-top: 4px;">
-            Sua equipe já vem com um <strong>Engenheiro nível 1</strong> contratado, sem custo.
-            Ele entrega chassi e aerodinâmica de nível 1 (100% aplicados) para você começar a correr.
-            Nas próximas temporadas você poderá <strong>renovar</strong> esse contrato (com desconto)
-            ou <strong>contratar um engenheiro de nível superior</strong> para desenvolver um carro
-            mais rápido. Lembre-se: chassi 100% + aero 100% + engenheiro contratado são requisito
-            para participar normalmente da próxima temporada.
-        </p>
+    <div class="ows-card ows-mb-md eq-card-highlight">
+        <h3 class="eq-title-primary">ENGENHEIRO NÍVEL 1 — INCLUSO</h3>
+        <p class="ows-muted ows-mt-xs">Sua equipe já vem com um <strong class="ows-strong">Engenheiro nível 1</strong> contratado, sem custo.</p>
     </div>
-
-    <div class="ows-card" style="margin-bottom: 18px; background: rgba(255,120,0,.06);">
+    <div class="ows-card ows-mb-md eq-card-warning">
         <h3>ANTES DE ASSINAR</h3>
-        <p class="ows-muted" style="margin: 0;">
-            Ao clicar em <strong>Criar Equipe</strong>, o sistema debita imediatamente
-            os custos de temporada de todos os fornecedores selecionados. Você não
-            poderá trocar contratos durante a temporada. Seu carro começa com Engenheiro,
-            chassi e aerodinâmica de nível 1 (grátis).
-        </p>
+        <p class="ows-muted ows-m-0">Ao clicar em <strong class="ows-strong">Criar Equipe</strong>, o sistema debita os custos e você não poderá trocar na temporada.</p>
     </div>
-
-    <button type="submit" class="ows-btn ows-btn-primary" style="font-size: 15px; padding: 14px 32px;">
-        ✓ Criar Equipe e Assinar Contratos
-    </button>
-
+    <button type="submit" class="ows-btn ows-btn-primary eq-btn-submit">✓ Criar Equipe e Assinar Contratos</button>
 </form>
-
 {% endblock %}
-
 ===== templates/estrategia_corrida.html =====
 {% extends "base.html" %}
 {% block title %}Estratégia de Corrida • Open Wheel Strategy{% endblock %}
 
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/estrategia_corrida.css') }}">
+{% endblock %}
+
 {% block content %}
-<style>
-    /* Dark mode Pit Wall */
-    .pit-wall-container { display: flex; gap: 20px; align-items: flex-start; margin-top: 20px; }
-    .strategy-editor { flex: 2; background: #1e2430; border-radius: 8px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-    .pit-wall-summary { flex: 1; background: #161a23; border: 1px solid #2a3241; border-radius: 8px; padding: 20px; position: sticky; top: 20px; font-family: monospace; }
-    .pit-wall-summary h3 { color: #7a8aa3; font-size: 14px; letter-spacing: 2px; margin-bottom: 20px; border-bottom: 1px solid #2a3241; padding-bottom: 10px; }
-    .summary-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 16px; }
-    .summary-item span:first-child { color: #8c9bb3; }
-    .summary-item strong { color: #ffffff; }
-    
-    .timeline-bar { display: flex; height: 30px; background: #0f1218; border-radius: 4px; overflow: hidden; margin-bottom: 25px; }
-    .timeline-stint { display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 12px; font-family: monospace; transition: width 0.3s; }
-    
-    /* Cores de Pneus 50-900 */
-    .pneu-seco { background-color: #f1c40f; } 
-    .pneu-molhado { background-color: #2ecc71; } 
-    .pneu-encharcado { background-color: #3498db; } 
-
-    .stint-card { background: #262d3d; border-left: 4px solid #f1c40f; padding: 15px; margin-bottom: 15px; border-radius: 4px; display: flex; gap: 15px; align-items: center; }
-    .stint-card select, .stint-card input { background: #161a23; border: 1px solid #364156; color: #fff; padding: 8px; border-radius: 4px; font-family: monospace; }
-    .btn-remover-stint { background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .btn-add-stint { background: #2a3241; color: white; border: 1px dashed #7a8aa3; width: 100%; padding: 12px; text-align: center; cursor: pointer; border-radius: 4px; margin-bottom: 20px; }
-    .btn-add-stint:hover { background: #364156; }
-    .btn-save-strategy { background: #ff7a00; color: white; border: none; width: 100%; padding: 15px; font-weight: bold; text-transform: uppercase; border-radius: 4px; margin-top: 15px; cursor: pointer; }
-    .btn-save-strategy:hover { background: #e66e00; }
-</style>
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3">Estratégia de Corrida</h1>
+<div class="estrategia-header">
+    <h1>Estratégia de Corrida</h1>
     {% if pista %}
-    <span class="badge bg-secondary">Próxima Corrida: {{ pista.nome }} ({{ voltas_pista }} voltas)</span>
+    <div class="ows-badge">
+        <div class="ows-badge-label">PRÓXIMA CORRIDA</div>
+        <div class="ows-badge-value">{{ pista.nome }} ({{ voltas_pista }} voltas)</div>
+    </div>
     {% endif %}
 </div>
 
 <form method="POST" action="{{ url_for('estrategia_corrida_view') }}" id="strategyForm">
     <div class="pit-wall-container">
         <div class="strategy-editor">
-            <h3 style="color:#fff; margin-bottom: 20px;">Plano de Stints</h3>
+            <h3 class="estrategia-title">Plano de Stints</h3>
             
             <div class="timeline-bar" id="timelineBar"></div>
 
             <div id="stintsContainer">
                 {% for stint in stints %}
                 <div class="stint-card stint-row" data-ordem="{{ loop.index }}">
-                    <div style="flex:1;">
-                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">STINT <span class="stint-number">{{ loop.index }}</span></span>
-                        <select name="modelo_pneu[]" class="pneu-select" onchange="updateUI()" style="width:100%;">
+                    <div class="estrategia-stint-col-flex">
+                        <span class="estrategia-stint-label">STINT <span class="stint-number">{{ loop.index }}</span></span>
+                        <select name="modelo_pneu[]" class="ows-select pneu-select estrategia-select-full" onchange="updateUI()">
                             {% for m in modelos_disponiveis %}
                             <option value="{{ m }}" {% if stint.modelo_pneu == m %}selected{% endif %}>
                                 {{ m }} — {% if m <= 500 %}🌤️ Seco{% elif m <= 700 %}🌧️ Molhada{% else %}⛈️ Encharcada{% endif %}
@@ -1845,28 +1521,28 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
                         </select>
                     </div>
                     <div>
-                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Voltas Alvo</span>
-                        <input type="number" name="voltas[]" value="{{ stint.voltas }}" min="1" max="100" class="input-voltas" onchange="updateUI()" style="width:80px;">
+                        <span class="estrategia-stint-label">Voltas Alvo</span>
+                        <input type="number" name="voltas[]" value="{{ stint.voltas }}" min="1" max="100" class="ows-input input-voltas estrategia-input-sm" onchange="updateUI()">
                     </div>
                     <div>
-                        <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Combustível (L)</span>
-                        <input type="number" name="combustivel_litros[]" value="{{ stint.combustivel_litros }}" min="1" max="150" step="0.5" class="input-combustivel" onchange="updateUI()" style="width:100px;">
+                        <span class="estrategia-stint-label">Combustível (L)</span>
+                        <input type="number" name="combustivel_litros[]" value="{{ stint.combustivel_litros }}" min="1" max="150" step="0.5" class="ows-input input-combustivel estrategia-input-md" onchange="updateUI()">
                     </div>
-                    <div style="align-self: flex-end;">
+                    <div class="estrategia-col-end">
                         <button type="button" class="btn-remover-stint" onclick="removeStint(this)">✕</button>
                     </div>
                 </div>
                 {% endfor %}
             </div>
 
-            <button type="button" class="btn-add-stint" onclick="addStint()">+ ADICIONAR STINT / PIT STOP</button>
+            <button type="button" class="btn-add-stint" id="btnAddStint" onclick="addStint()">+ ADICIONAR STINT / PIT STOP</button>
         </div>
 
         <div class="pit-wall-summary">
             <h3>PIT WALL - DADOS ALVO</h3>
             
             <!-- Aviso dinâmico JS -->
-            <div id="lapValidationMsg" style="font-weight: bold; margin-bottom: 15px; font-size: 14px;"></div>
+            <div id="lapValidationMsg" class="estrategia-validation-msg"></div>
 
             <div class="summary-item">
                 <span>Voltas da Pista</span>
@@ -1886,10 +1562,10 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
             </div>
             <div class="summary-item">
                 <span>Tempo Estimado</span>
-                <strong style="color:#7a8aa3;">[Fase B]</strong>
+                <strong class="estrategia-fase-b">[Fase B]</strong>
             </div>
 
-            <button type="submit" class="btn-save-strategy">💾 Salvar Estratégia</button>
+            <button type="submit" class="ows-btn ows-btn-primary ows-btn-full estrategia-btn-save">💾 Salvar Estratégia</button>
         </div>
     </div>
 </form>
@@ -1907,10 +1583,10 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         return 'pneu-encharcado';
     }
     
-    function getPneuColorBorder(modelo) {
-        if (modelo <= 500) return '#f1c40f';
-        if (modelo <= 700) return '#2ecc71';
-        return '#3498db';
+    function getPneuBorderClass(modelo) {
+        if (modelo <= 500) return 'stint-border-seco';
+        if (modelo <= 700) return 'stint-border-molhado';
+        return 'stint-border-encharcado';
     }
 
     function addStint() {
@@ -1918,21 +1594,21 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         const div = document.createElement('div');
         div.className = 'stint-card stint-row';
         div.innerHTML = `
-            <div style="flex:1;">
-                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">STINT <span class="stint-number">X</span></span>
-                <select name="modelo_pneu[]" class="pneu-select" onchange="updateUI()" style="width:100%;">
+            <div class="estrategia-stint-col-flex">
+                <span class="estrategia-stint-label">STINT <span class="stint-number">X</span></span>
+                <select name="modelo_pneu[]" class="ows-select pneu-select estrategia-select-full" onchange="updateUI()">
                     ${selectOptionsHTML}
                 </select>
             </div>
             <div>
-                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Voltas Alvo</span>
-                <input type="number" name="voltas[]" value="15" min="1" max="100" class="input-voltas" onchange="updateUI()" style="width:80px;">
+                <span class="estrategia-stint-label">Voltas Alvo</span>
+                <input type="number" name="voltas[]" value="15" min="1" max="100" class="ows-input input-voltas estrategia-input-sm" onchange="updateUI()">
             </div>
             <div>
-                <span style="color:#8c9bb3; font-size:12px; display:block; margin-bottom:5px;">Combustível (L)</span>
-                <input type="number" name="combustivel_litros[]" value="40" min="1" max="150" step="0.5" class="input-combustivel" onchange="updateUI()" style="width:100px;">
+                <span class="estrategia-stint-label">Combustível (L)</span>
+                <input type="number" name="combustivel_litros[]" value="40" min="1" max="150" step="0.5" class="ows-input input-combustivel estrategia-input-md" onchange="updateUI()">
             </div>
-            <div style="align-self: flex-end;">
+            <div class="estrategia-col-end">
                 <button type="button" class="btn-remover-stint" onclick="removeStint(this)">✕</button>
             </div>
         `;
@@ -1965,7 +1641,9 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
             
             totalVoltas += voltas;
             totalCombustivel += combustivel;
-            row.style.borderLeftColor = getPneuColorBorder(modeloPneu);
+            
+            row.classList.remove('stint-border-seco', 'stint-border-molhado', 'stint-border-encharcado');
+            row.classList.add(getPneuBorderClass(modeloPneu));
         });
 
         rows.forEach((row, index) => {
@@ -1990,30 +1668,29 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         const pistaVoltasText = document.getElementById('sumPistaVoltas').innerText;
         const pistaVoltas = isNaN(parseInt(pistaVoltasText)) ? 0 : parseInt(pistaVoltasText);
         const validationMsg = document.getElementById('lapValidationMsg');
-        const btnAdd = document.querySelector('.btn-add-stint');
+        const btnAdd = document.getElementById('btnAddStint');
 
         if (pistaVoltas > 0) {
+            // Limpa as classes de feedback antigas
+            validationMsg.classList.remove('ows-text-danger', 'ows-text-warning', 'ows-text-success');
+            
             if (totalVoltas > pistaVoltas) {
                 validationMsg.innerText = `⚠️ ${totalVoltas - pistaVoltas} voltas a mais que a corrida`;
-                validationMsg.style.color = '#e74c3c';
+                validationMsg.classList.add('ows-text-danger');
             } else if (totalVoltas < pistaVoltas) {
                 validationMsg.innerText = `⚠️ Faltam ${pistaVoltas - totalVoltas} voltas`;
-                validationMsg.style.color = '#f1c40f';
+                validationMsg.classList.add('ows-text-warning');
             } else {
                 validationMsg.innerText = `✅ Voltas batem certinho`;
-                validationMsg.style.color = '#2ecc71';
+                validationMsg.classList.add('ows-text-success');
             }
 
             if (totalVoltas >= pistaVoltas) {
                 btnAdd.disabled = true;
                 btnAdd.innerText = "LIMITE DE VOLTAS ATINGIDO";
-                btnAdd.style.opacity = "0.5";
-                btnAdd.style.cursor = "not-allowed";
             } else {
                 btnAdd.disabled = false;
                 btnAdd.innerText = "+ ADICIONAR STINT / PIT STOP";
-                btnAdd.style.opacity = "1";
-                btnAdd.style.cursor = "pointer";
             }
         }
     }
@@ -2110,140 +1787,71 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 ===== templates/login.html =====
 {% extends "base.html" %}
 {% block title %}Entrar • Open Wheel Strategy{% endblock %}
-
 {% block content %}
 <div class="ows-auth-wrap">
     <div class="ows-auth-card">
         <span class="ows-hero-label">ACESSO</span>
         <h1>ENTRAR</h1>
-        <p class="ows-muted">Acesse sua conta para comandar sua equipe.</p>
-
-        {% if erro %}
-        <div class="ows-alert">{{ erro }}</div>
-        {% endif %}
-
+        <p class="ows-muted ows-mb-md">Acesse sua conta para comandar sua equipe.</p>
+        {% if erro %}<div class="ows-alert ows-alert-danger">{{ erro }}</div>{% endif %}
         <form method="POST" class="ows-form">
-            <label>E-mail</label>
-            <input type="email" name="email" required autofocus>
-
-            <label>Senha</label>
-            <input type="password" name="senha" required>
-
+            <label class="ows-label">E-mail</label>
+            <input class="ows-input" type="email" name="email" required autofocus>
+            <label class="ows-label">Senha</label>
+            <input class="ows-input" type="password" name="senha" required>
             <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Entrar</button>
         </form>
-
         <div class="ows-divider"><span>ou</span></div>
-
         <a href="{{ url_for('login_google') }}" class="ows-btn ows-btn-ghost ows-btn-full">Entrar com Google</a>
-
-        <p class="ows-auth-footer">
-            Ainda não tem conta?
-            <a href="{{ url_for('registrar') }}" class="ows-orange">Cadastre-se</a>
-        </p>
+        <p class="ows-auth-footer">Ainda não tem conta? <a href="{{ url_for('registrar') }}" class="ows-orange">Cadastre-se</a></p>
     </div>
 </div>
 {% endblock %}
-
 ===== templates/minha_equipe.html =====
 {% extends "base.html" %}
 {% block title %}{{ equipe.nome }} • Open Wheel Strategy{% endblock %}
-
+{% block css_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/minha_equipe.css') }}">{% endblock %}
 {% block content %}
-
-<!-- HERO com identidade da equipe -->
-<div class="ows-hero" style="margin-bottom: 24px;">
+<div class="ows-hero ows-mb-lg">
     <span class="ows-hero-label">MINHA EQUIPE</span>
     <h1>{{ equipe.nome }}</h1>
     <div class="ows-hero-sub">Painel geral da sua equipe: orçamento, contratos ativos e configuração atual do carro.</div>
-
     <div class="ows-hero-meta">
-        <div>
-            <small>PILOTO</small>
-            <strong>{{ usuario_logado.nick or 'Não definido' }}</strong>
-        </div>
-        <div>
-            <small>ORÇAMENTO</small>
-            <strong>R$ {{ "{:,.0f}".format(equipe.orcamento or 0)|replace(",", ".") }}</strong>
-        </div>
-        <div>
-            <small>MONTAGEM PRÓXIMA CORRIDA</small>
-            <strong>R$ {{ "{:,.0f}".format(custo_montagem or 0)|replace(",", ".") }}</strong>
-        </div>
-        <div>
-            <small>SALDO APÓS MONTAGEM</small>
-            <strong>R$ {{ "{:,.0f}".format((equipe.orcamento or 0) - (custo_montagem or 0))|replace(",", ".") }}</strong>
-        </div>
+        <div><small>PILOTO</small><strong class="ows-strong">{{ usuario_logado.nick or 'Não definido' }}</strong></div>
+        <div><small>ORÇAMENTO</small><strong class="ows-strong">R$ {{ "{:,.0f}".format(equipe.orcamento or 0)|replace(",", ".") }}</strong></div>
+        <div><small>MONTAGEM PRÓXIMA CORRIDA</small><strong class="ows-strong">R$ {{ "{:,.0f}".format(custo_montagem or 0)|replace(",", ".") }}</strong></div>
+        <div><small>SALDO APÓS MONTAGEM</small><strong class="ows-strong">R$ {{ "{:,.0f}".format((equipe.orcamento or 0) - (custo_montagem or 0))|replace(",", ".") }}</strong></div>
     </div>
-
     <div class="ows-hero-actions">
         <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-btn ows-btn-primary">Preparar Estratégia</a>
         <a href="{{ url_for('desenvolvimento_view') }}" class="ows-btn ows-btn-ghost">Desenvolvimento</a>
         <a href="{{ url_for('treinamento_view') }}" class="ows-btn ows-btn-ghost">Treinamento de Boxes</a>
     </div>
 </div>
-
-<!-- Includes de abas antigo, mantido pra não quebrar navegação existente -->
 {% include "_abas_equipe.html" ignore missing %}
-
-<!-- Componentes contratados como cards -->
-<h2 style="margin: 8px 0 18px 0; font-size: 14px; letter-spacing: 3px; color: #7a8aa3;">EQUIPAMENTOS CONTRATADOS</h2>
-
-<div class="ows-grid-4" style="margin-bottom: 18px;">
-    <div class="ows-card">
-        <h3>MOTOR</h3>
-        <div class="ows-value" style="font-size: 20px;">{{ carro.motor.nome }}</div>
-        <div class="ows-hint">Fornecedor ativo na temporada</div>
-    </div>
-    <div class="ows-card">
-        <h3>COMBUSTÍVEL</h3>
-        <div class="ows-value" style="font-size: 20px;">{{ carro.combustivel.nome }}</div>
-        <div class="ows-hint">Contrato de fornecimento</div>
-    </div>
-    <div class="ows-card">
-        <h3>PNEU</h3>
-        <div class="ows-value" style="font-size: 20px;">{{ carro.pneu.nome }}</div>
-    </div>
-    <div class="ows-card">
-        <h3>CHASSI</h3>
-        <div class="ows-value" style="font-size: 20px;">{{ carro.chassi.nome }}</div>
-        <div class="ows-hint">Base estrutural do carro</div>
-    </div>
+<h2 class="mq-section-title ows-mb-md ows-mt-sm">EQUIPAMENTOS CONTRATADOS</h2>
+<div class="ows-grid-4 ows-mb-lg">
+    <div class="ows-card"><h3>MOTOR</h3><div class="mq-value-md">{{ carro.motor.nome }}</div><div class="ows-hint">Fornecedor ativo na temporada</div></div>
+    <div class="ows-card"><h3>COMBUSTÍVEL</h3><div class="mq-value-md">{{ carro.combustivel.nome }}</div><div class="ows-hint">Contrato de fornecimento</div></div>
+    <div class="ows-card"><h3>PNEU</h3><div class="mq-value-md">{{ carro.pneu.nome }}</div></div>
+    <div class="ows-card"><h3>CHASSI</h3><div class="mq-value-md">{{ carro.chassi.nome }}</div><div class="ows-hint">Base estrutural do carro</div></div>
 </div>
-
-<div class="ows-grid-3" style="margin-bottom: 24px;">
-    <div class="ows-card">
-        <h3>CÂMBIO</h3>
-        <div class="ows-value" style="font-size: 20px;">{{ carro.cambio.nome }}</div>
-        <div class="ows-hint">Categoria: {{ carro.cambio.categoria_pista|default('A') }}</div>
-    </div>
-    <div class="ows-card">
-        <h3>SUSPENSÃO</h3>
-        <div class="ows-value" style="font-size: 20px;">{{ carro.suspensao.nome }}</div>
-        <div class="ows-hint">Categoria: {{ carro.suspensao.categoria_pista|default('A') }}</div>
-    </div>
+<div class="ows-grid-3 ows-mb-lg">
+    <div class="ows-card"><h3>CÂMBIO</h3><div class="mq-value-md">{{ carro.cambio.nome }}</div><div class="ows-hint">Categoria: {{ carro.cambio.categoria_pista|default('A') }}</div></div>
+    <div class="ows-card"><h3>SUSPENSÃO</h3><div class="mq-value-md">{{ carro.suspensao.nome }}</div><div class="ows-hint">Categoria: {{ carro.suspensao.categoria_pista|default('A') }}</div></div>
     <div class="ows-card">
         <h3>ENGENHEIRO</h3>
         {% if carro.engenheiro %}
-        <div class="ows-value" style="font-size: 20px;">{{ carro.engenheiro.nome }}</div>
-        <div class="ows-hint">Nível {{ carro.engenheiro.nivel }}</div>
+        <div class="mq-value-md">{{ carro.engenheiro.nome }}</div><div class="ows-hint">Nível {{ carro.engenheiro.nivel }}</div>
         {% else %}
-        <div class="ows-value" style="font-size: 20px; color: #556277;">Sem contrato</div>
-        <div class="ows-hint">Nenhum engenheiro contratado</div>
+        <div class="mq-text-disabled">Sem contrato</div><div class="ows-hint">Nenhum engenheiro contratado</div>
         {% endif %}
     </div>
 </div>
-
-<!-- Aviso sobre desempenho oculto -->
-<div class="ows-card" style="border-left: 3px solid #ff7a00;">
-        <h3 style="color: #ff8a3d;">SOBRE OS FORNECEDORES</h3>
-    <p class="ows-muted" style="margin: 0;">
-        O desempenho técnico de cada equipamento é mantido em segredo pelos fornecedores.
-        Você escolhe com base no nome, na categoria e no custo, sem ver os números exatos.
-        Boa parte da estratégia da temporada está justamente em identificar quais fornecedores
-        entregam mais do que aparentam.
-    </p>
+<div class="ows-card mq-card-highlight">
+    <h3 class="mq-title-primary">SOBRE OS FORNECEDORES</h3>
+    <p class="ows-muted ows-m-0">O desempenho técnico de cada equipamento é mantido em segredo pelos fornecedores.</p>
 </div>
-
 {% endblock %}
 ===== templates/montagem_fim_de_semana.html =====
 {% extends "base.html" %}
@@ -2337,16 +1945,16 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 {% endblock %}
 ===== templates/pistas_reais.html =====
 {% extends "base.html" %}
+{% block css_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/pistas_reais.css') }}">{% endblock %}
 {% block content %}
-<h1>Pistas reais</h1>
-<p>{{ pistas|length }} pistas importadas</p>
-
+<h1 class="ows-mb-xs">Pistas reais</h1>
+<p class="ows-muted ows-mb-lg">{{ pistas|length }} pistas importadas</p>
 {% for p in pistas %}
-<div class="card pista-card">
+<div class="ows-card ows-mb-md pistas-reais-card">
     <svg viewBox="0 0 {{ p.largura_viewbox }} {{ p.altura_viewbox }}" width="160" height="112" class="pista-svg">
-        <rect width="{{ p.largura_viewbox }}" height="{{ p.altura_viewbox }}" fill="#eef7ee"/>
-        <path d="{{ p.caminho_svg }}" fill="none" stroke="#2b2b2b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="{{ p.caminho_svg }}" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-dasharray="5,5"/>
+        <rect width="{{ p.largura_viewbox }}" height="{{ p.altura_viewbox }}" fill="var(--bg-body)"/>
+        <path d="{{ p.caminho_svg }}" fill="none" stroke="var(--border-light)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="{{ p.caminho_svg }}" fill="none" stroke="var(--text-white)" stroke-width="1.3" stroke-dasharray="5,5"/>
     </svg>
     <div>
         <h3 class="pista-titulo">{{ p.nome }}</h3>
@@ -2356,68 +1964,55 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
     </div>
 </div>
 {% endfor %}
-
-<p class="pista-legenda">
-    Traçados baseados em dados do OpenStreetMap, via TUMFTM racetrack-database (licença LGPL-3.0).
-</p>
+<p class="pista-legenda">Traçados baseados em dados do OpenStreetMap, via TUMFTM racetrack-database (licença LGPL-3.0).</p>
 {% endblock %}
-
 ===== templates/registrar.html =====
 {% extends "base.html" %}
 {% block title %}Cadastrar • Open Wheel Strategy{% endblock %}
-
 {% block content %}
 <div class="ows-auth-wrap">
     <div class="ows-auth-card">
         <span class="ows-hero-label">NOVA CONTA</span>
         <h1>CADASTRAR</h1>
-        <p class="ows-muted">Crie sua conta e monte sua equipe.</p>
-
-        {% if erro %}
-        <div class="ows-alert">{{ erro }}</div>
-        {% endif %}
-
+        <p class="ows-muted ows-mb-md">Crie sua conta e monte sua equipe.</p>
+        {% if erro %}<div class="ows-alert ows-alert-danger">{{ erro }}</div>{% endif %}
         <form method="POST" class="ows-form">
-            <label>E-mail</label>
-            <input type="email" name="email" required autofocus>
-
-            <label>Senha</label>
-            <input type="password" name="senha" required>
-
+            <label class="ows-label">E-mail</label>
+            <input class="ows-input" type="email" name="email" required autofocus>
+            <label class="ows-label">Senha</label>
+            <input class="ows-input" type="password" name="senha" required>
             <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Criar conta</button>
         </form>
-
-        <p class="ows-auth-footer">
-            Já tem conta?
-            <a href="{{ url_for('login') }}" class="ows-orange">Entrar</a>
-        </p>
+        <p class="ows-auth-footer">Já tem conta? <a href="{{ url_for('login') }}" class="ows-orange">Entrar</a></p>
     </div>
 </div>
 {% endblock %}
-
 ===== templates/temporada.html =====
 {% extends "base.html" %}
+
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/temporada.css') }}">
+{% endblock %}
+
 {% block content %}
-<h1 class="h3 mb-4">Temporada</h1>
+<h1 class="temp-title">Temporada</h1>
 
 {% if not temporada %}
-    <div class="alert alert-info">
+    <div class="ows-alert ows-alert-info">
         Nenhuma temporada ativa no momento. Peça pro admin criar uma em
-        <code>/admin/temporadas</code>.
+        <code class="temp-code">/admin/temporadas</code>.
     </div>
 {% else %}
-    <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="h4">{{ temporada.nome }}</h2>
-            <p>
-                Corridas executadas: <strong>{{ temporada.corridas_executadas() }}</strong>
-                de <strong>{{ temporada.total_corridas() }}</strong>.
-            </p>
-        </div>
+    <div class="ows-card temp-mb">
+        <h2 class="temp-card-title">{{ temporada.nome }}</h2>
+        <p class="ows-muted">
+            Corridas executadas: <strong class="ows-strong">{{ temporada.corridas_executadas() }}</strong>
+            de <strong class="ows-strong">{{ temporada.total_corridas() }}</strong>.
+        </p>
     </div>
 
-    <h2 class="h5">📊 Ranking geral</h2>
-    <table class="table table-sm">
+    <h2 class="temp-subtitle">📊 Ranking geral</h2>
+    <table class="temp-table">
         <thead>
             <tr>
                 <th>#</th><th>Equipe</th>
@@ -2429,18 +2024,18 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
             <tr>
                 <td>{{ loop.index }}º</td>
                 <td>{{ r.equipe_nome }}</td>
-                <td><strong>{{ r.pontos_total }}</strong></td>
+                <td><strong class="ows-strong">{{ r.pontos_total }}</strong></td>
                 <td>{{ r.vitorias }}</td>
                 <td>{{ r.corridas }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-muted">Nenhuma corrida executada ainda.</td></tr>
+            <tr><td colspan="5" class="ows-muted">Nenhuma corrida executada ainda.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 
-    <h2 class="h5 mt-4">🗓 Calendário</h2>
-    <table class="table table-sm">
+    <h2 class="temp-subtitle">📅 Calendário</h2>
+    <table class="temp-table temp-mb">
         <thead>
             <tr>
                 <th>Etapa</th><th>Pista</th><th>País</th><th>Status</th>
@@ -2449,7 +2044,7 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
         <tbody>
             {% for corrida in temporada.corridas_agendadas %}
             {% set pista = pistas_por_id.get(corrida.pista_real_id) %}
-            <tr class="{% if corrida.executada %}text-muted{% endif %}">
+            <tr class="{% if corrida.executada %}ows-muted{% endif %}">
                 <td>{{ corrida.ordem }}ª</td>
                 <td>{{ corrida.pista_nome or (pista.nome if pista else '?') }}</td>
                 <td>{{ pista.pais if pista else '-' }}</td>
@@ -2465,57 +2060,64 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="4" class="text-muted">Nenhuma corrida no calendário.</td></tr>
+            <tr><td colspan="4" class="ows-muted">Nenhuma corrida no calendário.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 {% endif %}
 {% endblock %}
-
 ===== templates/treinamento.html =====
 {% extends "base.html" %}
-{% block content %}
-<h1 class="h3">Treinamento de Box</h1>
-{% include "_abas_equipe.html" %}
+{% block title %}Treinamento de Box • Open Wheel Strategy{% endblock %}
 
-<p class="text-muted">Treina a equipe de box/mecânicos. Isso reduz o tempo parado nas paradas (entrada + troca + saída).</p>
-
-<div class="card">
-    <div class="card-body">
-        <h5>Progresso: {{ registro.percentual }}%</h5>
-        <div class="progress mb-3" style="height: 24px;">
-            <div class="progress-bar bg-danger" style="width: {{ registro.percentual }}%;">{{ registro.percentual }}%</div>
-        </div>
-
-        <p>Tempo de pit stop atual: <strong>{{ tempo_pit_atual }}s</strong></p>
-
-        {% if mensagem %}
-        <div class="alert alert-info">{{ mensagem }}</div>
-        {% endif %}
-
-        {% if registro.em_progresso %}
-            <p><strong>Em andamento</strong> - conclui em {{ registro.horario_conclusao.strftime('%d/%m %H:%M') }} (UTC)</p>
-            <button class="btn btn-secondary" disabled>Avançar</button>
-        {% elif registro.percentual >= 100 %}
-            <p class="text-success">Treinamento completo! 🎉</p>
-        {% else %}
-            <p>Próximo avanço: <strong>+{{ "{:,.0f}".format(proximo_custo) }}</strong> de custo, demora <strong>{{ proximo_tempo }}h</strong></p>
-            <form method="POST">
-                <button type="submit" class="btn btn-primary">Avançar</button>
-            </form>
-        {% endif %}
-    </div>
-</div>
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/treinamento.css') }}">
 {% endblock %}
 
+{% block content %}
+<h1 class="trein-title">Treinamento de Box</h1>
+{% include "_abas_equipe.html" %}
+
+<p class="ows-muted trein-subtitle">Treina a equipe de box/mecânicos. Isso reduz o tempo parado nas paradas (entrada + troca + saída).</p>
+
+<div class="ows-card">
+    <h3>Progresso: {{ registro.percentual }}%</h3>
+    
+    <div class="trein-progress-wrapper">
+        <progress class="trein-progress" value="{{ registro.percentual }}" max="100"></progress>
+        <span class="trein-progress-text">{{ registro.percentual }}%</span>
+    </div>
+
+    <p class="trein-status-text">Tempo de pit stop atual: <strong class="ows-strong">{{ tempo_pit_atual }}s</strong></p>
+
+    {% if mensagem %}
+    <div class="ows-alert ows-alert-info">{{ mensagem }}</div>
+    {% endif %}
+
+    {% if registro.em_progresso %}
+        <p class="trein-status-text"><strong class="ows-strong">Em andamento</strong> - conclui em {{ registro.horario_conclusao.strftime('%d/%m %H:%M') }} (UTC)</p>
+        <button class="ows-btn ows-btn-ghost" disabled>Avançar</button>
+    {% elif registro.percentual >= 100 %}
+        <p class="ows-text-success ows-strong">Treinamento completo! 🎉</p>
+    {% else %}
+        <p class="trein-status-text">Próximo avanço: <strong class="ows-strong">+{{ "{:,.0f}".format(proximo_custo) }}</strong> de custo, demora <strong class="ows-strong">{{ proximo_tempo }}h</strong></p>
+        <form method="POST">
+            <button type="submit" class="ows-btn ows-btn-primary">Avançar</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}
 ===== templates/treino_livre.html =====
 {% extends "base.html" %}
-
 {% block title %}Treino Livre • Open Wheel Strategy{% endblock %}
 
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/treino_livre.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h1 class="h3 mb-0">🏎️ Treino Livre: {{ pista.nome }} ({{ pista.pais }})</h1>
+<div class="treino-header">
+    <h1>🏎️ Treino Livre: {{ pista.nome }} ({{ pista.pais }})</h1>
     <a href="{{ url_for('treino_livre_ranking_view') }}" class="ows-btn ows-btn-ghost">
       🏆 Ver ranking
     </a>
@@ -2523,48 +2125,48 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 
 {% if not stint %}
 <!-- MODO 1: GARAGEM / CONFIGURANDO O STINT -->
-<div class="ows-grid-2" style="align-items:start;">
+<div class="ows-grid-2 treino-grid-start">
     <div>
-        <div class="ows-card" style="margin-bottom: 24px;">
+        <div class="ows-card treino-card-mb">
             <h3>DADOS DO PARC FERMÉ</h3>
-            <p class="ows-muted" style="margin-top:4px;">Componentes já travados e montados no seu carro para esta corrida:</p>
-            <div class="ows-grid-3" style="margin-top: 16px;">
+            <p class="ows-muted treino-subtitle">Componentes já travados e montados no seu carro para esta corrida:</p>
+            <div class="ows-grid-3 treino-grid-mt">
                 <div>
-                    <small class="ows-muted" style="letter-spacing: 1px;">MOTOR</small>
-                    <div style="font-size: 18px; color: #fff; font-weight: bold; margin-top: 4px;">Mod. {{ setup_fds.modelo_motor }}</div>
+                    <small class="ows-muted treino-label">MOTOR</small>
+                    <div class="treino-value-sm">Mod. {{ setup_fds.modelo_motor }}</div>
                 </div>
                 <div>
-                    <small class="ows-muted" style="letter-spacing: 1px;">CÂMBIO</small>
-                    <div style="font-size: 18px; color: #fff; font-weight: bold; margin-top: 4px;">Mod. {{ setup_fds.modelo_cambio }}</div>
+                    <small class="ows-muted treino-label">CÂMBIO</small>
+                    <div class="treino-value-sm">Mod. {{ setup_fds.modelo_cambio }}</div>
                 </div>
                 <div>
-                    <small class="ows-muted" style="letter-spacing: 1px;">SUSPENSÃO</small>
-                    <div style="font-size: 18px; color: #fff; font-weight: bold; margin-top: 4px;">Mod. {{ setup_fds.modelo_suspensao }}</div>
+                    <small class="ows-muted treino-label">SUSPENSÃO</small>
+                    <div class="treino-value-sm">Mod. {{ setup_fds.modelo_suspensao }}</div>
                 </div>
             </div>
         </div>
 
         <div class="ows-card">
             <h3>PNEUS E COMBUSTÍVEL DE TESTE</h3>
-            <p class="ows-muted" style="margin-top:4px;">Defina os itens táticos para este stint. Ao entrar na pista, seu carro roda 100% nas peças, o único desgaste é deste treino.</p>
+            <p class="ows-muted treino-subtitle">Defina os itens táticos para este stint. Ao entrar na pista, seu carro roda 100% nas peças, o único desgaste é deste treino.</p>
             
-            <form method="post" action="{{ url_for('treino_livre_view') }}">
+            <form method="post" action="{{ url_for('treino_livre_view') }}" class="ows-form">
                 <input type="hidden" name="acao" value="iniciar">
                 
-                <div style="margin-top: 16px;">
-                    <label class="form-label text-muted">Modelo de Pneu ({{ pneu_contratado.nome }})</label>
-                    <select name="modelo_pneu" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156; margin-bottom:12px;" required>
+                <div class="treino-grid-mt">
+                    <label class="ows-label">Modelo de Pneu ({{ pneu_contratado.nome }})</label>
+                    <select name="modelo_pneu" class="ows-select treino-input-mb" required>
                         {% for m in modelos_disponiveis %}
                             <option value="{{ m }}">Modelo {{ m }}</option>
                         {% endfor %}
                     </select>
 
-                    <label class="form-label text-muted">Combustível a carregar (L) ({{ combustivel_contratado.nome }})</label>
-                    <input type="number" step="1" min="1" max="150" name="combustivel_litros" value="30" class="form-control" style="background:#1e2430; color:#fff; border: 1px solid #364156; margin-bottom:12px;">
-                    <div class="ows-hint mb-4">A quantidade de litros definirá quantas voltas o piloto consegue dar.</div>
+                    <label class="ows-label">Combustível a carregar (L) ({{ combustivel_contratado.nome }})</label>
+                    <input type="number" step="1" min="1" max="150" name="combustivel_litros" value="30" class="ows-input treino-input-mb">
+                    <div class="ows-hint">A quantidade de litros definirá quantas voltas o piloto consegue dar.</div>
                 </div>
 
-                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="padding: 15px; font-size: 16px;">🏁 Sair da Garagem</button>
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full treino-btn-lg">🏁 Sair da Garagem</button>
             </form>
         </div>
     </div>
@@ -2582,81 +2184,81 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 
 {% else %}
 <!-- MODO 2: NA PISTA / AJUSTANDO SLIDERS VOLTA A VOLTA -->
-<div class="ows-card" style="margin-bottom: 24px;">
-    <div class="d-flex justify-content-between align-items-center flex-wrap">
+<div class="ows-card treino-card-mb">
+    <div class="treino-telemetry-header">
         <div>
-            <h3 style="margin-bottom: 4px; color: #f1c40f;">📡 TELEMETRIA AO VIVO</h3>
-            <p class="ows-muted" style="margin:0;">Pneu Mod. {{ stint.modelo_pneu }} | Treino em Andamento</p>
+            <h3 class="treino-telemetry-title">📡 TELEMETRIA AO VIVO</h3>
+            <p class="ows-muted treino-telemetry-subtitle">Pneu Mod. {{ stint.modelo_pneu }} | Treino em Andamento</p>
         </div>
         
-        <div style="display: flex; gap: 20px; text-align: right;">
+        <div class="treino-telemetry-stats">
             <div>
                 <small class="ows-muted">Combustível</small>
-                <div style="font-size: 20px; font-weight: bold; color: {% if stint.combustivel_restante < 10 %}#e74c3c{% else %}#fff{% endif %};">{{ stint.combustivel_restante }} L</div>
+                <div class="treino-stat-val {% if stint.combustivel_restante < 10 %}ows-text-danger{% endif %}">{{ stint.combustivel_restante }} L</div>
             </div>
             <div>
                 <small class="ows-muted">Vida do Pneu</small>
                 {% set vida_pneu = 100 - stint.desgaste %}
                 {% if vida_pneu < 0 %}{% set vida_pneu = 0 %}{% endif %}
-                {% set cor_vida = '#2ecc71' if vida_pneu > 50 else ('#f1c40f' if vida_pneu >= 20 else '#e74c3c') %}
-                <div style="font-size: 20px; font-weight: bold; color: {{ cor_vida }};">{{ "%.1f"|format(vida_pneu) }}%</div>
+                <div class="treino-stat-val {% if vida_pneu > 50 %}ows-text-success{% elif vida_pneu >= 20 %}ows-text-warning{% else %}ows-text-danger{% endif %}">{{ "%.1f"|format(vida_pneu) }}%</div>
             </div>
             <div>
                 <small class="ows-muted">Voltas</small>
-                <div style="font-size: 20px; font-weight: bold; color: #fff;">{{ stint.voltas|length }}</div>
+                <div class="treino-stat-val">{{ stint.voltas|length }}</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="ows-grid-2" style="align-items:start;">
+<div class="ows-grid-2 treino-grid-start">
     <div>
         <div class="ows-card">
             <h3>⚙️ AJUSTE FINO DO CARRO</h3>
-            <p class="ows-muted" style="margin-top:4px;">1 a 99. Escute o feedback do piloto e ajuste para buscar a volta ideal.</p>
+            <p class="ows-muted treino-subtitle">1 a 99. Escute o feedback do piloto e ajuste para buscar a volta ideal.</p>
             
             {% if stint.voltas %}
-            <div style="margin: 20px 0; padding: 15px; background: rgba(46,125,50,.12); border-left: 4px solid #2ecc71; border-radius: 4px;">
-                <small class="ows-muted" style="display:block; margin-bottom:5px; font-weight:bold;">ACERTO GERAL ATUAL</small>
-                <div style="font-size: 32px; font-weight: bold; color: #2ecc71;">{{ stint.voltas[0].acerto }}%</div>
+            <div class="treino-acerto-box">
+                <small class="ows-muted treino-acerto-label">ACERTO GERAL ATUAL</small>
+                <div class="treino-acerto-val">{{ stint.voltas[0].acerto }}%</div>
             </div>
             {% endif %}
 
             <form method="post" action="{{ url_for('treino_livre_view') }}">
-                <div style="margin-bottom: 20px;">
-                    <label class="d-flex justify-content-between text-white font-monospace">
-                        Câmbio (Curto/Longo) <output id="out_cambio" style="color:#f1c40f;">{{ sliders_atuais.cambio }}</output>
+                <div class="treino-slider-row">
+                    <label class="treino-slider-label">
+                        Câmbio (Curto/Longo) <output id="out_cambio" class="ows-text-warning">{{ sliders_atuais.cambio }}</output>
                     </label>
-                    <input type="range" class="form-range" name="slider_cambio" min="1" max="99" value="{{ sliders_atuais.cambio }}" oninput="document.getElementById('out_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" class="ows-range" name="slider_cambio" min="1" max="99" value="{{ sliders_atuais.cambio }}" oninput="document.getElementById('out_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
                 
-                <div style="margin-bottom: 20px;">
-                    <label class="d-flex justify-content-between text-white font-monospace">
-                        Suspensão (Mole/Dura) <output id="out_susp" style="color:#f1c40f;">{{ sliders_atuais.suspensao }}</output>
+                <div class="treino-slider-row">
+                    <label class="treino-slider-label">
+                        Suspensão (Mole/Dura) <output id="out_susp" class="ows-text-warning">{{ sliders_atuais.suspensao }}</output>
                     </label>
-                    <input type="range" class="form-range" name="slider_suspensao" min="1" max="99" value="{{ sliders_atuais.suspensao }}" oninput="document.getElementById('out_susp').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" class="ows-range" name="slider_suspensao" min="1" max="99" value="{{ sliders_atuais.suspensao }}" oninput="document.getElementById('out_susp').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
                 
-                <div style="margin-bottom: 30px;">
-                    <label class="d-flex justify-content-between text-white font-monospace">
-                        Aerofólio (Menos/Mais Asa) <output id="out_aero" style="color:#f1c40f;">{{ sliders_atuais.aerofolio }}</output>
+                <div class="treino-slider-row-last">
+                    <label class="treino-slider-label">
+                        Aerofólio (Menos/Mais Asa) <output id="out_aero" class="ows-text-warning">{{ sliders_atuais.aerofolio }}</output>
                     </label>
-                    <input type="range" class="form-range" name="slider_aerofolio" min="1" max="99" value="{{ sliders_atuais.aerofolio }}" oninput="document.getElementById('out_aero').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" class="ows-range" name="slider_aerofolio" min="1" max="99" value="{{ sliders_atuais.aerofolio }}" oninput="document.getElementById('out_aero').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
 
                 {% if stint.ativo %}
-                <button type="submit" name="acao" value="fazer_volta" class="ows-btn ows-btn-primary ows-btn-full mb-3" style="padding: 15px; font-weight: bold;">
+                <!-- CSS INLINE REMOVIDO AQUI -->
+                <button type="submit" name="acao" value="fazer_volta" class="ows-btn ows-btn-primary ows-btn-full treino-btn-lg treino-btn-volta">
                     ⏱️ Fazer 1 Volta
                 </button>
                 {% else %}
-                <div class="ows-alert mb-3 text-center" style="background:#e74c3c; color:#fff; border:none; font-weight:bold;">
+                <div class="ows-alert treino-alert-fatal">
                     STINT ENCERRADO: {{ stint.encerrou_por }}
                 </div>
                 {% endif %}
 
-                <div class="d-flex gap-2">
-                    <button type="submit" name="acao" value="salvar_ajuste" class="ows-btn ows-btn-ghost flex-fill" style="color:#2ecc71; border-color:#2ecc71;">💾 Salvar Ajuste Fino</button>
-                    <button type="submit" name="acao" value="descartar" class="ows-btn ows-btn-ghost flex-fill" style="color:#e74c3c; border-color:#e74c3c;">✕ Voltar pro Box</button>
+                <div class="treino-actions-row">
+                    <button type="submit" name="acao" value="salvar_ajuste" class="ows-btn ows-btn-ghost treino-btn-success">💾 Salvar Ajuste Fino</button>
+                    <button type="submit" name="acao" value="descartar" class="ows-btn ows-btn-ghost treino-btn-danger">❌ Voltar pro Box</button>
                 </div>
             </form>
         </div>
@@ -2665,33 +2267,32 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
     <!-- Tabela de Histórico -->
     <div>
         <div class="ows-card">
-            <h3>📝 Histórico do Stint</h3>
-            <div style="overflow-x:auto;">
-              <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
+            <h3>📋 Histórico do Stint</h3>
+            <div class="treino-table-wrapper">
+              <table class="treino-table">
                 <thead>
-                  <tr style="border-bottom: 2px solid #2a3241;">
-                    <th style="padding:8px; color:#7a8aa3;">V.</th>
-                    <th style="padding:8px; color:#7a8aa3;">Tempo</th>
-                    <th style="padding:8px; color:#7a8aa3;">Acerto</th>
-                    <th style="padding:8px; color:#7a8aa3;">Vida Pneu</th>
-                    <th style="padding:8px; color:#7a8aa3;">Feedback do Piloto</th>
+                  <tr>
+                    <th>V.</th>
+                    <th>Tempo</th>
+                    <th>Acerto</th>
+                    <th>Vida Pneu</th>
+                    <th>Feedback do Piloto</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for v in stint.voltas %}
-                    <tr style="border-bottom:1px solid #1e2a3d;">
-                      <td style="padding:12px 8px;">#{{ v.numero }}</td>
-                      <td style="padding:12px 8px; font-weight:bold; color:#fff;">{{ v.tempo | tempo_min }}</td>
-                      <td style="padding:12px 8px; color:#2ecc71; font-weight:bold;">{{ v.acerto }}%</td>
+                    <tr>
+                      <td>#{{ v.numero }}</td>
+                      <td class="treino-td-bold">{{ v.tempo | tempo_min }}</td>
+                      <td class="treino-td-success">{{ v.acerto }}%</td>
                       {% set v_vida = 100 - v.desgaste_pneu %}
                       {% if v_vida < 0 %}{% set v_vida = 0 %}{% endif %}
-                      {% set v_cor = '#2ecc71' if v_vida > 50 else ('#f1c40f' if v_vida >= 20 else '#e74c3c') %}
-                      <td style="padding:12px 8px; font-weight:bold; color:{{ v_cor }};">{{ "%.1f"|format(v_vida) }}%</td>
-                      <td style="padding:12px 8px;" class="ows-hint">"{{ v.feedback }}"</td>
+                      <td class="treino-td-bold {% if v_vida > 50 %}ows-text-success{% elif v_vida >= 20 %}ows-text-warning{% else %}ows-text-danger{% endif %}">{{ "%.1f"|format(v_vida) }}%</td>
+                      <td class="ows-hint">"{{ v.feedback }}"</td>
                     </tr>
                   {% else %}
                   <tr>
-                    <td colspan="5" style="padding:20px; text-align:center;" class="ows-muted">Nenhuma volta completada ainda. Ajuste e acelere.</td>
+                    <td colspan="5" class="ows-muted treino-td-center">Nenhuma volta completada ainda. Ajuste e acelere.</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -2705,70 +2306,39 @@ document.getElementById('form_cor').addEventListener('submit', function(e) {
 {% endblock %}
 ===== templates/treino_livre_ranking.html =====
 {% extends "base.html" %}
-
-{% block titulo %}Ranking de Treino Livre{% endblock %}
-
-{% block conteudo %}
-<div class="container my-4">
-
-  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h1 class="h3 mb-0">🏆 Ranking de Treino Livre</h1>
-    <a href="{{ url_for('treino_livre_view') }}" class="btn btn-outline-primary">← Voltar ao treino</a>
-  </div>
-
-  <p class="text-muted">
-    Melhor volta de cada equipe, da mais rápida pra mais lenta. Só o recorde de
-    cada equipe aparece aqui.
-  </p>
-
-  {% if resultados %}
-    <div class="card shadow-sm">
-      <div class="table-responsive">
-        <table class="table table-striped align-middle mb-0">
-          <thead>
-            <tr>
-              <th>Pos.</th>
-              <th>Equipe</th>
-              <th>Melhor volta</th>
-              <th>Tempo médio</th>
-              <th>Voltas</th>
-              <th>Pneu</th>
-              <th>Combustível</th>
-              <th>Erro setup</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in resultados %}
-              <tr class="{{ 'table-warning' if r.equipe_id == minha_equipe_id else '' }}">
-                <td class="fw-bold">{{ loop.index }}º</td>
-                <td>
-                  {{ r.equipe.nome if r.equipe else 'Equipe #' ~ r.equipe_id }}
-                  {% if r.equipe_id == minha_equipe_id %}
-                    <span class="badge bg-primary">você</span>
-                  {% endif %}
-                </td>
-                <td class="fw-semibold">{{ r.melhor_volta_tempo | tempo_min }}</td>
-                <td>{{ r.tempo_medio | tempo_min }}</td>
-                <td>{{ r.total_voltas }}</td>
-                <td>{{ r.pneu_nome or '-' }}</td>
-                <td>{{ r.combustivel_nome or '-' }}</td>
-                <td>{{ r.erro_setup }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {% else %}
-    <div class="alert alert-secondary">
-      Nenhum treino livre registrado ainda. Vá em
-      <a href="{{ url_for('treino_livre_view') }}">Treino Livre</a> e rode o primeiro!
-    </div>
-  {% endif %}
-
-</div>
+{% block title %}Ranking de Treino Livre{% endblock %}
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/admin.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/ranking.css') }}">
 {% endblock %}
-
+{% block content %}
+<div class="ranking-header">
+  <h1 class="ranking-title">🏆 Ranking de Treino Livre</h1>
+  <a href="{{ url_for('treino_livre_view') }}" class="ows-btn ows-btn-ghost">← Voltar ao treino</a>
+</div>
+<p class="ranking-subtitle">Melhor volta de cada equipe, da mais rápida pra mais lenta. Só o recorde de cada equipe aparece aqui.</p>
+{% if resultados %}
+<table class="ows-admin-table">
+  <thead><tr><th>Pos.</th><th>Equipe</th><th>Melhor volta</th><th>Tempo médio</th><th>Voltas</th><th>Pneu</th><th>Combustível</th><th>Erro setup</th></tr></thead>
+  <tbody>
+    {% for r in resultados %}
+      <tr class="{{ 'ranking-row-me' if r.equipe_id == minha_equipe_id else '' }}">
+        <td class="ows-strong">{{ loop.index }}º</td>
+        <td>{{ r.equipe.nome if r.equipe else 'Equipe #' ~ r.equipe_id }} {% if r.equipe_id == minha_equipe_id %}<span class="ows-badge-value ows-text-primary">(você)</span>{% endif %}</td>
+        <td class="ows-strong">{{ r.melhor_volta_tempo | tempo_min }}</td>
+        <td>{{ r.tempo_medio | tempo_min }}</td>
+        <td>{{ r.total_voltas }}</td>
+        <td>{{ r.pneu_nome or '-' }}</td>
+        <td>{{ r.combustivel_nome or '-' }}</td>
+        <td>{{ r.erro_setup }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="ows-alert ows-alert-info">Nenhum treino livre registrado ainda. Vá em <a href="{{ url_for('treino_livre_view') }}" class="ows-strong">Treino Livre</a> e rode o primeiro!</div>
+{% endif %}
+{% endblock %}
 ===== templates/treino_oficial.html =====
 {% extends "base.html" %}
 {% block title %}Treino Oficial • Open Wheel Strategy{% endblock %}

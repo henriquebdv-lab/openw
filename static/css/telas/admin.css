@@ -1,0 +1,128 @@
+/* ============================================================
+   OPEN WHEEL STRATEGY - Telas: Admin Global
+   ============================================================ */
+
+.ows-admin-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+/* Menu de Navegação Horizontal */
+.ows-admin-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: var(--bg-card-start);
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-main);
+    box-shadow: var(--shadow-card);
+    align-items: center;
+}
+
+.ows-admin-nav-item {
+    padding: 8px 16px;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border-main);
+    border-radius: var(--radius-md);
+    transition: all 0.15s ease;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.ows-admin-nav-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-white);
+    border-color: var(--border-light);
+}
+
+.ows-admin-nav-item.active {
+    background: var(--color-primary-faded);
+    border-color: var(--color-primary-border);
+    color: var(--color-primary-light);
+}
+
+/* Dropdown Menu para Fornecedores */
+.ows-admin-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.ows-admin-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+    background: var(--bg-card-start);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    padding: 8px;
+    display: none; /* Escondido por padrão */
+    flex-direction: column;
+    gap: 4px;
+    min-width: 180px;
+    z-index: 100;
+}
+
+/* Revela o menu ao passar o mouse na div pai */
+.ows-admin-dropdown:hover .ows-admin-dropdown-menu {
+    display: flex;
+}
+
+.ows-admin-dropdown-menu .ows-admin-nav-item {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.ows-admin-nav-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-light);
+    margin: 0 4px;
+}
+
+.ows-admin-content {
+    width: 100%;
+}
+
+.ows-admin-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    text-align: left; 
+    background: var(--bg-card-start); 
+    border-radius: var(--radius-md); 
+    overflow: hidden; 
+    margin-bottom: var(--spacing-md); 
+}
+.ows-admin-table th { 
+    padding: 12px; 
+    border-bottom: 2px solid var(--border-dark); 
+    background: var(--bg-surface); 
+    color: var(--text-label); 
+    font-size: 12px; 
+    letter-spacing: 1px; 
+    text-transform: uppercase; 
+}
+.ows-admin-table td { 
+    padding: 12px; 
+    border-bottom: 1px solid var(--border-main); 
+    color: var(--text-main); 
+    font-size: 14px; 
+}
+.ows-admin-table tr:hover td { 
+    background: var(--bg-hover); 
+}
+.ows-admin-table-danger td { 
+    color: var(--color-danger-light); 
+    background: var(--color-danger-bg); 
+}
+.ows-admin-inline-form { display: inline-block; }
+.admin-input-sm { width: 100px; }
+.admin-input-md { width: 120px; }

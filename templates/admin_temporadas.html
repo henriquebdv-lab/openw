@@ -1,60 +1,40 @@
 {% extends "admin_base.html" %}
 {% set secao_admin = 'temporadas' %}
-
 {% block admin_content %}
-<h1 class="h3 mb-4">Temporadas</h1>
-
-<div class="card mb-4">
-    <div class="card-header">Criar nova temporada</div>
-    <div class="card-body">
-        <form method="POST" class="row g-2">
-            <div class="col-md-8">
-                <input type="text" name="nome" class="form-control" placeholder="Ex: Temporada 2026" required>
-            </div>
-            <div class="col-md-4">
-                <button type="submit" class="btn btn-primary w-100">➕ Criar</button>
-            </div>
-        </form>
-    </div>
+<h1 class="ows-mb-md">Temporadas</h1>
+<div class="ows-card ows-mb-md">
+    <h3 class="ows-mb-sm">Criar nova temporada</h3>
+    <form method="POST" class="ows-form ows-grid-2">
+        <input class="ows-input" type="text" name="nome" placeholder="Ex: Temporada 2026" required>
+        <button type="submit" class="ows-btn ows-btn-primary">➕ Criar</button>
+    </form>
 </div>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th>Nome</th><th>Corridas</th><th>Executadas</th><th>Status</th><th></th>
-        </tr>
-    </thead>
+<table class="ows-admin-table">
+    <thead><tr><th>Nome</th><th>Corridas</th><th>Executadas</th><th>Status</th><th></th></tr></thead>
     <tbody>
         {% for t in temporadas %}
         <tr>
             <td>{{ t.nome }}</td>
             <td>{{ t.total_corridas() }}</td>
             <td>{{ t.corridas_executadas() }}</td>
+            <td>{% if t.ativa %}<span class="ows-badge-value ows-text-success">Ativa</span>{% else %}<span class="ows-badge-label">Inativa</span>{% endif %}</td>
             <td>
-                {% if t.ativa %}<span class="badge bg-success">Ativa</span>
-                {% else %}<span class="badge bg-secondary">Inativa</span>
-                {% endif %}
-            </td>
-            <td>
-                <a href="{{ url_for('admin_temporada_editar', temporada_id=t.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                <a href="{{ url_for('admin_temporada_editar', temporada_id=t.id) }}" class="ows-btn ows-btn-ghost">Editar</a>
                 {% if t.ativa %}
-                    <form method="POST" action="{{ url_for('admin_temporada_desativar', temporada_id=t.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">Desativar</button>
+                    <form method="POST" action="{{ url_for('admin_temporada_desativar', temporada_id=t.id) }}" class="ows-admin-inline-form">
+                        <button type="submit" class="ows-btn ows-btn-ghost">Desativar</button>
                     </form>
                 {% else %}
-                    <form method="POST" action="{{ url_for('admin_temporada_ativar', temporada_id=t.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-outline-success">Ativar</button>
+                    <form method="POST" action="{{ url_for('admin_temporada_ativar', temporada_id=t.id) }}" class="ows-admin-inline-form">
+                        <button type="submit" class="ows-btn ows-btn-primary">Ativar</button>
                     </form>
                 {% endif %}
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" class="text-muted">Nenhuma temporada.</td></tr>
+        <tr><td colspan="5" class="ows-muted">Nenhuma temporada.</td></tr>
         {% endfor %}
     </tbody>
 </table>
-
-<p class="text-muted mt-3" style="font-size:0.9em;">
-    Só uma temporada pode estar ativa por vez. Ativar uma temporada desativa a anterior.
-</p>
+<p class="ows-hint ows-mt-md">Só uma temporada pode estar ativa por vez. Ativar uma temporada desativa a anterior.</p>
 {% endblock %}

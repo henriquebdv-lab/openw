@@ -1,31 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Cadastrar • Open Wheel Strategy{% endblock %}
-
 {% block content %}
 <div class="ows-auth-wrap">
     <div class="ows-auth-card">
         <span class="ows-hero-label">NOVA CONTA</span>
         <h1>CADASTRAR</h1>
-        <p class="ows-muted">Crie sua conta e monte sua equipe.</p>
-
-        {% if erro %}
-        <div class="ows-alert">{{ erro }}</div>
-        {% endif %}
-
+        <p class="ows-muted ows-mb-md">Crie sua conta e monte sua equipe.</p>
+        {% if erro %}<div class="ows-alert ows-alert-danger">{{ erro }}</div>{% endif %}
         <form method="POST" class="ows-form">
-            <label>E-mail</label>
-            <input type="email" name="email" required autofocus>
-
-            <label>Senha</label>
-            <input type="password" name="senha" required>
-
+            <label class="ows-label">E-mail</label>
+            <input class="ows-input" type="email" name="email" required autofocus>
+            <label class="ows-label">Senha</label>
+            <input class="ows-input" type="password" name="senha" required>
             <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Criar conta</button>
         </form>
-
-        <p class="ows-auth-footer">
-            Já tem conta?
-            <a href="{{ url_for('login') }}" class="ows-orange">Entrar</a>
-        </p>
+        <p class="ows-auth-footer">Já tem conta? <a href="{{ url_for('login') }}" class="ows-orange">Entrar</a></p>
     </div>
 </div>
 {% endblock %}

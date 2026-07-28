@@ -1754,6 +1754,196 @@ def downgrade():
     op.drop_index("ix_contratos_fornecedor_equipe_id", table_name="contratos_fornecedor")
     op.drop_table("contratos_fornecedor")
 
+===== mock_preparacao.py =====
+"""
+Script para preparar os BOTS (jogadores fake) para a PRÓXIMA CORRIDA da temporada.
+Isso evita que você precise resetar o banco inteiro a cada etapa.
+Ele gera setups de Parc Fermé, Ajuste Fino, Dados de Classificação e Stints aleatórios
+para todas as contas "bot%@fake.com".
+
+Uso:
+    python3 mock_preparacao.py
+"""
+import random
+from app import app
+from models import db, Usuario, SetupFimDeSemana, DadosClassificacao, EstrategiaStint, AjusteSalvo
+from models_temporada import Temporada
+import modelos_componente
+
+def preparar_bots():
+    temporada = Temporada.ativa_atual()
+    if not temporada:
+        print("[AVISO] Nenhuma temporada ativa.")
+        return
+
+    corrida = temporada.proxima_corrida()
+    if not corrida:
+        print("[AVISO] Nenhuma corrida pendente na temporada atual.")
+        return
+
+    bots = Usuario.query.filter(Usuario.email.like('bot%@fake.com')).all()
+    if not bots:
+        print("[AVISO] Nenhum bot encontrado no banco de dados.")
+        return
+
+    modelos = modelos_componente.MODELOS
+    pista_id = corrida.pista_real_id
+
+    preparados = 0
+    for bot in bots:
+        carro = bot.equipe
+        if not carro:
+            continue
+
+        # 1. Limpa preparações antigas para a corrida atual (evita duplicação)
+        SetupFimDeSemana.query.filter_by(equipe_id=carro.id, corrida_id=corrida.id).delete()
+        DadosClassificacao.query.filter_by(equipe_id=carro.id, corrida_id=corrida.id).delete()
+        EstrategiaStint.query.filter_by(equipe_id=carro.id).delete()
+        
+        # 2. Setup do Parc Fermé
+        db.session.add(SetupFimDeSemana(
+            equipe_id=carro.id, 
+            corrida_id=corrida.id,
+            modelo_motor=random.choice(modelos),
+            modelo_cambio=random.choice(modelos),
+            modelo_suspensao=random.choice(modelos),
+            travado=True
+        ))
+
+        # 3. Ajuste Fino (Treino Livre)
+        ajuste = AjusteSalvo.query.filter_by(equipe_id=carro.id, pista_real_id=pista_id).first()
+        if not ajuste:
+            db.session.add(AjusteSalvo(
+                equipe_id=carro.id, 
+                pista_real_id=pista_id,
+                ajuste_cambio=random.randint(1, 99),
+                ajuste_suspensao=random.randint(1, 99),
+                ajuste_aero_dianteiro=random.randint(1, 99),
+                ajuste_aero_traseiro=random.randint(1, 99),
+                ajuste_freio=50
+            ))
+
+        # 4. Dados de Classificação (Quali)
+        db.session.add(DadosClassificacao(
+            equipe_id=carro.id, 
+            corrida_id=corrida.id,
+            modelo_pneu=random.choice(modelos),
+            combustivel_litros=float(random.randint(5, 12))
+        ))
+
+        # 5. Estratégia de Corrida (Stints)
+        for ordem in range(1, random.randint(1, 3) + 1):
+            db.session.add(EstrategiaStint(
+                equipe_id=carro.id, 
+                ordem=ordem,
+                modelo_pneu=random.choice(modelos),
+                voltas=random.randint(15, 30),
+                combustivel_litros=float(random.randint(40, 110))
+            ))
+        
+        preparados += 1
+
+    db.session.commit()
+    print(f"[OK] {preparados} bots preparados com sucesso para a corrida: {corrida.pista_nome}")
+
+if __name__ == "__main__":
+    with app.app_context():
+        preparar_bots()
+===== mock.py =====
+"""
+Script para preparar os BOTS (jogadores fake) para a PRÓXIMA CORRIDA da temporada.
+Isso evita que você precise resetar o banco inteiro a cada etapa.
+Ele gera setups de Parc Fermé, Ajuste Fino, Dados de Classificação e Stints aleatórios
+para todas as contas "bot%@fake.com".
+
+Uso:
+    python3 mock_preparacao.py
+"""
+import random
+from app import app
+from models import db, Usuario, SetupFimDeSemana, DadosClassificacao, EstrategiaStint, AjusteSalvo
+from models_temporada import Temporada
+import modelos_componente
+
+def preparar_bots():
+    temporada = Temporada.ativa_atual()
+    if not temporada:
+        print("[AVISO] Nenhuma temporada ativa.")
+        return
+
+    corrida = temporada.proxima_corrida()
+    if not corrida:
+        print("[AVISO] Nenhuma corrida pendente na temporada atual.")
+        return
+
+    bots = Usuario.query.filter(Usuario.email.like('bot%@fake.com')).all()
+    if not bots:
+        print("[AVISO] Nenhum bot encontrado no banco de dados.")
+        return
+
+    modelos = modelos_componente.MODELOS
+    pista_id = corrida.pista_real_id
+
+    preparados = 0
+    for bot in bots:
+        carro = bot.equipe
+        if not carro:
+            continue
+
+        # 1. Limpa preparações antigas para a corrida atual (evita duplicação)
+        SetupFimDeSemana.query.filter_by(equipe_id=carro.id, corrida_id=corrida.id).delete()
+        DadosClassificacao.query.filter_by(equipe_id=carro.id, corrida_id=corrida.id).delete()
+        EstrategiaStint.query.filter_by(equipe_id=carro.id).delete()
+        
+        # 2. Setup do Parc Fermé
+        db.session.add(SetupFimDeSemana(
+            equipe_id=carro.id, 
+            corrida_id=corrida.id,
+            modelo_motor=random.choice(modelos),
+            modelo_cambio=random.choice(modelos),
+            modelo_suspensao=random.choice(modelos),
+            travado=True
+        ))
+
+        # 3. Ajuste Fino (Treino Livre)
+        ajuste = AjusteSalvo.query.filter_by(equipe_id=carro.id, pista_real_id=pista_id).first()
+        if not ajuste:
+            db.session.add(AjusteSalvo(
+                equipe_id=carro.id, 
+                pista_real_id=pista_id,
+                ajuste_cambio=random.randint(1, 99),
+                ajuste_suspensao=random.randint(1, 99),
+                ajuste_aero_dianteiro=random.randint(1, 99),
+                ajuste_aero_traseiro=random.randint(1, 99),
+                ajuste_freio=50
+            ))
+
+        # 4. Dados de Classificação (Quali)
+        db.session.add(DadosClassificacao(
+            equipe_id=carro.id, 
+            corrida_id=corrida.id,
+            modelo_pneu=random.choice(modelos),
+            combustivel_litros=float(random.randint(5, 12))
+        ))
+
+        # 5. Estratégia de Corrida (Stints)
+        for ordem in range(1, random.randint(1, 3) + 1):
+            db.session.add(EstrategiaStint(
+                equipe_id=carro.id, 
+                ordem=ordem,
+                modelo_pneu=random.choice(modelos),
+                voltas=random.randint(15, 30),
+                combustivel_litros=float(random.randint(40, 110))
+            ))
+        
+        preparados += 1
+
+    db.session.commit()
+    print(f"[OK] {preparados} bots preparados com sucesso para a corrida: {corrida.pista_nome}")
+
+if __name__ == "__main__":
+    with app.app_context():
+        preparar_bots()
 ===== modelos_componente.py =====
 """
 Modelos xx-50 a xx-900 de cada componente contratado.
@@ -4095,13 +4285,15 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegivei
     numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
     config = Configuracao.obter()
     
-    # MUDANÇA CIRÚRGICA: Usa equipes elegíveis filtradas pelo admin ou fallback para todas
     todas_equipes = equipes_elegiveis if equipes_elegiveis is not None else CarroJogador.query.all()
+    
+    # TRAVA DE SEGURANÇA: Se não há equipes elegíveis, aborta imediatamente para não corromper o JSON.
+    if not todas_equipes:
+        return None
     
     carros = []
     for equipe_db in todas_equipes:
         carro = equipe_db.montar_carro()
-        # MUDANÇA CIRÚRGICA: Injeta as peças travadas no Parc Fermé (SetupFimDeSemana)
         if corrida_agendada:
             setup = SetupFimDeSemana.query.filter_by(equipe_id=equipe_db.id, corrida_id=corrida_agendada.id).first()
             if setup:
@@ -4119,7 +4311,6 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegivei
         carro.tempo_pit_stop = calcular_tempo_pit_stop(pista["tempo_pit_stop_segundos"], config, treinamento.percentual)
         _aplicar_dados_pista_no_carro(carro, pista)
         
-        # Carrega os stints da equipe pro motor de corrida
         carro.stints = [
             {'ordem': s.ordem, 'modelo_pneu': s.modelo_pneu, 'voltas': s.voltas, 'combustivel_litros': s.combustivel_litros}
             for s in equipe_db.stints
@@ -4188,6 +4379,10 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegivei
         corrida_agendada.salvar_resultados(resultados_para_temporada)
         corrida_agendada.executada = True
         corrida_agendada.data_execucao = datetime.utcnow()
+        
+        # BUGFIX: Limpa o grid da classificação para não dar o bug de "corridas avançam sozinhas" na próxima etapa.
+        ResultadoClassificacao.query.delete()
+        
     db.session.commit()
     
     caminho_replay = os.path.join(BASE_DIR, 'ultimo_replay.json')
@@ -4224,7 +4419,6 @@ def registrar(app):
                 voltas_pista, _ = calcular_numero_voltas(pista["extensao_km"])
 
         if request.method == "POST":
-            # Salva os Stints Dinâmicos
             modelos_pneu_stints = request.form.getlist("modelo_pneu[]")
             voltas_stints = request.form.getlist("voltas[]")
             litros_stints = request.form.getlist("combustivel_litros[]")
@@ -4283,10 +4477,23 @@ def registrar(app):
                     resultado = json.load(f)
             except Exception as e:
                 print(f"Erro ao carregar replay: {e}")
+                
         criar_banco_pistas_reais()
         temporada = Temporada.ativa_atual()
         proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-        return render_template("corrida.html", resultado=resultado, temporada=temporada, proxima_corrida_temporada=proxima_corrida_temporada)
+
+        cores_equipes = {}
+        todas_equipes = CarroJogador.query.all()
+        for eq in todas_equipes:
+            cores_equipes[eq.nome] = eq.cor_primaria or "#cc0000"
+
+        return render_template(
+            "corrida.html", 
+            resultado=resultado, 
+            temporada=temporada, 
+            proxima_corrida_temporada=proxima_corrida_temporada,
+            cores_equipes=cores_equipes
+        )
 ===== rotas/desenvolvimento.py =====
 """
 Rotas de desenvolvimento e treinamento:
@@ -4583,10 +4790,18 @@ def registrar(app):
             equipe_id=equipe.id, corrida_id=proxima_corrida.id
         ).first()
 
+        # 🧹 LIMPEZA DE SESSÃO FANTASMA: 
+        # Se não há setup para a corrida atual no banco, significa que é um novo fim de semana.
+        # Garantimos que qualquer treino livre antigo travado no navegador seja apagado.
+        if not setup_existente:
+            session.pop(f"stint_treino_{equipe.id}", None)
+            session.pop(f"treino_sliders_{equipe.id}", None)
+            session.pop("treino_livre_salvo", None)
+
         if request.method == "POST":
-            # Trava de seguranÃ§a: nÃ£o permite alterar se jÃ¡ estiver travado
+            # Trava de segurança: não permite alterar se já estiver travado
             if setup_existente and setup_existente.travado:
-                flash("Seu carro jÃ¡ estÃ¡ em Parc FermÃ© para esta corrida.", "warning")
+                flash("Seu carro já está em Parc Fermé para esta corrida.", "warning")
                 return redirect(url_for("montagem_fim_de_semana"))
                 
             mod_motor = request.form.get("modelo_motor")
@@ -4620,7 +4835,7 @@ def registrar(app):
                 flash("Montagem do fim de semana salva e travada com sucesso!", "success")
                 return redirect(url_for("montagem_fim_de_semana"))
             else:
-                flash("Modelos invÃ¡lidos selecionados.", "danger")
+                flash("Modelos inválidos selecionados.", "danger")
 
         return render_template(
             "montagem_fim_de_semana.html",
@@ -5555,14 +5770,13 @@ Monta um ambiente de teste completo de uma vez so:
     python seed_teste.py
 
 Cria:
-    - 2 usuarios admin (senha 123456), nick "Razor"
+    - 1 usuario admin (senha 123456), nick "Razor"
     - Fornecedores (popular_banco)
     - "TEMPORADA 1" ativa com 10 corridas
-    - Equipe completa pra cada admin (fornecedores mais baratos + eng nv1)
-    - 40 JOGADORES FAKE (bots) JA PRONTOS pra quali+corrida (grid cheio):
+    - Equipe completa pro admin (fornecedores mais baratos + eng nv1)
+    - 20 JOGADORES FAKE (bots) JA PRONTOS pra quali+corrida (grid cheio):
       fornecedores random, parc ferme random, ajuste fino random, dados de
-      classificacao random e stints random. Assim da pra rodar a corrida no
-      admin e ver o replay com grid cheio.
+      classificacao random e stints random.
 
 Idempotente: nao duplica se rodar de novo.
 """
@@ -5584,14 +5798,13 @@ import modelos_componente
 # ---- CONFIG (mude aqui se quiser) ----
 USUARIOS_ADMIN = [
     "henriquebdv@gmail.com",
-    "henriquebettegaclaro@gmail.com",
 ]
 SENHA_PADRAO = "123456"
 NICK = "Razor"
 NOME_TEMPORADA = "TEMPORADA 1"
 QTD_CORRIDAS = 10
-NOMES_EQUIPE = ["Racing Titans", "Velocity GP"]
-QTD_BOTS = 40          # jogadores fake prontos pra correr (grid cheio)
+NOMES_EQUIPE = ["Racing Titans"]
+QTD_BOTS = 19          # jogadores fake prontos pra correr (grid cheio)
 MODELOS = modelos_componente.MODELOS  # [50,100,...,900]
 
 

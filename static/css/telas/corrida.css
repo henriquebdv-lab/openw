@@ -1,0 +1,46 @@
+/* ============================================================
+   OPEN WHEEL STRATEGY - Tela: Corrida (Replay)
+   ============================================================ */
+
+.corrida-title {
+    font-size: 24px;
+    color: var(--text-white);
+}
+
+.corrida-subtitle {
+    font-size: 20px;
+    color: var(--text-white);
+}
+
+.corrida-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.corrida-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.corrida-table th {
+    padding: 10px;
+    border-bottom: 2px solid var(--border-dark);
+    color: var(--text-label);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.corrida-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--border-main);
+    color: var(--text-main);
+    font-size: 14px;
+}
+
+.corrida-row-danger td {
+    background: var(--color-danger-bg);
+    color: var(--color-danger-light);
+}

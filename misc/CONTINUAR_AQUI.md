@@ -1,182 +1,139 @@
 # Open Wheel Strategy — PONTO DE RETOMADA (documento ÚNICO e vivo)
 
-> **Como usar num chat novo:** cole ESTE arquivo + o `regras.md` +
-> o `openwheel_py.txt` (e `openwheel_html.txt` se precisar de telas).
-> Este é o ÚNICO arquivo de retomada — edite este, não crie versões novas.
->
-> **Última atualização:** 27/07/2026
+> Cole ESTE arquivo + regras.md + openwheel_py.txt (e openwheel_html.txt/openwheel_css.txt se precisar).
+> ÚNICO arquivo de retomada — edite este, não crie versões novas.
+> Última atualização: 28/07/2026
 
 ---
 
 ## ✅ FEITO E FUNCIONANDO (testado)
 
 ### Base
-- app.py desmembrado em `rotas/` (padrão registrar(app), NÃO Blueprint).
-- Login Google (cada máquina tem seu `.env`).
-- Quick wins: pneu "marca — valor", engenheiro obrigatório, pane seca = abandono.
-- 7 pistas modernas + config de balanceamento no admin.
-- models.py estabilizado (commit de referência 41b5cb7).
+- app.py desmembrado em rotas/ (padrão registrar(app), NÃO Blueprint).
+- Login por email/senha + Google (cada máquina tem seu .env).
+- Quick wins: pneu "marca — valor", pane seca = abandono.
+- models.py estável (ref commit 41b5cb7).
 
-### Parc Fermé + Preparação
-- Parc Fermé Etapa 1+2: tabela SetupFimDeSemana (motor+câmbio+suspensão 50-900 +
-  campo travado). Tela "Montagem Fim de Semana" com aviso de confirmação + trava.
-- Estratégia limpa (removidos configs de motor/câmbio/susp/injeção do topo).
-- Treino Livre INTERATIVO: usa setup travado (read-only), só a pista do FDS,
-  auto-redireciona se não montou. 3 sliders (Câmbio/Suspensão/Aerofólio, 1-99;
-  5 na estrutura). Ideal secreto por pista (IdealPistaSlider). Feedback do piloto
-  + % de acerto. Desgaste PESA no tempo. Exibe VIDA do pneu (100→0).
-- Treino Oficial = "Salvar dados da Classificação" (tabela DadosClassificacao).
-  Simulação genérica 82.0s removida.
-- Estratégia persistida no banco (EstrategiaStint), não mais só na sessão.
+### Parc Fermé + Preparação (fases 1 e 2)
+- SetupFimDeSemana (motor+câmbio+suspensão 50-900 + campo travado).
+- Tela "Montagem Fim de Semana": aviso de confirmação + trava (parc fermé rígido).
+- Treino Livre INTERATIVO: usa setup travado, só a pista do FDS, auto-redireciona.
+  3 sliders (1-99, 5 na estrutura), ideal secreto por pista (IdealPistaSlider),
+  feedback do piloto + % de acerto, desgaste pesa no tempo, exibe VIDA do pneu.
+- Treino Oficial = "Salvar dados da Classificação" (DadosClassificacao).
+- Estratégia de stints persistida no banco (EstrategiaStint) + Pit Wall + validação de voltas.
 
 ### Corrida / Admin
-- Admin "Dia de Corrida": painel de status (Parc Fermé/Quali/Stints) + disparo
-  manual de classificação e corrida só pras equipes elegíveis.
-- seed_teste.py: 2 admins (Razor, senha 123456) + fornecedores + TEMPORADA 1 (10
-  corridas) + equipe dos admins + 40 BOTS prontos pra correr (grid cheio).
-- Replay da Corrida FASE 1 (tabela de posições volta a volta) funcionando + link
-  na sidebar.
-- base.html UTF-8; combustível removido da tela de montar equipe; flash verde ok.
+- Admin "Dia de Corrida": painel de status + disparo manual, com TRAVAS confirmadas
+  (não roda sem classificar, não roda sem equipe elegível, limpa grid após corrida).
+- seed_teste.py: 1 admin (henriquebdv@gmail.com / 123456, Razor) + fornecedores +
+  TEMPORADA 1 (10 corridas) + equipe do admin + 19 bots (grid de 20).
+- BOTS HONESTOS: montados COMO JOGADOR — pegam os fornecedores MAIS BARATOS +
+  orçamento DEBITADO (55k − contratos). Não "roubam" mais → tempos parelhos na 1ª temporada.
+- Replay Fase 1 (tabela volta a volta) funcionando + link na sidebar.
+
+### Refatoração de CSS (Lotes 1-5 COMPLETA)
+- Estrutura: variaveis.css, base.css, componentes.css, formularios.css + telas/*.css.
+- Zero style inline, zero Bootstrap, cores em variáveis, espaçamentos globais (ows-mt-*/mb-*).
+- Base pro futuro "menu de cores" (tudo em variáveis CSS).
+- Padronizado o menu admin (admin_usuarios e admin_temporada_editar agora usam admin_base).
 
 ---
 
-## 🔴 MOTOR — FECHAR ANTES DE ABRIR FEATURE NOVA
-> Decisão do Henrique (27/07): não adianta feature nova (duplas/prêmios) com o
-> motor incompleto. Fechar o núcleo primeiro.
+## 🔴 PENDENTE / PRÓXIMOS PASSOS
 
-- [ ] REPLAY FASE 3 (o que o Henrique QUER ver): carros se movendo no traçado da
-      pista (sprites + SVG/mapa da pista + animação). Hoje só tem a TABELA de
-      posições (Fase 1). É o "sonho" do replay — mais complexo.
-- [ ] BUG: corrida avança sozinha (marcou corridas como executadas sem ter rodado
-      com equipe; ficou na 3ª sem resultado). Não avançar/marcar executada sem
-      equipe elegível que realmente correu.
-- [ ] INCONSISTÊNCIA: a classificação inclui equipe "FORA" (filtro de
-      elegibilidade diferente da corrida). Aplicar o MESMO filtro na quali.
-- [ ] Replay guarda só a ÚLTIMA corrida (ultimo_replay.json sobrescreve). Pra ver
-      replays antigos: salvar 1 por corrida (coluna JSON na CorridaAgendada, ou
-      replay_etapa_N.json).
-- [ ] CSS da tela admin poluído (sem estilo, ✅/❌ soltos) — arrumar visual.
+### 🔧 Lógica dos DOIS ENGENHEIROS (decidido 28/07, falta implementar no código)
+> Regra completa no regras.md seção 9.
+- Conceito: engenheiro ATUAL (corre, 100%) + engenheiro PRÓXIMA (opcional, contrata e
+  desenvolve durante a temporada).
+- Virada: PRÓXIMA vira ATUAL com o % atingido; slot próxima zera; contrata um novo.
+- Sem contratar/desenvolver: recebe eng nv1 DESCONTADO do orçamento + 50% performance
+  + punição ESCONDIDA de +chance de quebra.
+- ⚠️ CÓDIGO: hoje models.py tem UM engenheiro/desenvolvimento por equipe. Precisa de
+  DOIS slots (atual + próxima). Reverter o "engenheiro obrigatório" do equipes.html.
+- ❓ PENDENTE: (9.4) tempo pra desenvolver chassi+aero 100% cabe numa temporada?
+- ❓ PENDENTE: (9.5) valor do +chance de quebra da punição.
 
-### Fases da visualização do replay (do Henrique)
-1. Fase 1: tabela de tempos volta a volta — ✅ FEITO
-2. Fase 2: tempos + narração/comentários dos pilotos — pendente
-3. Fase 3: carros (sprites IA) se movendo na pista — pendente (o "sonho")
+### 🏎️ Replay Fase 3 (o que o Henrique quer ver)
+- Hoje só a TABELA volta a volta (Fase 1). Falta a animação dos CARROS na pista
+  (faixa vertical, líder no topo, outros pelo gap, boxes à esquerda, abandono à direita).
+- NUNCA foi feita (não está no git). É feature nova a construir.
 
----
+### 🐛 Login (erro de autenticação)
+- Deu "erro de autenticação" no teste. Provável: botão Google (OAuth/.env no Linux).
+- Solução provável: usar login normal (email/senha 123456), não o Google.
+- Pendente confirmar/corrigir (precisa ver rotas/auth.py).
 
-## 🆕 FEATURES NOVAS (SÓ depois do motor fechar)
-- [ ] Parc Fermé Etapa 3: Romper o Lacre (taxa R$ 1.000 + largar em último).
-- [ ] Parc Fermé Etapa 4: Pular a Quali (liberado só se o lacre foi rompido).
-- [ ] Parc Fermé Etapa 5: montar_carro puxar motor/câmbio/suspensão do
-      SetupFimDeSemana + limpar setups no fim da temporada.
-- [ ] Premiação de abandono: decidir (0 / valor mínimo / proporcional às voltas).
-- [ ] Sistema de Duplas (parceria entre pilotos na fase de equipe).
+### 🎨 Verificar CSS antigo
+- Conferir se ainda existe static/css/tema.css e tema_v3.css (versões velhas com cor
+  hardcoded) e se o base.html NÃO os linka mais. Se sim, remover/apagar.
 
 ---
 
-## 🧪 TESTES AUTOMÁTICOS (quando voltar ao tema)
-- Já existe pasta `tests/`. Expandir com pytest: login, montar_carro, custos,
-  stints, SetupFimDeSemana, DadosClassificacao, validação de voltas, desgaste
-  pesa no tempo, motor/pneu afetam tempo+consumo.
-- Regra de ouro: rodar `pytest` ANTES de commitar mudança da IA.
-- Lição: testes no sandbox já pegaram bug real (desgaste não pesava no tempo).
-
----
-
-## 🔵 ÉPICO GRANDE (arquitetura — bem depois)
-- [ ] Calendário/Agenda no admin (ex: Seg/Qua/Sex, 19h qualy, 20h corrida).
-- [ ] Agendador automático (qualy/corrida rodam sozinhos no horário).
-      Pra testar sem esperar: botão manual "rodar agora" no /admin (já existe).
-- [ ] Grupos de 20 + fila de espera.
-- [ ] Pirâmide: promoção/rebaixamento (quem sobe = quem desce, dinâmico).
-- Obs: o ranking do treino livre (hoje vazio) depende dos GRUPOS.
+## 🔵 ÉPICO GRANDE (arquitetura — depois)
+- [ ] Calendário/Agenda no admin + agendador automático (qualy/corrida por horário).
+      Provisório: botão manual "Dia de Corrida" já existe.
+- [ ] Grupos de 20 + fila de espera. Pirâmide (sobe = desce, dinâmico).
+- [ ] Ranking por grupo/classe (o do treino livre depende disso).
 
 ---
 
 ## 🎨 DEPOIS (finalização)
-- [ ] Refatoração de CSS: tirar style="" inline → tema.css. JUNTO: flash sumir
-      sozinho após alguns segundos. Fazer por partes, testando visual.
-- [ ] UX/UI command center (imagem do carro no box, painéis).
-- [ ] Sprites de carro vista de cima (base recolorível) — usados na Fase 3 do replay.
+- [ ] Menu de temas/cores no admin (variáveis CSS já preparadas).
+- [ ] Testes automáticos (pytest).
+- [ ] Manual/tutorial próprio do jogador (reescrito, sem copiar o como.txt).
+- [ ] Sistema de duplas.
 
 ---
 
-## 🔑 DEFINIÇÃO: onde cada MODELO (50-900) é escolhido
-| Componente  | Onde escolhe              | Comportamento |
-|-------------|---------------------------|---------------|
-| Motor       | Parc Fermé (Montagem FDS) | TRAVA |
-| Câmbio      | Parc Fermé (Montagem FDS) | TRAVA |
-| Suspensão   | Parc Fermé (Montagem FDS) | TRAVA |
-| Pneu        | Estratégia (por stint)    | VARIA |
-| Combustível | Estratégia (por stint)    | VARIA |
-| Injeção     | NÃO EXISTE                | removido |
-
----
-
-## 🔒 DESIGN DO PARC FERMÉ (referência)
-- Trava MOTOR + CÂMBIO + SUSPENSÃO (peças/modelos) pro fim de semana.
-- Pneu e combustível ficam livres (variam por stint na estratégia).
-- 1ª coisa do FDS: montar o carro. Sem montar = sem carro. Precisa de $.
-- Setup errado NÃO impede correr (anda, mas perde décimos).
-- RÍGIDO: salvou, travou. Só corrige rompendo o lacre.
-- Romper o lacre: taxa R$ 1.000 + larga em último.
-- Se rompeu o lacre: libera pular a quali.
-- Tabelas: SetupFimDeSemana, DadosClassificacao. Limpar no fim da temporada.
-
----
-
-## 🎚️ MECÂNICA DO AJUSTE FINO (detalhe em MECANICA_AJUSTE_CARRO.md)
-- Sliders 1-99. Cada pista tem valor ideal secreto por slider.
-- Fórmula: ideal = BASE(aleatório fixo por pista) + INFLUENCIA + CONTRATO
-  (Fase 2, peso 0 agora), clamp 1-99.
-- Feedback por faixa de erro (frases NOSSAS) + % geral de acerto.
-- 3 sliders visíveis, 5 na estrutura (+AeroD/T, Freio DLC).
+## 🔑 DECISÕES-CHAVE (resumo — detalhe no regras.md)
+- Modelos 50-900: Motor/Câmbio/Suspensão travam no Parc Fermé; Pneu/Combustível variam por stint.
+- Parc Fermé RÍGIDO: salvou travou. Romper lacre = R$1.000 + larga último. Se rompeu, pode pular quali.
+- Combustível: consumo_qualifying CORRETO (regra 5.4). Jogador calcula pra (voltas + 1 do quali).
+- Influências das pistas: Ayres 5-15 (conflito encerrado).
+- Bots: os mais baratos + orçamento debitado (como jogador).
+- Engenheiro atual NÃO obrigatório; ciclo de 2 engenheiros (ver seção 9 do regras.md).
+- Bolsa de valores: CORTADA da v1.
 
 ---
 
 ## ⚙️ REGRAS DE TRABALHO COM A IA
-- Arquivos COMPLETOS (nunca "procure a linha X"). KISS/DRY.
-- models.py: SÓ adicionar coluna/tabela no final. NUNCA reescrever o arquivo.
+- Arquivos COMPLETOS (nunca "procure a linha X"). PARÂMETRO ZERO de trecho solto.
+- models.py: SÓ adicionar coluna/tabela. NUNCA reescrever o arquivo.
 - NÃO inventar regras/colunas/rotas. Perguntar antes.
-- Manter padrão registrar(app) (não Blueprint). Não quebrar url_for.
-- Salvar tudo em UTF-8 (projeto teve mojibake).
-- Chief Engineer (Claude) valida models/arquivos no sandbox ANTES de aplicar.
-- FECHAR o que está aberto antes de abrir frente nova (lição: abrir muita frente
-  ao mesmo tempo gerou confusão e sensação de "não anda").
+- Manter padrão registrar(app) (não Blueprint). Não quebrar url_for. UTF-8.
+- FECHAR o que está aberto antes de abrir frente nova.
+- Prompts/documentos: gerar como ARQUIVO (.md), não texto solto na tela.
+- Chief Engineer (Claude) valida no sandbox antes de aplicar mudança grande.
 - Documentos vivos: este + regras.md + MECANICA_AJUSTE_CARRO.md. Editar incremental.
 
 ---
 
 ## 🖥️ AMBIENTE
 - Windows (PC casa): RX 6800 16GB, Ryzen 7 2700X, 16GB.
-- Linux (notebook): Mint, Dell E6440, i5 4ª gen, 8GB.
+- Linux (notebook): Mint, Dell E6440, i5 4ª gen, 8GB. Usar python3 (ou ativar .venv).
 - Git: https://github.com/henriquebdv-lab/openw (.env e client_secret no .gitignore).
-- ⚠️ SEGURANÇA: o client_secret do Google vazou no chat — considerar revogar/gerar
-  novo no Google Cloud Console.
+- ⚠️ client_secret do Google vazou no chat — considerar revogar/gerar novo.
 
-### Recriar banco (quando muda tabela/coluna)
+### Recriar banco (Linux)
 ```
-copy jogo.db jogo_backup.db
-del jogo.db
-python criar_banco.py
-python seed_teste.py
+cp jogo.db jogo_backup.db
+rm jogo.db
+python3 criar_banco.py
+python3 seed_teste.py
 ```
+(No Windows: copy / del / python)
 
-### Gerar TXT (Windows PowerShell)
-```powershell
-Get-ChildItem -Recurse -Filter *.py | Where-Object { $_.FullName -notmatch '\\.venv\\' -and $_.FullName -notmatch '\\migrations\\' } | Sort-Object FullName | ForEach-Object { "===== $($_.FullName.Replace($PWD.Path + '\', '')) ====="; Get-Content $_.FullName; "" } | Out-File -Encoding utf8 openwheel_py.txt
-Get-ChildItem -Path templates -Recurse -Filter *.html | Sort-Object FullName | ForEach-Object { "===== $($_.FullName.Replace($PWD.Path + '\', '')) ====="; Get-Content $_.FullName; "" } | Out-File -Encoding utf8 openwheel_html.txt
+### Gerar TXT (Linux) — cola UM comando por vez
+```
+find . -name "*.py" -not -path "./.venv/*" -not -path "./migrations/*" | sort | while read f; do echo "===== ${f#./} ====="; cat "$f"; echo ""; done > openwheel_py.txt
+find templates -name "*.html" | sort | while read f; do echo "===== $f ====="; cat "$f"; echo ""; done > openwheel_html.txt
+find static -name "*.css" | sort | while read f; do echo "===== $f ====="; cat "$f"; echo ""; done > openwheel_css.txt
 ```
 
 ---
 
-## 🎮 REFERÊNCIA
-Jogo base: "estrategia" (F1). Piloto do Henrique: **Razor**. Bolsa de Valores
-CORTADA da v1.
-
----
-
-## 🎯 PRÓXIMO PASSO (decisão do Henrique: MOTOR primeiro)
-1. Corrigir o BUG da corrida avançar sozinha (corrompe a temporada) OU
-2. Fazer o REPLAY FASE 3 (carros na pista).
-Só depois de fechar o motor: features novas (duplas/prêmios/parc fermé 3-4).
+## 🎯 COMEÇAR PRÓXIMA SESSÃO POR (sugestão):
+1. Aplicar/testar o seed com bots honestos (20 no grid, tempos parelhos).
+2. Resolver o login (email/senha vs Google).
+3. Decidir: implementar os 2 engenheiros OU fazer o Replay Fase 3 (carros na pista).

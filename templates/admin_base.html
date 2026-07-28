@@ -1,62 +1,47 @@
 {% extends "base.html" %}
 
-{#
-  Layout base para todas as telas de admin: sidebar fixa à esquerda,
-  conteúdo à direita. Cada admin_*.html estende esse arquivo em vez
-  do base.html direto, e coloca o conteúdo em {% block admin_content %}.
-#}
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/admin.css') }}">
+{% block admin_css_extra %}{% endblock %}
+{% endblock %}
 
 {% block content %}
-<div class="row g-4">
-    {# ---------- SIDEBAR FIXA ---------- #}
-    <div class="col-lg-3 col-md-4">
-        <div class="list-group sticky-top" style="top: 1rem;">
-            <a href="{{ url_for('admin_dashboard') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'dashboard' %}active{% endif %}">
-                🏠 Painel
-            </a>
-            <a href="{{ url_for('admin_dia_corrida') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'dia_corrida' %}active{% endif %}">
-                🏁 Dia de Corrida
-            </a>
-            <a href="{{ url_for('admin_configuracoes') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'configuracoes' %}active{% endif %}">
-                ⚙️ Configurações
-            </a>
-            <a href="{{ url_for('admin_pistas_reais') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'pistas' %}active{% endif %}">
-                🛣️ Pistas Reais
-            </a>
-            <a href="{{ url_for('admin_temporadas') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'temporadas' %}active{% endif %}">
-                🏆 Temporadas
-            </a>
-            <a href="{{ url_for('admin_usuarios') }}"
-               class="list-group-item list-group-item-action {% if secao_admin == 'usuarios' %}active{% endif %}">
-                👥 Usuários
-            </a>
+<div class="ows-admin-container">
 
-            {# Fornecedores agrupados: quando você tá em qualquer categoria
-               aparece o submenu com as 7 categorias #}
-            <div class="list-group-item {% if secao_admin == 'fornecedores' %}active{% endif %}"
-                 style="font-weight: bold;">
-                🔧 Fornecedores
+    <!-- MENU HORIZONTAL -->
+    <nav class="ows-admin-nav">
+        <a href="{{ url_for('admin_dashboard') }}" class="ows-admin-nav-item {% if secao_admin == 'dashboard' %}active{% endif %}">🏠 Painel</a>
+        <a href="{{ url_for('admin_dia_corrida') }}" class="ows-admin-nav-item {% if secao_admin == 'dia_corrida' %}active{% endif %}">🏁 Dia de Corrida</a>
+        <a href="{{ url_for('admin_evento_especial') }}" class="ows-admin-nav-item {% if secao_admin == 'evento_especial' %}active{% endif %}">⭐ Evento Especial</a>
+        
+        <div class="ows-admin-nav-divider"></div>
+        
+        <a href="{{ url_for('admin_configuracoes') }}" class="ows-admin-nav-item {% if secao_admin == 'configuracoes' %}active{% endif %}">⚙️ Config.</a>
+        <a href="{{ url_for('admin_pistas_reais') }}" class="ows-admin-nav-item {% if secao_admin == 'pistas' %}active{% endif %}">🛣️ Pistas</a>
+        <a href="{{ url_for('admin_temporadas') }}" class="ows-admin-nav-item {% if secao_admin == 'temporadas' %}active{% endif %}">🏆 Temporadas</a>
+        <a href="{{ url_for('admin_usuarios') }}" class="ows-admin-nav-item {% if secao_admin == 'usuarios' %}active{% endif %}">👥 Usuários</a>
+
+        <div class="ows-admin-nav-divider"></div>
+
+        <!-- DROPDOWN DE FORNECEDORES -->
+        <div class="ows-admin-dropdown">
+            <div class="ows-admin-nav-item {% if secao_admin == 'fornecedores' %}active{% endif %}">
+                🔧 Fornecedores ▾
             </div>
-            {% if categorias_fornecedor %}
-                {% for chave, cfg in categorias_fornecedor.items() %}
-                <a href="{{ url_for('admin_fornecedores', categoria=chave) }}"
-                   class="list-group-item list-group-item-action {% if categoria_fornecedor_atual == chave %}active{% endif %}"
-                   style="padding-left: 2rem; font-size: 0.9em;">
-                    {{ cfg.titulo }}
-                </a>
-                {% endfor %}
-            {% endif %}
+            <div class="ows-admin-dropdown-menu">
+                {% if categorias_fornecedor %}
+                    {% for chave, cfg in categorias_fornecedor.items() %}
+                    <a href="{{ url_for('admin_fornecedores', categoria=chave) }}" class="ows-admin-nav-item {% if categoria_fornecedor_atual == chave %}active{% endif %}">{{ cfg.titulo }}</a>
+                    {% endfor %}
+                {% endif %}
+            </div>
         </div>
-    </div>
+    </nav>
 
-    {# ---------- CONTEÚDO ---------- #}
-    <div class="col-lg-9 col-md-8">
+    <!-- ÁREA DE CONTEÚDO -->
+    <div class="ows-admin-content">
         {% block admin_content %}{% endblock %}
     </div>
+
 </div>
 {% endblock %}

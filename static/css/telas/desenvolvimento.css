@@ -1,0 +1,11 @@
+.desenv-card-info { background: var(--color-primary-faded); }
+.desenv-card-danger { border-left: 3px solid var(--color-danger); }
+.desenv-title-danger { color: var(--color-danger-light); }
+.desenv-value-lg { font-size: 42px; }
+.desenv-cost-label { font-size: 12px; }
+.desenv-cost-value { font-size: 18px; font-weight: 600; color: var(--text-white); }
+.desenv-req-item { display: flex; gap: 12px; align-items: center; padding: 8px 0; }
+.desenv-icon-success { color: var(--color-success); font-size: 20px; }
+.desenv-icon-danger { color: var(--color-danger); font-size: 20px; }
+.desenv-current-value { font-size: 20px; font-weight: 600; color: var(--text-white); }
+.desenv-btn-text { text-align: center; }

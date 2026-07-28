@@ -1,0 +1,39 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'evento_especial' %}
+
+{% block admin_content %}
+<h1 class="ows-mb-md">Evento Especial (Modo Customizado)</h1>
+
+<div class="ows-alert ows-alert-info">
+    <strong>Atenção:</strong> Eventos especiais ignoram qualquer teto de limite de voltas e não contam pontos para a temporada ativa. Os carros vão para a pista independentemente de estarem em Parc Fermé ou não.
+</div>
+
+<div class="ows-card">
+    <h3 class="ows-strong">CRIAR CORRIDA CUSTOMIZADA</h3>
+    <p class="ows-muted ows-mb-md">
+        Selecione uma pista e defina o número EXATO de voltas que o simulador deve rodar.
+    </p>
+
+    <form method="POST" action="{{ url_for('admin_evento_especial') }}" class="ows-form">
+        <div class="ows-mb-md">
+            <label for="pista_id" class="ows-label">Pista</label>
+            <select name="pista_id" id="pista_id" class="ows-select" required>
+                <option value="">-- Escolha uma pista --</option>
+                {% for p in pistas %}
+                    <option value="{{ p.id }}">{{ p.nome }} - {{ p.pais }} ({{ p.extensao_km }} km)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="ows-mb-lg">
+            <label for="voltas" class="ows-label">Número de Voltas</label>
+            <input type="number" name="voltas" id="voltas" class="ows-input" min="1" max="1000" placeholder="Ex: 200" required>
+            <div class="ows-hint">O simulador forçará esta quantidade de voltas. Cuidado: Corridas maiores que 100 voltas exigem que as equipes usem múltiplos pit stops, senão sofrerão pane seca.</div>
+        </div>
+
+        <button type="submit" class="ows-btn ows-btn-primary" onclick="return confirm('Deseja iniciar o simulador para este evento especial?');">
+            ▶ Iniciar Simulação Imediata
+        </button>
+    </form>
+</div>
+{% endblock %}

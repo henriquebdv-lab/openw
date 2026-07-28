@@ -50,13 +50,19 @@
 - **NUNCA** definido pelo jogador
 - Fonte: `como.txt` ("Você tem em caixa R$55.000,00")
 
-### 1.2 📜 Contratos anuais
+### 1.2 📜/🎨 Contratos anuais + Engenheiro (REVISADO 28/07)
 
-- Motor, combustível, pneu, câmbio, suspensão **e engenheiro** são **contratos anuais obrigatórios**
-- 🎨 **Nossa versão:** engenheiro **NÃO é opcional** — conta nova já vem com **Engenheiro nível 1** contratado automaticamente
-- **Não podem ser rescindidos durante a temporada** (contratos anuais)
-- Fonte: `como.txt` + decisão hoje
-- ⚠️ **Ajuste de código pendente:** hoje o `equipes.html` mostra engenheiro como "OPCIONAL" com opção "Sem engenheiro". Precisa mudar pra obrigatório.
+- Motor, combustível, pneu, câmbio e suspensão são **contratos anuais obrigatórios**
+- 🎨 **O Engenheiro NÃO é obrigatório para a temporada ATUAL.** Existe o conceito de
+  DOIS engenheiros/desenvolvimentos ao mesmo tempo (ver seção 9):
+  - **Engenheiro da Temporada ATUAL** → o que "corre" agora. Conta nova já vem com um
+    Engenheiro nível 1 (chassi/aero 100%), **grátis**.
+  - **Engenheiro da PRÓXIMA Temporada** → OPCIONAL. Contratado e desenvolvido durante a
+    temporada atual (tem a temporada inteira pra isso). Só vale na próxima temporada.
+- **Contratos não podem ser rescindidos durante a temporada** (anuais)
+- Fonte: `como.txt` + decisão dia 7 + revisão 28/07
+- ⚠️ **Ajuste de código pendente:** o `equipes.html` foi ajustado pra tratar engenheiro
+  como OBRIGATÓRIO (decisão antiga). REVER: agora o engenheiro (da próxima) é OPCIONAL.
 
 ### 1.3 📜 Custo por corrida
 
@@ -122,9 +128,9 @@
 
 - **NÃO são fornecedores contratados**
 - São projetados pelo Engenheiro contratado
-- Jogador novo recebe chassi + aero nível 1, 100% aplicado, **grátis**
-- 🎨 Jogador novo também já vem com **Engenheiro nível 1 contratado** (ver regra 1.2)
-- Fonte: `como.txt` + decisão do dia 7 + ajuste hoje
+- Jogador novo recebe chassi + aero nível 1, 100% aplicado, **grátis** (Engenheiro da temporada ATUAL)
+- 🎨 O Engenheiro da PRÓXIMA temporada é opcional (ver regra 1.2 e seção 9)
+- Fonte: `como.txt` + decisão do dia 7 + revisão 28/07
 
 ### 2.3 📜 Freio
 
@@ -147,10 +153,11 @@
 - **Botão "Salvar ajuste"** — o ajuste salvo é o que vai pra corrida
 - Fonte: `como.txt` (Treino Livre)
 
-### 3.2 ❓ Adaptação pra nossa versão (PENDENTE)
+### 3.2 🎨 Adaptação pra nossa versão (DECIDIDO)
 
-- Freio é DLC (2.3), então sobram 4 ajustes (câmbio, susp, aeroD, aeroT)? Ou 3? Ou mantém 5 com freio desabilitado?
-- **Decisão: aguardando**
+- 3 sliders VISÍVEIS (Câmbio, Suspensão, Aerofólio), estrutura preparada pra 5 (AeroD/AeroT
+  separados + Freio DLC). Ajustes 1-99.
+- Fonte: decisão 26/07
 
 ### 3.3 📜 Feedback do piloto
 
@@ -171,57 +178,55 @@
 - **Opção A:** Cada clique = 1 volta.
 - Ajusta sliders → "Fazer 1 volta" → vê tempo + feedback + desgaste/combustível → ajusta → repete.
 - Encerra quando: combustível zera OU pneu estoura OU jogador clica "Salvar ajuste".
-- Fonte: decisão hoje
+- Fonte: decisão dia 7
 
-### 3.6 ❓ Salvar o ajuste (PENDENTE)
+### 3.6 🎨 Salvar o ajuste (DECIDIDO)
 
-- Tabela nova (`AjusteSalvo`)? 1 por equipe por pista? ou por equipe atual?
-- Ajuste salvo vira setup padrão da próxima corrida
-- **Decisão: aguardando**
+- Tabela `AjusteSalvo` (por equipe + pista). Guarda os sliders (câmbio, suspensão, aero D/T, freio).
+- Ajuste salvo vira setup padrão da próxima corrida.
+- Valor ideal secreto por slider: BASE aleatória fixa por pista (tabela IdealPistaSlider) +
+  (Fase 2) AJUSTE_INFLUENCIA + AJUSTE_CONTRATO, clamp 1-99.
+- Fonte: decisão 26/07
 
 ---
 
 ## 4. TREINO OFICIAL E ESTRATÉGIA
 
-### 4.1 📜 Treino Oficial
+### 4.1 📜/🎨 Treino Oficial (REVISADO)
 
-- Só pode ser feito **depois** de salvar o ajuste do treino livre
-- Motor, câmbio e suspensão já estão montados
-- Jogador define o **pneu** e **combustível** pra corrida + **volta do 1º pit stop**
-- É uma volta única (qualifying)
-- Fonte: `como.txt`
+- Só pode ser feito **depois** de montar o carro (Parc Fermé) e salvar o ajuste do treino livre
+- Motor, câmbio e suspensão já estão travados (Parc Fermé)
+- 🎨 Nossa versão: o jogador ESCOLHE e SALVA o **pneu** e **combustível** da volta de
+  classificação (tabela DadosClassificacao). É PREPARAÇÃO — a volta de qualy roda
+  automática no horário (épico futuro). O pit stop NÃO é definido aqui (é na Estratégia).
+- Fonte: `como.txt` + revisão 26/07
 
 ### 4.1.1 🎨 Treino Livre assume carro em 100% (NOSSA VERSÃO)
 
 - Durante o Treino Livre, simula o carro como se **todos os componentes estivessem em 100%** (novos, sem desgaste)
 - Foco em descobrir o **setup ideal** sem interferência de desgaste histórico
-- Ao fechar, jogador salva a **estratégia** (ajustes + escolhas)
-- Depois de salvar, **libera botão** que abre o Treino Oficial com **sugestão do melhor combustível** (baseado no consumo medido no treino livre)
-- Fonte: decisão hoje
+- Fonte: decisão dia 7
 
-### 4.1.2 ❓ Horário programado do Treino Oficial (PENDENTE)
+### 4.1.2 ❓ Horário programado do Treino Oficial / Corrida (PENDENTE — ÉPICO)
 
-- Ideia: Treino Oficial de todos roda num **horário programado** (ex: 19h do dia da corrida)
-- Manual: exibição ao vivo às 19h; site bloqueia preparação entre 19h-21:30h no dia da corrida
-- **Perguntas em aberto:** como fica no modo solo? precisa scheduler (APScheduler)? roda automático se offline? bloqueia preparação?
-- **Decisão: aguardando**
+- Treino Oficial (qualy) e Corrida rodam num **horário programado** (admin define calendário:
+  ex Seg/Qua/Sex, 19h qualy, 20h corrida). Sistema roda sozinho no horário.
+- Provisório: botão manual no /admin ("Dia de Corrida") pra rodar/testar sem esperar.
+- Precisa: calendário no admin + agendador (APScheduler) + sistema de grupos.
+- **Decisão: aguardando (épico grande)**
 
 ### 4.1.3 🎨 Interface de estratégia de pit stops (DECIDIDO)
 
-- Interface com combos progressivos:
-  1. Define **combustível de largada** (litros)
-  2. **1º pit:** combo com **todas as voltas** da corrida
-  3. **2º pit:** combo com apenas as **voltas restantes** (após o 1º)
-  4. Repete pro 3º, 4º, 5º pit (original tinha corridas com 3-4 pits)
-  5. **"Parar no fim"** sempre disponível
-- Cada pit: escolhe modelo de pneu (50-900) + combustível a adicionar (litros, pode ser 0)
-- Fonte: decisão hoje + `como.txt`
+- Interface de STINTS: o jogador monta N stints, cada um com modelo de pneu (50-900),
+  nº de voltas e combustível (litros). Tabela EstrategiaStint.
+- Pit Wall: mostra voltas planejadas vs voltas da pista, total de combustível, nº de paradas.
+- Validação de voltas (alerta se planejadas ≠ voltas da pista) + trava do botão "+Stint".
+- Fonte: decisão 25-26/07 + `como.txt`
 
 ### 4.2 📜 Estratégia de Corrida
 
 - Última etapa antes da corrida
-- Define pneu e combustível de cada pit
-- "Parar no Fim" pra não fazer mais paradas
+- Define pneu e combustível de cada stint/pit
 - Convenção: pit na volta 15 = entra no fim da 14, sai no início da 15
 - Fonte: `como.txt`
 
@@ -230,7 +235,7 @@
 - Original: opcional, R$ 200, dá sugestão de estratégia (não muito boa)
 - 🎨 **Nossa decisão:** vira **DLC/upgrade futuro**, NÃO implementar nas primeiras versões
 - Status: código parcial em `estrategia.py` pode ficar dormente
-- Fonte: `como.txt` + decisão hoje
+- Fonte: `como.txt` + decisão dia 7
 
 ---
 
@@ -255,14 +260,15 @@
 - **Pneu estoura** (desgaste ≥ 100%) = abandono imediato
 - 🎨 **Combustível zera na pista** = **abandono imediato** (punitivo, culpa do planejamento). NÃO é pit automático.
 - **Quebra mecânica** = sorteio no início: sem treino 10%, treino 100% = 2%, escala linear
-- Fonte: `como.txt` + `Sem título 1.docx` + decisão hoje
+- Fonte: `como.txt` + `Sem título 1.docx` + decisão dia 7
 
 ### 5.4 📜 Combustível
 
 - Tanque máximo: **150 litros**
 - 🎨 Se acabar na pista: **abandono** (ver 5.3)
-- Consumo também na volta de qualifying (1 volta descontada)
-- ⚠️ **Ajuste de código pendente:** `corrida.py` provavelmente ainda faz pit automático, precisa virar abandono
+- **Consumo também na volta de qualifying (1 volta descontada)** → o jogador deve calcular
+  combustível pra (voltas da corrida + 1). Código: `consumo_qualifying=True` — CORRETO/canônico.
+- Fonte: `como.txt` + confirmado 27/07
 
 ---
 
@@ -288,10 +294,11 @@
 
 - 🎨 Nossa versão usa fórmula proporcional simplificada
 
-### 6.3 📜 Penalidade por desgaste
+### 6.3 📜 Penalidade por desgaste (no tempo de volta)
 
 - 0-70%: nenhuma · 70-85%: leve (~1.5s) · 85-95%: médio (~5s) · 95-100%: pesado (~12s) · ≥100%: estoura (15s + abandono)
-- Fonte: `carro.py`
+- 🎨 Na TELA, mostrar como VIDA do pneu (100→0), invertendo o desgaste (0→100) só na exibição.
+- Fonte: `carro.py` + decisão 26/07
 
 ---
 
@@ -321,6 +328,9 @@
 - 1 fornecedor por temporada por categoria; a cada corrida escolhe o modelo (50-900) de cada componente
 - Modelo baixo (50): mais rápido, rende/dura menos · Modelo alto (900): mais lento, rende/dura mais
 - Câmbio/susp: modelo define a letra A-J que casa com a pista · Pneu: modelo define condição (seco/molhada/encharcada)
+- 🎨 ONDE cada modelo é escolhido (DECIDIDO 26/07):
+  - Motor, Câmbio, Suspensão → escolhidos na Montagem do Fim de Semana (Parc Fermé, TRAVAM)
+  - Pneu, Combustível → escolhidos na Estratégia (por stint, VARIAM)
 - Fonte: `Sem título 1.docx` + `modelos_componente.py` + `carro.py`
 
 ### 7.3 🎨 Durabilidade dos pneus (KM por modelo) — DECIDIDO
@@ -328,12 +338,12 @@
 - Cada modelo de pneu (50-900) tem durabilidade em km. Referência n17ro (fornecedor Midilu):
   - MI-50: 111 · MI-100: 134 · MI-200: 153 · MI-300: 166 · MI-400: 186 · MI-500: 202 · MI-600: 211 · MI-700: 237 · MI-800: 230 · MI-900: 243 (km)
 - 🎨 **Nossa versão:** tabela de km **padrão por modelo**, com variação **muito pequena ou zero** entre fornecedores (cortamos a bolsa de valores, então a diferença fica no preço/desempenho, não na durabilidade)
-- Fonte: n17ro + decisão hoje
+- Fonte: n17ro + decisão dia 7
 
 ### 7.4 🎨 Mercado financeiro / Bolsa de valores — CORTADO
 
 - 🎨 **NÃO** implementar. Preços fixos por tier.
-- Fonte: decisão hoje
+- Fonte: decisão dia 7
 
 ---
 
@@ -354,30 +364,26 @@
 - Motor, pneu, combustível, engenheiro permanecem iguais
 - Nome da convenção a definir (item pendente)
 - Implementação: o `popular_categorias_pistas.py --espelhadas` já trata isso
-- Fonte: decisão hoje
+- Fonte: decisão dia 7
 
-### 8.2 📜/⚠️ Influências — RANGE EM CONFLITO
+### 8.2 📜/⚠️ Influências — RANGE (DECIDIDO: Ayres 5-15)
 
 - Cada pista tem influência para: Motor, Câmbio, Suspensão, Pneu, Combustível (G), Engenheiro (10 = neutro)
 - Valor > 10 = componente importa MAIS; < 10 = importa MENOS
-- ⚠️ **CONFLITO ABERTO:** o dia 7 definiu range **7-15**, mas a Planilha Ayres canônica usa range **5-15** (ex: Detroit P=15, Fuji S=5, Shangai E=5/G=6, Monaco M=6/G=15).
-- **DECISÃO PENDENTE (item 11 da seção 14):**
-  - **A)** usar valores reais Ayres (5-15)
-  - **B)** clampar em 7-15 (`popular_categorias_pistas.py --clamp`)
-  - **C)** reescalar
+- ✅ **DECIDIDO (Opção A):** usar os valores reais da Ayres (range **5-15**), sem clamp.
+  (Encerra o antigo conflito 5-15 vs 7-15.)
 - Fonte: `como.txt` + `Sem título 1.docx` + Planilha Ayres
 
-### 8.3 📜 Categoria ideal (câmbio/suspensão) — CAUSA DO BUG IDENTIFICADA
+### 8.3 📜 Categoria ideal (câmbio/suspensão)
 
 - Cada pista tem 1 letra ideal pra câmbio e 1 pra suspensão (A-J). Escolher o modelo certo (50-900) = acerto perfeito no tempo de volta
-- 🐛 **BUG ATUAL:** todas as pistas aparecem "câmbio A / susp. B" porque as categorias **nunca foram populadas** (ficaram no default)
-- ✅ **SOLUÇÃO (Opção A, decidido hoje):** popular com os dados canônicos da Ayres via `popular_categorias_pistas.py`
+- ✅ Populado com os dados canônicos da Ayres (bug antigo do A/B resolvido)
 - Pistas sem correspondência na Ayres (modernas): definir lógica caso a caso depois
-- Fonte: `como.txt` + Planilha Ayres + decisão hoje
+- Fonte: `como.txt` + Planilha Ayres
 
-### 8.4 📜 Influências canônicas — agora TODAS conhecidas
+### 8.4 📜 Influências canônicas — TODAS conhecidas
 
-- Antes só o A1-Ring estava confirmado. Agora temos as **48 pistas** da Ayres (ver 8.7)
+- Temos as **48 pistas** da Ayres (ver 8.7)
 - A1-Ring (Red Bull Ring): M9 C8 S7 P11 G12 E14, câmbio A / susp B, boxes 14s ✅ confirmado
 
 ### 8.5 📜 Cálculo de voltas da corrida
@@ -454,22 +460,64 @@ Formato: **Câm** = câmbio ideal · **Sus** = suspensão ideal · **Box** = tem
 
 ---
 
-## 9. DESENVOLVIMENTO (CHASSI + AERO)
+## 9. DESENVOLVIMENTO (CHASSI + AERO) E O CICLO DO ENGENHEIRO
 
-### 9.1 📜 Regras
+### 9.1 🎨 O ciclo dos DOIS engenheiros (NOSSA VERSÃO — DECIDIDO 28/07)
 
-- Chassi e aero projetados pelo Engenheiro; cada um 0-100%
-- Em construção só vale na PRÓXIMA temporada
-- Pra próxima temporada: engenheiro contratado + chassi 100% + aero 100%
-- Jogador novo: chassi + aero nível 1, 100%, grátis
-- Fonte: `como.txt` + `Sem título 1.docx`
+O jogo trabalha com dois "slots" de engenheiro/carro ao mesmo tempo:
 
-### 9.2 📜 Performance no tempo de volta
+- 🟢 **ATUAL (corre agora):** o carro usado nas corridas desta temporada. Tem chassi + aero
+  já aplicados (o desenvolvimento "congelado" no fim da temporada passada). Jogador novo
+  começa com Engenheiro nível 1 / chassi 100% / aero 100%, **grátis**.
+- 🔵 **PRÓXIMA (em desenvolvimento):** durante a temporada atual, o jogador PODE contratar
+  um novo Engenheiro (fornecedor, OPCIONAL) e desenvolver o chassi e a aero dele de 0% até
+  100%. Esse trabalho só vale na PRÓXIMA temporada. Tem a temporada inteira pra fazer.
+
+**A VIRADA (quando a temporada acaba):**
+- O engenheiro/carro "PRÓXIMA" vira o "ATUAL" — com o nível de desenvolvimento que o jogador
+  conseguiu atingir (pode ser 100%, pode ser menos).
+- O slot "PRÓXIMA" fica vazio → o jogador contrata um NOVO engenheiro e recomeça o
+  desenvolvimento do zero, durante a nova temporada.
+- Ciclo contínuo: sempre correndo com o de ontem e preparando o de amanhã.
+
+### 9.2 🎨 Se o jogador NÃO contratar/desenvolver (a punição — DECIDIDO 28/07)
+
+Se, na virada, o jogador não contratou engenheiro para a próxima OU não terminou o
+desenvolvimento (chassi/aero < 100%):
+- Ele **recebe um Engenheiro nível 1 automático**, e o custo dele é **DESCONTADO do
+  orçamento** (não é grátis como o do jogador novo — é "contratação de emergência").
+- Esse carro entra na temporada com apenas **50% de performance** (punição no tempo de volta).
+- 🕵️ **Punição ESCONDIDA (não avisada ao jogador):** além da perda de performance, aumenta a
+  **chance de quebra mecânica** na corrida em X% (valor a definir — ver 9.5). O jogador não vê
+  esse número; só sente o carro quebrando mais.
+
+### 9.3 📜 Performance no tempo de volta
 
 - Chassi nível 1: -0.2s/volta → nível 10: -2.0s/volta
 - Aero nível 1: -0.1s/volta → nível 10: -1.0s/volta
 - Escala linear, multiplicada pelo % aplicado
 - Fonte: `constantes.py`
+
+### 9.4 ❓ Tempo de desenvolvimento (A CALCULAR)
+
+- Config atual: `dev_incremento_percentual` = 5% por desenvolvimento → 0→100% = 20
+  desenvolvimentos por item. Chassi + Aero = ~40 desenvolvimentos no total.
+- ⚠️ PENDENTE: confirmar se dá tempo de fazer os 2 desenvolvimentos (chassi 100% + aero 100%)
+  dentro de UMA temporada (nº de corridas × tempo por desenvolvimento). Ajustar
+  `dev_incremento_percentual` / tempo se não couber. Calcular com números reais, não inventar.
+
+### 9.5 ❓ Punição de quebra (VALOR PENDENTE)
+
+- Definir de quanto é o aumento da chance de quebra quando o jogador cai no "engenheiro de
+  emergência" (9.2). Ex: +5%? +10%? A decidir.
+
+### 9.6 ⚠️ Ajustes de código que a lógica do engenheiro gera
+
+- Hoje o `models.py` tem UM engenheiro/desenvolvimento por equipe. Pra suportar ATUAL +
+  PRÓXIMA, vai precisar de estrutura pros dois slots (tabela/colunas).
+- A regra antiga "engenheiro obrigatório" (ajustada no `equipes.html`) precisa VOLTAR ATRÁS:
+  agora o engenheiro da PRÓXIMA é opcional.
+- Implementar a lógica da virada (9.1) e da punição (9.2) no fim da temporada.
 
 ---
 
@@ -479,13 +527,15 @@ Formato: **Câm** = câmbio ideal · **Sus** = suspensão ideal · **Box** = tem
 
 - Admin cria temporada + adiciona corridas na ordem
 - Só 1 temporada ativa; ativar uma desativa a anterior
-- Ao desativar, aplica desenvolvimento (chassi+aero) de quem cumpriu requisitos
+- Ao desativar, aplica desenvolvimento (chassi+aero) de quem cumpriu requisitos (ver 9.1/9.2)
 - Fonte: `Sem título 1.docx` + `models_temporada.py`
 
 ### 10.2 📜 Sistema de grupos (classes)
 
 - Hierarquia: C1G1 (topo) → C2G1-2 → C3G1-4 → C4G1-8...
-- 20 pilotos por grupo; 2 primeiros sobem, últimos 4 (17-20) descem
+- 20 pilotos por grupo; grupo novo abre ao encher 20 (fila de espera)
+- Promoção/rebaixamento no fim da temporada. Regra de ouro: quem sobe = quem desce
+  (quantidade DINÂMICA, depende do nº de inscritos)
 - Fonte: `como.txt` — **❓ não implementado** (hoje só campos texto livre)
 
 ---
@@ -503,12 +553,14 @@ Formato: **Câm** = câmbio ideal · **Sus** = suspensão ideal · **Box** = tem
 ## 12. FEATURES DO MANUAL AINDA NÃO IMPLEMENTADAS
 
 ### 12.1 🔴 CRÍTICO — MVP jogável
-- [ ] **Popular categorias ideais das pistas** (corrigir bug A/B) — script pronto, falta rodar
-- [ ] **Treino Livre real** volta a volta com feedback e "salvar ajuste"
-- [ ] **Persistir estratégia** no banco (hoje só sessão)
-- [ ] **Tela "Próxima Corrida"** com pista, clima, categorias, cálculos
-- [ ] **Interface de pit stops** com combos progressivos (ver 4.1.3)
+- [x] **Popular categorias ideais das pistas** (corrigir bug A/B)
+- [x] **Treino Livre real** volta a volta com feedback e "salvar ajuste"
+- [x] **Persistir estratégia** no banco (EstrategiaStint)
+- [x] **Interface de pit stops** com stints (ver 4.1.3)
+- [ ] **Tela "Próxima Corrida"** com pista, clima, categorias, cálculos (home ainda com "—")
+- [ ] **Replay Fase 3** (carros se movendo na pista — hoje só tabela volta a volta)
 - [ ] **Dobrar catálogo de pistas** com versões espelhadas (ver 8.1.1)
+- [ ] **Lógica dos DOIS engenheiros** (atual + próxima) no código (ver seção 9)
 
 ### 12.2 🟡 IMPORTANTE
 - [ ] Sistema de duplas (parceria entre pilotos)
@@ -517,11 +569,13 @@ Formato: **Câm** = câmbio ideal · **Sus** = suspensão ideal · **Box** = tem
 - [ ] Poupança (associados, 3%/corrida)
 - [ ] Reparo de peças / Devolução de peças
 - [ ] Prêmio final de campeonato (individual + equipe)
-- [ ] Sistema de classes/grupos automático
+- [ ] Sistema de classes/grupos automático + agendador (horário de qualy/corrida)
+- [ ] Testes automáticos (pytest)
 
 ### 12.3 🟢 NICE TO HAVE
 - [ ] Análise da Corrida (volta a volta pós-corrida)
 - [ ] Comunicados e Notícias / Bastidores / Mensagens entre pilotos
+- [ ] Menu de temas/cores no admin (variáveis CSS já preparadas pra isso)
 
 ### 12.4 🔮 DLC FUTURO
 - [ ] Freio como componente completo
@@ -544,39 +598,48 @@ Formato: **Câm** = câmbio ideal · **Sus** = suspensão ideal · **Box** = tem
 - ✅ Influências do Red Bull Ring gravadas
 - ✅ Freio = DLC futuro
 
-### Hoje
-- ✅ Acordo de trabalho: manual + planilhas canônicos; IA para e avisa em divergência
-- ✅ Criado `regras.md`
-- ✅ **Engenheiro OBRIGATÓRIO** (conta nova vem com nível 1)
-- 🟡 A REVER: premiação de quem abandona (hoje 0/0)
-- ✅ Treino Livre: fluxo Opção A (1 clique = 1 volta)
-- ✅ Treino Livre: simula carro a 100%
-- ✅ Treino Livre: ao salvar, libera botão pro Treino Oficial com sugestão de combustível
-- 🟡 A DECIDIR: horário programado do Treino Oficial
-- ✅ Estratégia de pit: combos progressivos
-- ✅ Estrategista = DLC futuro
-- ✅ Trechos de temperatura de tamanho variável
-- ✅ Combustível zerado = abandono
-- ✅ Durabilidade de pneus por modelo (tabela padrão, sem variação entre fornecedores)
-- ✅ Mercado financeiro CORTADO
-- ✅ Pistas espelhadas (câmbio↔suspensão trocam letra e influência C↔S)
-- ✅ **Categorias ideais das pistas: Opção A (dados canônicos Ayres)** — identificado bug do A/B (nunca populado), script `popular_categorias_pistas.py` criado
-- ✅ **Extraída a tabela canônica das 48 pistas** da Planilha Ayres → seção 8.7
-- ⚠️ **CONFLITO ABERTO:** influências reais Ayres são 5-15, mas dia 7 definiu 7-15 (decisão pendente, item 11)
+### Sessões 24-27/07
+- ✅ Desmembramento do app.py em rotas/ (padrão registrar, não Blueprint)
+- ✅ Parc Fermé (montagem do fim de semana): trava motor+câmbio+suspensão; aviso de
+  confirmação; romper lacre = R$1.000 + larga último; pular quali se lacre rompido
+- ✅ Onde cada modelo é escolhido (motor/câmbio/susp = parc fermé; pneu/comb = estratégia)
+- ✅ Treino Livre interativo (sliders 1-99, feedback, % acerto, desgaste no tempo, vida do pneu)
+- ✅ Treino Oficial = salvar dados da classificação (DadosClassificacao)
+- ✅ Estratégia de stints persistida no banco
+- ✅ Admin "Dia de Corrida" com travas (não roda sem classificar, sem equipe elegível)
+- ✅ seed_teste.py: 1 admin + fornecedores + temporada + bots prontos pra correr
+- ✅ Bots montados COMO JOGADOR: pegam os fornecedores mais baratos + orçamento debitado
+  (não "roubam" mais — tempos parelhos na 1ª temporada)
+- ✅ Combustível: consumo_qualifying está CORRETO (regra 5.4, +1 volta do quali)
+- ✅ Range das influências: Opção A (Ayres 5-15) — conflito encerrado
+- ✅ Refatoração de CSS completa (Lotes 1-5): variáveis + componentes + telas/, zero style
+  inline, zero Bootstrap, espaçamentos globais (ows-mt-*/mb-*), cores em variáveis
+- ✅ Replay Fase 1 (tabela volta a volta) funcionando + link na sidebar
+
+### Dia 28/07 — Engenheiro
+- ✅ Engenheiro da temporada ATUAL: NÃO obrigatório (jogador novo já tem o nv1 grátis)
+- ✅ Conceito de DOIS engenheiros: ATUAL (corre) + PRÓXIMA (contrata e desenvolve)
+- ✅ Virada: "PRÓXIMA" vira "ATUAL" com o % que atingiu; slot próxima zera; contrata novo
+- ✅ Sem contratar/desenvolver: recebe engenheiro nv1 (descontado do orçamento) + 50% de
+  performance + punição ESCONDIDA de +chance de quebra
+- ❓ PENDENTE: tempo pra desenvolver chassi+aero 100% cabe numa temporada? (9.4)
+- ❓ PENDENTE: valor do aumento da chance de quebra na punição (9.5)
 
 ---
 
 ## 14. PRÓXIMAS DECISÕES A TOMAR
 
-1. **Quantos sliders no Treino Livre?** (3, 4 ou 5?)
-2. **Formato do feedback** (só frase, só %, ou os dois)
-3. **Salvar ajuste do treino livre** (por pista? global? por corrida?)
-4. **Aerofólios são AJUSTES 1-99 ou PEÇAS nível 1-10?**
+1. ✅ ~~Quantos sliders no Treino Livre?~~ → 3 visíveis, 5 na estrutura
+2. ✅ ~~Formato do feedback~~ → frases + % geral
+3. ✅ ~~Salvar ajuste do treino livre~~ → tabela AjusteSalvo (por equipe+pista)
+4. **Aerofólios são AJUSTES 1-99 ou PEÇAS nível 1-10?** (hoje: ajuste 1-99)
 5. **Peso do combustível** (afeta tempo por volta ou só define quantas dá?)
 6. **Chuva entra no MVP?**
-7. **Sistema de classes/grupos automático entra no MVP?**
+7. **Sistema de classes/grupos automático + agendador** (épico grande)
 8. **Premiação de quem abandona** (opções em 1.4)
-9. **Horário programado do Treino Oficial** (solo? scheduler? automático? bloqueio?) (4.1.2)
+9. ✅ ~~Range das influências~~ → Ayres 5-15
 10. **Nome da versão espelhada das pistas** (8.1.1)
-11. **Range das influências: usar Ayres 5-15 (A), clampar 7-15 (B) ou reescalar (C)?** (8.2)
-12. **Lógica pras pistas modernas sem dado Ayres** (Hermanos Rodríguez, COTA, Moscow, Oschersleben, Norisring...) (8.3)
+11. **Lógica pras pistas modernas sem dado Ayres** (Hermanos Rodríguez, COTA, Moscow, Oschersleben, Norisring...) (8.3)
+12. **Tempo de desenvolvimento do engenheiro cabe numa temporada?** (9.4)
+13. **Valor do aumento da chance de quebra na punição do engenheiro** (9.5)
+14. **Replay Fase 3** (carros na pista) — quando fazer

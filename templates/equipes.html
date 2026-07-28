@@ -1,139 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Montar Equipe • Open Wheel Strategy{% endblock %}
-
+{% block css_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/equipes.css') }}">{% endblock %}
 {% block content %}
-
-<div class="ows-hero" style="margin-bottom: 24px;">
+<div class="ows-hero ows-mb-lg">
     <span class="ows-hero-label">MONTAR EQUIPE</span>
     <h1>ASSINE OS CONTRATOS DA TEMPORADA</h1>
-    <div class="ows-hero-sub">
-        Escolha os fornecedores da sua equipe. Motor, combustível, pneu, câmbio e suspensão
-        são contratos anuais obrigatórios. Sua equipe já começa com um <strong>Engenheiro
-        nível 1</strong> (grátis), que entrega chassi e aerodinâmica de nível 1 prontos.
-    </div>
-
+    <div class="ows-hero-sub">Escolha os fornecedores da sua equipe. Motor, combustível, pneu, câmbio e suspensão são contratos anuais obrigatórios.</div>
     <div class="ows-hero-meta">
-        <div>
-            <small>ORÇAMENTO INICIAL</small>
-            <strong>R$ {{ "{:,.0f}".format(orcamento_inicial or 0)|replace(",", ".") }}</strong>
-        </div>
-        <div>
-            <small>REGRA</small>
-            <strong>Contratos anuais</strong>
-        </div>
-        <div>
-            <small>ENGENHEIRO + CHASSI E AERO</small>
-            <strong>Grátis (nível 1)</strong>
-        </div>
+        <div><small>ORÇAMENTO INICIAL</small><strong class="ows-strong">R$ {{ "{:,.0f}".format(orcamento_inicial or 0)|replace(",", ".") }}</strong></div>
+        <div><small>REGRA</small><strong class="ows-strong">Contratos anuais</strong></div>
+        <div><small>ENGENHEIRO + CHASSI E AERO</small><strong class="ows-strong">Grátis (nível 1)</strong></div>
     </div>
 </div>
-
-<form method="POST" class="ows-form" style="display:block;">
-
-    <div class="ows-card" style="margin-bottom: 18px;">
+<form method="POST" class="ows-form eq-form-block">
+    <div class="ows-card ows-mb-md">
         <h3>IDENTIDADE DA EQUIPE</h3>
-        <div style="margin-top: 10px;">
-            <label for="nome">Nome da equipe</label>
-            <input type="text" id="nome" name="nome" required placeholder="Ex: Racing Titans">
+        <div class="ows-mt-sm">
+            <label class="ows-label" for="nome">Nome da equipe</label>
+            <input class="ows-input" type="text" id="nome" name="nome" required placeholder="Ex: Racing Titans">
         </div>
     </div>
-
-    <div class="ows-card" style="margin-bottom: 18px;">
+    <div class="ows-card ows-mb-md">
         <h3>CONTRATOS OBRIGATÓRIOS</h3>
-        <p class="ows-muted" style="margin-top: 4px;">
-            O desempenho técnico de cada fornecedor não aparece: escolha pelo custo e o nome.
-            Alguns fornecedores baratos entregam mais do que parecem. Ordenados do mais barato ao mais caro.
-        </p>
-
-        <div class="ows-grid-2" style="margin-top: 16px;">
+        <p class="ows-muted ows-mt-xs">O desempenho técnico de cada fornecedor não aparece: escolha pelo custo e o nome.</p>
+        <div class="ows-grid-2 ows-mt-md">
             <div>
-                <label for="motor_fornecedor_id">Motor</label>
-                <select id="motor_fornecedor_id" name="motor_fornecedor_id" required>
+                <label class="ows-label" for="motor_fornecedor_id">Motor</label>
+                <select class="ows-select" id="motor_fornecedor_id" name="motor_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in motores|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in motores|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="combustivel_fornecedor_id">Combustível</label>
-                <select id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" required>
+                <label class="ows-label" for="combustivel_fornecedor_id">Combustível</label>
+                <select class="ows-select" id="combustivel_fornecedor_id" name="combustivel_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in combustiveis|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in combustiveis|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="pneu_fornecedor_id">Pneu</label>
-                <select id="pneu_fornecedor_id" name="pneu_fornecedor_id" required>
+                <label class="ows-label" for="pneu_fornecedor_id">Pneu</label>
+                <select class="ows-select" id="pneu_fornecedor_id" name="pneu_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in pneus|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in pneus|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="cambio_fornecedor_id">Câmbio</label>
-                <select id="cambio_fornecedor_id" name="cambio_fornecedor_id" required>
+                <label class="ows-label" for="cambio_fornecedor_id">Câmbio</label>
+                <select class="ows-select" id="cambio_fornecedor_id" name="cambio_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in cambios|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in cambios|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
-
             <div>
-                <label for="suspensao_fornecedor_id">Suspensão</label>
-                <select id="suspensao_fornecedor_id" name="suspensao_fornecedor_id" required>
+                <label class="ows-label" for="suspensao_fornecedor_id">Suspensão</label>
+                <select class="ows-select" id="suspensao_fornecedor_id" name="suspensao_fornecedor_id" required>
                     <option value="">Escolha um fornecedor</option>
-                    {% for m in suspensoes|sort(attribute='custo_temporada') %}
-                    <option value="{{ m.id }}">
-                        {{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}
-                    </option>
-                    {% endfor %}
+                    {% for m in suspensoes|sort(attribute='custo_temporada') %}<option value="{{ m.id }}">{{ m.nome.split(' #')[0] }} — R$ {{ "{:,.0f}".format(m.custo_temporada or 0)|replace(",", ".") }}</option>{% endfor %}
                 </select>
             </div>
         </div>
     </div>
-
-    <div class="ows-card" style="margin-bottom: 18px; border-left: 3px solid #ff7a00;">
-        <h3 style="color: #ff8a3d;">ENGENHEIRO NÍVEL 1 — INCLUSO</h3>
-        <p class="ows-muted" style="margin-top: 4px;">
-            Sua equipe já vem com um <strong>Engenheiro nível 1</strong> contratado, sem custo.
-            Ele entrega chassi e aerodinâmica de nível 1 (100% aplicados) para você começar a correr.
-            Nas próximas temporadas você poderá <strong>renovar</strong> esse contrato (com desconto)
-            ou <strong>contratar um engenheiro de nível superior</strong> para desenvolver um carro
-            mais rápido. Lembre-se: chassi 100% + aero 100% + engenheiro contratado são requisito
-            para participar normalmente da próxima temporada.
-        </p>
+    <div class="ows-card ows-mb-md eq-card-highlight">
+        <h3 class="eq-title-primary">ENGENHEIRO NÍVEL 1 — INCLUSO</h3>
+        <p class="ows-muted ows-mt-xs">Sua equipe já vem com um <strong class="ows-strong">Engenheiro nível 1</strong> contratado, sem custo.</p>
     </div>
-
-    <div class="ows-card" style="margin-bottom: 18px; background: rgba(255,120,0,.06);">
+    <div class="ows-card ows-mb-md eq-card-warning">
         <h3>ANTES DE ASSINAR</h3>
-        <p class="ows-muted" style="margin: 0;">
-            Ao clicar em <strong>Criar Equipe</strong>, o sistema debita imediatamente
-            os custos de temporada de todos os fornecedores selecionados. Você não
-            poderá trocar contratos durante a temporada. Seu carro começa com Engenheiro,
-            chassi e aerodinâmica de nível 1 (grátis).
-        </p>
+        <p class="ows-muted ows-m-0">Ao clicar em <strong class="ows-strong">Criar Equipe</strong>, o sistema debita os custos e você não poderá trocar na temporada.</p>
     </div>
-
-    <button type="submit" class="ows-btn ows-btn-primary" style="font-size: 15px; padding: 14px 32px;">
-        ✓ Criar Equipe e Assinar Contratos
-    </button>
-
+    <button type="submit" class="ows-btn ows-btn-primary eq-btn-submit">✓ Criar Equipe e Assinar Contratos</button>
 </form>
-
 {% endblock %}

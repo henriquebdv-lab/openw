@@ -1,10 +1,13 @@
 {% extends "base.html" %}
-
 {% block title %}Treino Livre • Open Wheel Strategy{% endblock %}
 
+{% block css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/treino_livre.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h1 class="h3 mb-0">🏎️ Treino Livre: {{ pista.nome }} ({{ pista.pais }})</h1>
+<div class="treino-header">
+    <h1>🏎️ Treino Livre: {{ pista.nome }} ({{ pista.pais }})</h1>
     <a href="{{ url_for('treino_livre_ranking_view') }}" class="ows-btn ows-btn-ghost">
       🏆 Ver ranking
     </a>
@@ -12,48 +15,48 @@
 
 {% if not stint %}
 <!-- MODO 1: GARAGEM / CONFIGURANDO O STINT -->
-<div class="ows-grid-2" style="align-items:start;">
+<div class="ows-grid-2 treino-grid-start">
     <div>
-        <div class="ows-card" style="margin-bottom: 24px;">
+        <div class="ows-card treino-card-mb">
             <h3>DADOS DO PARC FERMÉ</h3>
-            <p class="ows-muted" style="margin-top:4px;">Componentes já travados e montados no seu carro para esta corrida:</p>
-            <div class="ows-grid-3" style="margin-top: 16px;">
+            <p class="ows-muted treino-subtitle">Componentes já travados e montados no seu carro para esta corrida:</p>
+            <div class="ows-grid-3 treino-grid-mt">
                 <div>
-                    <small class="ows-muted" style="letter-spacing: 1px;">MOTOR</small>
-                    <div style="font-size: 18px; color: #fff; font-weight: bold; margin-top: 4px;">Mod. {{ setup_fds.modelo_motor }}</div>
+                    <small class="ows-muted treino-label">MOTOR</small>
+                    <div class="treino-value-sm">Mod. {{ setup_fds.modelo_motor }}</div>
                 </div>
                 <div>
-                    <small class="ows-muted" style="letter-spacing: 1px;">CÂMBIO</small>
-                    <div style="font-size: 18px; color: #fff; font-weight: bold; margin-top: 4px;">Mod. {{ setup_fds.modelo_cambio }}</div>
+                    <small class="ows-muted treino-label">CÂMBIO</small>
+                    <div class="treino-value-sm">Mod. {{ setup_fds.modelo_cambio }}</div>
                 </div>
                 <div>
-                    <small class="ows-muted" style="letter-spacing: 1px;">SUSPENSÃO</small>
-                    <div style="font-size: 18px; color: #fff; font-weight: bold; margin-top: 4px;">Mod. {{ setup_fds.modelo_suspensao }}</div>
+                    <small class="ows-muted treino-label">SUSPENSÃO</small>
+                    <div class="treino-value-sm">Mod. {{ setup_fds.modelo_suspensao }}</div>
                 </div>
             </div>
         </div>
 
         <div class="ows-card">
             <h3>PNEUS E COMBUSTÍVEL DE TESTE</h3>
-            <p class="ows-muted" style="margin-top:4px;">Defina os itens táticos para este stint. Ao entrar na pista, seu carro roda 100% nas peças, o único desgaste é deste treino.</p>
+            <p class="ows-muted treino-subtitle">Defina os itens táticos para este stint. Ao entrar na pista, seu carro roda 100% nas peças, o único desgaste é deste treino.</p>
             
-            <form method="post" action="{{ url_for('treino_livre_view') }}">
+            <form method="post" action="{{ url_for('treino_livre_view') }}" class="ows-form">
                 <input type="hidden" name="acao" value="iniciar">
                 
-                <div style="margin-top: 16px;">
-                    <label class="form-label text-muted">Modelo de Pneu ({{ pneu_contratado.nome }})</label>
-                    <select name="modelo_pneu" class="form-select" style="background:#1e2430; color:#fff; border: 1px solid #364156; margin-bottom:12px;" required>
+                <div class="treino-grid-mt">
+                    <label class="ows-label">Modelo de Pneu ({{ pneu_contratado.nome }})</label>
+                    <select name="modelo_pneu" class="ows-select treino-input-mb" required>
                         {% for m in modelos_disponiveis %}
                             <option value="{{ m }}">Modelo {{ m }}</option>
                         {% endfor %}
                     </select>
 
-                    <label class="form-label text-muted">Combustível a carregar (L) ({{ combustivel_contratado.nome }})</label>
-                    <input type="number" step="1" min="1" max="150" name="combustivel_litros" value="30" class="form-control" style="background:#1e2430; color:#fff; border: 1px solid #364156; margin-bottom:12px;">
-                    <div class="ows-hint mb-4">A quantidade de litros definirá quantas voltas o piloto consegue dar.</div>
+                    <label class="ows-label">Combustível a carregar (L) ({{ combustivel_contratado.nome }})</label>
+                    <input type="number" step="1" min="1" max="150" name="combustivel_litros" value="30" class="ows-input treino-input-mb">
+                    <div class="ows-hint">A quantidade de litros definirá quantas voltas o piloto consegue dar.</div>
                 </div>
 
-                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" style="padding: 15px; font-size: 16px;">🏁 Sair da Garagem</button>
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full treino-btn-lg">🏁 Sair da Garagem</button>
             </form>
         </div>
     </div>
@@ -71,93 +74,81 @@
 
 {% else %}
 <!-- MODO 2: NA PISTA / AJUSTANDO SLIDERS VOLTA A VOLTA -->
-<div class="ows-card" style="margin-bottom: 24px;">
-    <div class="d-flex justify-content-between align-items-center flex-wrap">
+<div class="ows-card treino-card-mb">
+    <div class="treino-telemetry-header">
         <div>
-            <h3 style="margin-bottom: 4px; color: #f1c40f;">📡 TELEMETRIA AO VIVO</h3>
-            <p class="ows-muted" style="margin:0;">Pneu Mod. {{ stint.modelo_pneu }} | Treino em Andamento</p>
+            <h3 class="treino-telemetry-title">📡 TELEMETRIA AO VIVO</h3>
+            <p class="ows-muted treino-telemetry-subtitle">Pneu Mod. {{ stint.modelo_pneu }} | Treino em Andamento</p>
         </div>
         
-        <div style="display: flex; gap: 20px; text-align: right;">
+        <div class="treino-telemetry-stats">
             <div>
                 <small class="ows-muted">Combustível</small>
-                <div style="font-size: 20px; font-weight: bold; color: {% if stint.combustivel_restante < 10 %}#e74c3c{% else %}#fff{% endif %};">{{ stint.combustivel_restante }} L</div>
+                <div class="treino-stat-val {% if stint.combustivel_restante < 10 %}ows-text-danger{% endif %}">{{ stint.combustivel_restante }} L</div>
             </div>
             <div>
                 <small class="ows-muted">Vida do Pneu</small>
                 {% set vida_pneu = 100 - stint.desgaste %}
                 {% if vida_pneu < 0 %}{% set vida_pneu = 0 %}{% endif %}
-                {% set cor_vida = '#2ecc71' if vida_pneu > 50 else ('#f1c40f' if vida_pneu >= 20 else '#e74c3c') %}
-                <div style="font-size: 20px; font-weight: bold; color: {{ cor_vida }};">{{ "%.1f"|format(vida_pneu) }}%</div>
+                <div class="treino-stat-val {% if vida_pneu > 50 %}ows-text-success{% elif vida_pneu >= 20 %}ows-text-warning{% else %}ows-text-danger{% endif %}">{{ "%.1f"|format(vida_pneu) }}%</div>
             </div>
             <div>
                 <small class="ows-muted">Voltas</small>
-                <div style="font-size: 20px; font-weight: bold; color: #fff;">{{ stint.voltas|length }}</div>
+                <div class="treino-stat-val">{{ stint.voltas|length }}</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="ows-grid-2" style="align-items:start;">
+<div class="ows-grid-2 treino-grid-start">
     <div>
         <div class="ows-card">
             <h3>⚙️ AJUSTE FINO DO CARRO</h3>
-            <p class="ows-muted" style="margin-top:4px;">1 a 99. Escute o feedback do piloto e ajuste para buscar a volta ideal.</p>
+            <p class="ows-muted treino-subtitle">1 a 99. Escute o feedback do piloto e ajuste para buscar a volta ideal.</p>
             
             {% if stint.voltas %}
-            <div style="margin: 20px 0; padding: 15px; background: rgba(46,125,50,.12); border-left: 4px solid #2ecc71; border-radius: 4px;">
-                <small class="ows-muted" style="display:block; margin-bottom:5px; font-weight:bold;">ACERTO GERAL ATUAL</small>
-                <div style="font-size: 32px; font-weight: bold; color: #2ecc71;">{{ stint.voltas[0].acerto }}%</div>
+            <div class="treino-acerto-box">
+                <small class="ows-muted treino-acerto-label">ACERTO GERAL ATUAL</small>
+                <div class="treino-acerto-val">{{ stint.voltas[0].acerto }}%</div>
             </div>
             {% endif %}
 
             <form method="post" action="{{ url_for('treino_livre_view') }}">
-                <div style="margin-bottom: 20px;">
-                    <label class="d-flex justify-content-between text-white font-monospace align-items-center">
-                        Câmbio (Curto/Longo)
-                        <input type="number" id="num_cambio" min="1" max="99" value="{{ sliders_atuais.cambio }}"
-                               style="width: 65px; background: #1e2430; color: #f1c40f; border: 1px solid #364156; border-radius: 4px; text-align: center; font-weight: bold;"
-                               oninput="document.getElementById('range_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                <div class="treino-slider-row">
+                    <label class="treino-slider-label">
+                        Câmbio (Curto/Longo) <output id="out_cambio" class="ows-text-warning">{{ sliders_atuais.cambio }}</output>
                     </label>
-                    <input type="range" id="range_cambio" class="form-range" name="slider_cambio" min="1" max="99" step="1" value="{{ sliders_atuais.cambio }}" 
-                           oninput="document.getElementById('num_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" class="ows-range" name="slider_cambio" min="1" max="99" value="{{ sliders_atuais.cambio }}" oninput="document.getElementById('out_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
                 
-                <div style="margin-bottom: 20px;">
-                    <label class="d-flex justify-content-between text-white font-monospace align-items-center">
-                        Suspensão (Mole/Dura)
-                        <input type="number" id="num_suspensao" min="1" max="99" value="{{ sliders_atuais.suspensao }}"
-                               style="width: 65px; background: #1e2430; color: #f1c40f; border: 1px solid #364156; border-radius: 4px; text-align: center; font-weight: bold;"
-                               oninput="document.getElementById('range_suspensao').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                <div class="treino-slider-row">
+                    <label class="treino-slider-label">
+                        Suspensão (Mole/Dura) <output id="out_susp" class="ows-text-warning">{{ sliders_atuais.suspensao }}</output>
                     </label>
-                    <input type="range" id="range_suspensao" class="form-range" name="slider_suspensao" min="1" max="99" step="1" value="{{ sliders_atuais.suspensao }}" 
-                           oninput="document.getElementById('num_suspensao').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" class="ows-range" name="slider_suspensao" min="1" max="99" value="{{ sliders_atuais.suspensao }}" oninput="document.getElementById('out_susp').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
                 
-                <div style="margin-bottom: 30px;">
-                    <label class="d-flex justify-content-between text-white font-monospace align-items-center">
-                        Aerofólio (Menos/Mais Asa)
-                        <input type="number" id="num_aerofolio" min="1" max="99" value="{{ sliders_atuais.aerofolio }}"
-                               style="width: 65px; background: #1e2430; color: #f1c40f; border: 1px solid #364156; border-radius: 4px; text-align: center; font-weight: bold;"
-                               oninput="document.getElementById('range_aerofolio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                <div class="treino-slider-row-last">
+                    <label class="treino-slider-label">
+                        Aerofólio (Menos/Mais Asa) <output id="out_aero" class="ows-text-warning">{{ sliders_atuais.aerofolio }}</output>
                     </label>
-                    <input type="range" id="range_aerofolio" class="form-range" name="slider_aerofolio" min="1" max="99" step="1" value="{{ sliders_atuais.aerofolio }}" 
-                           oninput="document.getElementById('num_aerofolio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" class="ows-range" name="slider_aerofolio" min="1" max="99" value="{{ sliders_atuais.aerofolio }}" oninput="document.getElementById('out_aero').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
 
                 {% if stint.ativo %}
-                <button type="submit" name="acao" value="fazer_volta" class="ows-btn ows-btn-primary ows-btn-full mb-3" style="padding: 15px; font-weight: bold;">
+                <!-- CSS INLINE REMOVIDO AQUI -->
+                <button type="submit" name="acao" value="fazer_volta" class="ows-btn ows-btn-primary ows-btn-full treino-btn-lg treino-btn-volta">
                     ⏱️ Fazer 1 Volta
                 </button>
                 {% else %}
-                <div class="ows-alert mb-3 text-center" style="background:#e74c3c; color:#fff; border:none; font-weight:bold;">
+                <div class="ows-alert treino-alert-fatal">
                     STINT ENCERRADO: {{ stint.encerrou_por }}
                 </div>
                 {% endif %}
 
-                <div class="d-flex gap-2">
-                    <button type="submit" name="acao" value="salvar_ajuste" class="ows-btn ows-btn-ghost flex-fill" style="color:#2ecc71; border-color:#2ecc71;">💾 Salvar Ajuste Fino</button>
-                    <button type="submit" name="acao" value="descartar" class="ows-btn ows-btn-ghost flex-fill" style="color:#e74c3c; border-color:#e74c3c;">✕ Voltar pro Box</button>
+                <div class="treino-actions-row">
+                    <button type="submit" name="acao" value="salvar_ajuste" class="ows-btn ows-btn-ghost treino-btn-success">💾 Salvar Ajuste Fino</button>
+                    <button type="submit" name="acao" value="descartar" class="ows-btn ows-btn-ghost treino-btn-danger">❌ Voltar pro Box</button>
                 </div>
             </form>
         </div>
@@ -166,33 +157,32 @@
     <!-- Tabela de Histórico -->
     <div>
         <div class="ows-card">
-            <h3>📝 Histórico do Stint</h3>
-            <div style="overflow-x:auto;">
-              <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
+            <h3>📋 Histórico do Stint</h3>
+            <div class="treino-table-wrapper">
+              <table class="treino-table">
                 <thead>
-                  <tr style="border-bottom: 2px solid #2a3241;">
-                    <th style="padding:8px; color:#7a8aa3;">V.</th>
-                    <th style="padding:8px; color:#7a8aa3;">Tempo</th>
-                    <th style="padding:8px; color:#7a8aa3;">Acerto</th>
-                    <th style="padding:8px; color:#7a8aa3;">Vida Pneu</th>
-                    <th style="padding:8px; color:#7a8aa3;">Feedback do Piloto</th>
+                  <tr>
+                    <th>V.</th>
+                    <th>Tempo</th>
+                    <th>Acerto</th>
+                    <th>Vida Pneu</th>
+                    <th>Feedback do Piloto</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for v in stint.voltas %}
-                    <tr style="border-bottom:1px solid #1e2a3d;">
-                      <td style="padding:12px 8px;">#{{ v.numero }}</td>
-                      <td style="padding:12px 8px; font-weight:bold; color:#fff;">{{ v.tempo | tempo_min }}</td>
-                      <td style="padding:12px 8px; color:#2ecc71; font-weight:bold;">{{ v.acerto }}%</td>
+                    <tr>
+                      <td>#{{ v.numero }}</td>
+                      <td class="treino-td-bold">{{ v.tempo | tempo_min }}</td>
+                      <td class="treino-td-success">{{ v.acerto }}%</td>
                       {% set v_vida = 100 - v.desgaste_pneu %}
                       {% if v_vida < 0 %}{% set v_vida = 0 %}{% endif %}
-                      {% set v_cor = '#2ecc71' if v_vida > 50 else ('#f1c40f' if v_vida >= 20 else '#e74c3c') %}
-                      <td style="padding:12px 8px; font-weight:bold; color:{{ v_cor }};">{{ "%.1f"|format(v_vida) }}%</td>
-                      <td style="padding:12px 8px;" class="ows-hint">"{{ v.feedback }}"</td>
+                      <td class="treino-td-bold {% if v_vida > 50 %}ows-text-success{% elif v_vida >= 20 %}ows-text-warning{% else %}ows-text-danger{% endif %}">{{ "%.1f"|format(v_vida) }}%</td>
+                      <td class="ows-hint">"{{ v.feedback }}"</td>
                     </tr>
                   {% else %}
                   <tr>
-                    <td colspan="5" style="padding:20px; text-align:center;" class="ows-muted">Nenhuma volta completada ainda. Ajuste e acelere.</td>
+                    <td colspan="5" class="ows-muted treino-td-center">Nenhuma volta completada ainda. Ajuste e acelere.</td>
                   </tr>
                   {% endfor %}
                 </tbody>

@@ -6,14 +6,19 @@ Monta um ambiente de teste completo de uma vez so:
     python seed_teste.py
 
 Cria:
-    - 2 usuarios admin (senha 123456), nick "Razor"
+    - 1 usuario admin (senha 123456), nick "Razor"
     - Fornecedores (popular_banco)
     - "TEMPORADA 1" ativa com 10 corridas
-    - Equipe completa pra cada admin (fornecedores mais baratos + eng nv1)
-    - 40 JOGADORES FAKE (bots) JA PRONTOS pra quali+corrida (grid cheio):
-      fornecedores random, parc ferme random, ajuste fino random, dados de
-      classificacao random e stints random. Assim da pra rodar a corrida no
-      admin e ver o replay com grid cheio.
+    - Equipe completa pro admin (fornecedores mais baratos + eng nv1)
+    - N JOGADORES FAKE (bots) montados COMO UM JOGADOR:
+      * Orcamento inicial de 55.000
+      * Escolhem os fornecedores MAIS BARATOS de cada categoria (motor,
+        combustivel, pneu, cambio, suspensao) + engenheiro nivel 1
+      * Os contratos (custo_temporada) sao DEBITADOS do orcamento (igual jogador)
+      * Ja preparados pra quali+corrida (parc ferme, ajuste fino, quali, stints)
+
+Assim os bots NAO "roubam": todos correm com pecas baratas equivalentes, e os
+tempos na 1a temporada ficam parelhos (sem bot com peca cara de graca).
 
 Idempotente: nao duplica se rodar de novo.
 """
@@ -35,14 +40,13 @@ import modelos_componente
 # ---- CONFIG (mude aqui se quiser) ----
 USUARIOS_ADMIN = [
     "henriquebdv@gmail.com",
-    "henriquebettegaclaro@gmail.com",
 ]
 SENHA_PADRAO = "123456"
 NICK = "Razor"
 NOME_TEMPORADA = "TEMPORADA 1"
 QTD_CORRIDAS = 10
-NOMES_EQUIPE = ["Racing Titans", "Velocity GP"]
-QTD_BOTS = 40          # jogadores fake prontos pra correr (grid cheio)
+NOMES_EQUIPE = ["Racing Titans"]
+QTD_BOTS = 19          # jogadores fake prontos pra correr (grid cheio: 19 bots + voce = 20)
 MODELOS = modelos_componente.MODELOS  # [50,100,...,900]
 
 
@@ -75,52 +79,79 @@ def criar_fornecedores():
 
 
 def _mais_barato(Model):
+    """Retorna o fornecedor ATIVO mais barato (menor custo_temporada)."""
     return Model.query.filter_by(ativo=True).order_by(Model.custo_temporada).first()
 
 
-def _id_aleatorio(Model):
-    ids = [r.id for r in Model.query.filter_by(ativo=True).all()]
-    return random.choice(ids) if ids else None
+def _montar_equipe_como_jogador(usuario, nome_equipe):
+    """Monta uma equipe IGUAL a um jogador iniciante:
+    - pega os 5 fornecedores MAIS BARATOS + engenheiro nivel 1
+    - DEBITA os contratos (custo_temporada) do orcamento de 55.000
+    Retorna a equipe criada (ou None se faltar fornecedor)."""
+    config = Configuracao.obter()
+
+    motor = _mais_barato(FornecedorMotor)
+    comb = _mais_barato(FornecedorCombustivel)
+    pneu = _mais_barato(FornecedorPneu)
+    cambio = _mais_barato(FornecedorCambio)
+    susp = _mais_barato(FornecedorSuspensao)
+    eng = (FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True)
+           .order_by(FornecedorEngenheiro.custo_temporada).first())
+
+    if not all([motor, comb, pneu, cambio, susp]):
+        return None
+
+    # Debita os contratos dos 5 fornecedores (igual ao jogador real).
+    # Engenheiro nivel 1 e "gratis" (incluso), entao NAO entra no debito.
+    orcamento = float(config.orcamento_inicial)
+    total_contratos = float(
+        (motor.custo_temporada or 0) + (comb.custo_temporada or 0) +
+        (pneu.custo_temporada or 0) + (cambio.custo_temporada or 0) +
+        (susp.custo_temporada or 0)
+    )
+    orcamento_final = orcamento - total_contratos
+
+    equipe = CarroJogador(
+        usuario_id=usuario.id,
+        nome=nome_equipe,
+        orcamento=orcamento_final,   # <-- ja debitado
+        motor_fornecedor_id=motor.id,
+        combustivel_fornecedor_id=comb.id,
+        pneu_fornecedor_id=pneu.id,
+        chassi_fornecedor_id=None,
+        cambio_fornecedor_id=cambio.id,
+        suspensao_fornecedor_id=susp.id,
+        engenheiro_fornecedor_id=eng.id if eng else None,
+        combustivel_carregado=110.0,
+    )
+    db.session.add(equipe)
+    db.session.flush()
+    db.session.add(Desenvolvimento(
+        equipe_id=equipe.id, chassi_percentual_aplicado=100.0,
+        aero_percentual_aplicado=100.0, nivel_engenheiro_projetista=1))
+    return equipe
 
 
 def criar_equipes_admins():
-    """Equipe completa (fornecedores mais baratos) pra cada admin sem equipe."""
-    config = Configuracao.obter()
+    """Equipe completa (mais baratos + debito) pra cada admin sem equipe."""
     criadas = 0
     admins = Usuario.query.filter(Usuario.email.in_(USUARIOS_ADMIN)).order_by(Usuario.id).all()
     for indice, usuario in enumerate(admins):
         if usuario.equipe:
             continue
-        motor = _mais_barato(FornecedorMotor)
-        comb = _mais_barato(FornecedorCombustivel)
-        pneu = _mais_barato(FornecedorPneu)
-        cambio = _mais_barato(FornecedorCambio)
-        susp = _mais_barato(FornecedorSuspensao)
-        eng = (FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True)
-               .order_by(FornecedorEngenheiro.custo_temporada).first())
-        if not all([motor, comb, pneu, cambio, susp]):
+        nome = NOMES_EQUIPE[indice] if indice < len(NOMES_EQUIPE) else f"Equipe {indice+1}"
+        equipe = _montar_equipe_como_jogador(usuario, nome)
+        if equipe is None:
             print("[AVISO] Faltam fornecedores. Rode a geracao antes.")
             return
-        nome = NOMES_EQUIPE[indice] if indice < len(NOMES_EQUIPE) else f"Equipe {indice+1}"
-        equipe = CarroJogador(
-            usuario_id=usuario.id, nome=nome, orcamento=float(config.orcamento_inicial),
-            motor_fornecedor_id=motor.id, combustivel_fornecedor_id=comb.id,
-            pneu_fornecedor_id=pneu.id, chassi_fornecedor_id=None,
-            cambio_fornecedor_id=cambio.id, suspensao_fornecedor_id=susp.id,
-            engenheiro_fornecedor_id=eng.id if eng else None, combustivel_carregado=110.0,
-        )
-        db.session.add(equipe); db.session.flush()
-        db.session.add(Desenvolvimento(
-            equipe_id=equipe.id, chassi_percentual_aplicado=100.0,
-            aero_percentual_aplicado=100.0, nivel_engenheiro_projetista=1))
         criadas += 1
     db.session.commit()
-    print(f"[OK] Equipes dos admins: {criadas} criada(s) (piloto {NICK}).")
+    print(f"[OK] Equipes dos admins: {criadas} criada(s) (piloto {NICK}, pecas mais baratas, orcamento debitado).")
 
 
 def criar_bots(proxima_corrida):
-    """Gera QTD_BOTS jogadores fake JA PRONTOS pra quali+corrida da proxima corrida.
-    Fornecedores, parc ferme, ajuste fino, dados de quali e stints todos random."""
+    """Gera QTD_BOTS jogadores fake montados COMO JOGADOR (mais baratos + debito)
+    e JA PRONTOS pra quali+corrida da proxima corrida (parc ferme/ajuste/quali/stints)."""
     if not proxima_corrida:
         print("[AVISO] Sem proxima corrida — bots nao gerados.")
         return
@@ -128,33 +159,23 @@ def criar_bots(proxima_corrida):
         print("[SKIP] Bots ja existem.")
         return
 
-    config = Configuracao.obter()
     pista_id = proxima_corrida.pista_real_id
-    eng1 = FornecedorEngenheiro.query.filter_by(nivel=1, ativo=True).first()
     criados = 0
 
     for i in range(1, QTD_BOTS + 1):
         u = Usuario(email=f"bot{i}@fake.com", eh_admin=False, nick=f"Bot {i}")
         u.definir_senha("bot")
-        db.session.add(u); db.session.flush()
+        db.session.add(u)
+        db.session.flush()
 
-        car = CarroJogador(
-            usuario_id=u.id, nome=f"Bot Team {i}", orcamento=float(config.orcamento_inicial),
-            motor_fornecedor_id=_id_aleatorio(FornecedorMotor),
-            combustivel_fornecedor_id=_id_aleatorio(FornecedorCombustivel),
-            pneu_fornecedor_id=_id_aleatorio(FornecedorPneu),
-            chassi_fornecedor_id=None,
-            cambio_fornecedor_id=_id_aleatorio(FornecedorCambio),
-            suspensao_fornecedor_id=_id_aleatorio(FornecedorSuspensao),
-            engenheiro_fornecedor_id=eng1.id if eng1 else None,
-            combustivel_carregado=110.0,
-        )
-        db.session.add(car); db.session.flush()
-        db.session.add(Desenvolvimento(
-            equipe_id=car.id, chassi_percentual_aplicado=100.0,
-            aero_percentual_aplicado=100.0, nivel_engenheiro_projetista=1))
+        # MONTA A EQUIPE IGUAL A UM JOGADOR (mais baratos + debito do orcamento)
+        car = _montar_equipe_como_jogador(u, f"Bot Team {i}")
+        if car is None:
+            print("[AVISO] Faltam fornecedores pra montar bots.")
+            return
+        db.session.flush()
 
-        # Parc Ferme (travado)
+        # Parc Ferme (travado) — modelos 50-900 random (isso e "setup", nao custo)
         db.session.add(SetupFimDeSemana(
             equipe_id=car.id, corrida_id=proxima_corrida.id,
             modelo_motor=random.choice(MODELOS), modelo_cambio=random.choice(MODELOS),
@@ -180,7 +201,7 @@ def criar_bots(proxima_corrida):
         criados += 1
 
     db.session.commit()
-    print(f"[OK] {criados} jogadores FAKE prontos pra quali+corrida (grid cheio).")
+    print(f"[OK] {criados} bots montados COMO JOGADOR (pecas mais baratas + orcamento debitado) e prontos pra correr.")
 
 
 def criar_temporada():
@@ -190,7 +211,8 @@ def criar_temporada():
         return existente
     Temporada.query.update({"ativa": False})
     temporada = Temporada(nome=NOME_TEMPORADA, ativa=True)
-    db.session.add(temporada); db.session.flush()
+    db.session.add(temporada)
+    db.session.flush()
     criar_banco_pistas_reais()
     pistas = listar_pistas_reais()[:QTD_CORRIDAS]
     for i, pista in enumerate(pistas, start=1):
@@ -213,6 +235,7 @@ def main():
         print("\n=== SEED DE TESTE CONCLUIDO ===")
         print(f"Logue com: {USUARIOS_ADMIN[0]} / senha: {SENHA_PADRAO}")
         print(f"Proxima corrida: {prox.pista_nome if prox else '—'} | {QTD_BOTS} bots prontos.")
+        print("Todos (voce + bots) com pecas mais baratas = tempos parelhos na 1a temporada.")
         print("Va no /admin -> Dia de Corrida -> rodar classificacao e corrida.")
 
 

@@ -5,6 +5,7 @@ Rotas de administração (/admin/...):
 - temporadas (criar, editar, ativar, desativar, remover corrida)
 - usuários (listar, editar)
 - configurações de balanceamento
+- evento especial (novo)
 """
 from datetime import datetime
 
@@ -97,7 +98,6 @@ def registrar(app):
                     quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
                     
                     carro = eq.montar_carro()
-                    # Injeta o Parc Fermé e as Escolhas da Quali direto na instância do Carro
                     carro.definir_modelos(
                         motor=setup.modelo_motor,
                         cambio=setup.modelo_cambio,
@@ -135,7 +135,6 @@ def registrar(app):
                     flash("Nenhuma equipe pronta para correr.", "danger")
                     return redirect(url_for('admin_dia_corrida'))
 
-                # Passando explicitamente apenas as equipes preparadas
                 _executar_corrida_e_persistir(
                     pista_proxima_temporada, 
                     corrida_agendada=proxima_corrida_temporada,
@@ -166,6 +165,27 @@ def registrar(app):
                                ja_classificou=ja_classificou,
                                ja_correu=ja_correu,
                                resultados_classi=resultados_classi)
+
+    @app.route("/admin/evento-especial", methods=["GET", "POST"])
+    @admin_requerido
+    def admin_evento_especial():
+        """Nova rota: Corrida totalmente customizada ignorando limites do jogo."""
+        criar_banco_pistas_reais()
+        pistas = listar_pistas_reais()
+        
+        if request.method == "POST":
+            pista_id = request.form.get("pista_id")
+            voltas_custom = request.form.get("voltas")
+            
+            if pista_id and voltas_custom:
+                p = obter_pista_real(int(pista_id))
+                if p:
+                    # Roda o simulador com a quantidade exata de voltas (sem contar para a temporada ativa)
+                    _executar_corrida_e_persistir(p, corrida_agendada=None, voltas_customizadas=int(voltas_custom))
+                    flash(f"🏁 Evento Especial em {p['nome']} concluído! O replay com {voltas_custom} voltas já está disponível na aba Corrida.", "success")
+            return redirect(url_for('admin_evento_especial'))
+            
+        return render_template("admin_evento_especial.html", pistas=pistas)
 
     @app.route("/admin/gerar-fornecedores", methods=["POST"])
     @admin_requerido
@@ -312,9 +332,6 @@ def registrar(app):
     @app.route("/admin/temporadas/<int:temporada_id>/desativar", methods=["POST"])
     @admin_requerido
     def admin_temporada_desativar(temporada_id):
-        """Desativa a temporada E aplica o desenvolvimento (chassi+aero em construção)
-        de todos os jogadores. Quem não completou os requisitos fica sem carro
-        pra próxima temporada."""
         temporada = Temporada.query.get_or_404(temporada_id)
         temporada.ativa = False
         equipes = CarroJogador.query.all()
@@ -334,7 +351,7 @@ def registrar(app):
         flash(
             f"Temporada '{temporada.nome}' desativada. "
             f"Chassi/aero aplicado em {aplicados} equipe(s). "
-            f"{bloqueados} equipe(s) não completou os requisitos (chassi/aero em construção zerado, começam próxima temporada com o que tinham).",
+            f"{bloqueados} equipe(s) não completou os requisitos.",
             "info",
         )
         return redirect(url_for("admin_temporadas"))
