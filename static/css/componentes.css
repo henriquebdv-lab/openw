@@ -1,0 +1,240 @@
+/* ============================================================
+   OPEN WHEEL STRATEGY - Componentes Reutilizáveis
+   ============================================================ */
+
+/* --------------------------------------
+   GRIDS
+--------------------------------------- */
+.ows-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--spacing-md); }
+.ows-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
+.ows-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md); }
+
+/* Responsividade de Grids */
+@media (max-width: 1200px) {
+    .ows-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .ows-grid-3 { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 800px) {
+    .ows-grid-4, .ows-grid-3, .ows-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------
+   CARDS
+--------------------------------------- */
+.ows-card {
+    background: linear-gradient(180deg, var(--bg-card-start), var(--bg-card-end));
+    border: 1px solid var(--border-main);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+}
+
+.ows-card h3 {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-label);
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.ows-card .ows-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-white);
+    letter-spacing: 1px;
+}
+
+.ows-card .ows-hint {
+    font-size: 12px;
+    color: var(--text-label);
+    margin-top: 6px;
+}
+
+/* --------------------------------------
+   HERO SECTIONS (Cabeçalhos Destaque)
+--------------------------------------- */
+.ows-hero {
+    position: relative;
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    margin-bottom: var(--spacing-lg);
+    overflow: hidden;
+    background: radial-gradient(circle at 90% 20%, var(--color-primary-faded), transparent 60%),
+                linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-body) 100%);
+    border: 1px solid var(--border-light);
+}
+
+.ows-hero-label {
+    display: inline-block;
+    padding: 5px 12px;
+    background: var(--color-primary-faded);
+    border: 1px solid var(--color-primary-border);
+    color: var(--color-primary-light);
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.ows-hero h1 {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--text-white);
+    margin-bottom: 6px;
+}
+
+.ows-hero .ows-hero-sub {
+    color: var(--text-muted);
+    margin-bottom: 18px;
+    font-size: 14px;
+}
+
+.ows-hero-meta {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.ows-hero-meta > div { line-height: 1.2; }
+
+.ows-hero-meta small {
+    color: var(--text-label);
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+}
+
+.ows-hero-meta strong {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-white);
+    margin-top: 4px;
+}
+
+.ows-hero-actions {
+    margin-top: 26px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* --------------------------------------
+   BOTÕES
+--------------------------------------- */
+.ows-btn {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all .15s ease;
+    text-align: center;
+}
+
+.ows-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ows-btn-primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: var(--text-white);
+    box-shadow: var(--shadow-btn-primary);
+}
+
+.ows-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.05);
+}
+
+.ows-btn-ghost {
+    background: transparent;
+    color: var(--text-main);
+    border-color: var(--border-light);
+}
+
+.ows-btn-ghost:hover:not(:disabled) {
+    background: var(--bg-surface);
+    color: var(--text-white);
+}
+
+.ows-btn-danger {
+    background: var(--color-danger);
+    color: var(--text-white);
+}
+
+.ows-btn-full {
+    display: block;
+    width: 100%;
+}
+
+/* --------------------------------------
+   BADGES (Etiquetas no topo)
+--------------------------------------- */
+.ows-badge {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-main);
+    border-radius: var(--radius-md);
+    padding: 6px 14px;
+    line-height: 1.1;
+}
+
+.ows-badge-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-label);
+    font-weight: 700;
+}
+
+.ows-badge-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-white);
+}
+
+/* --------------------------------------
+   ALERTAS
+--------------------------------------- */
+.ows-alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    margin-bottom: var(--spacing-md);
+}
+
+.ows-alert-danger {
+    background: var(--color-danger-bg);
+    border: 1px solid var(--color-danger-border);
+    color: var(--color-danger-light);
+}
+
+.ows-alert-success {
+    background: var(--color-success-bg);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success-light);
+}
+
+.ows-alert-warning {
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning-border);
+    color: var(--color-warning);
+}
+
+.ows-alert-info {
+    background: var(--color-info-bg);
+    border: 1px solid var(--color-info-border);
+    color: var(--color-info);
+}
+
+/* --------------------------------------
+   UTILITÁRIOS
+--------------------------------------- */
+.ows-muted { color: var(--text-label); }
+.ows-strong { color: var(--text-white); font-weight: 600; }
+.ows-orange { color: var(--color-primary-light); }

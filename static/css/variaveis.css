@@ -1,0 +1,73 @@
+/* ============================================================
+   OPEN WHEEL STRATEGY - Variáveis Globais (Tema)
+   ============================================================ */
+
+:root {
+    /* Tipografia */
+    --font-family: 'Segoe UI', 'Inter', Tahoma, sans-serif;
+    --font-mono: 'Courier New', Courier, monospace;
+
+    /* Cores de Fundo (Backgrounds) */
+    --bg-body: #08101e;
+    --bg-sidebar: #0b1524;
+    --bg-topbar: #0a1322;
+    --bg-surface: #101c30;
+    --bg-card-start: #0f1a2d;
+    --bg-card-end: #0b1524;
+    --bg-hover: #0f1c30;
+    
+    /* Cores de Texto */
+    --text-white: #ffffff;
+    --text-main: #eef2f8;
+    --text-muted: #b2bccb;
+    --text-label: #7a8aa3;
+    --text-dark: #5a6a83;
+
+    /* Acentos e Cores de Marca (Primary = Laranja) */
+    --color-primary: #ff7a00;
+    --color-primary-dark: #ff3d00;
+    --color-primary-light: #ff8a3d;
+    --color-primary-faded: rgba(255, 122, 0, 0.15);
+    --color-primary-border: rgba(255, 122, 0, 0.35);
+    
+    /* Cores de Feedback (Status) */
+    --color-danger: #b93030;
+    --color-danger-light: #ffb0b0;
+    --color-danger-bg: rgba(255, 70, 70, 0.1);
+    --color-danger-border: rgba(255, 70, 70, 0.4);
+    
+    --color-success: #2ecc71;
+    --color-success-light: #8fe2a0;
+    --color-success-bg: rgba(46, 125, 50, 0.12);
+    --color-success-border: rgba(46, 125, 50, 0.4);
+
+    --color-warning: #f1c40f;
+    --color-warning-bg: rgba(241, 196, 15, 0.1);
+    --color-warning-border: rgba(241, 196, 15, 0.4);
+
+    --color-info: #3498db;
+    --color-info-bg: rgba(52, 152, 219, 0.1);
+    --color-info-border: rgba(52, 152, 219, 0.4);
+
+    /* Bordas e Divisores */
+    --border-light: #26344f;
+    --border-main: #1e2c47;
+    --border-dark: #1a2740;
+
+    /* Sombras e Efeitos */
+    --shadow-card: 0 4px 22px rgba(0, 0, 0, 0.35);
+    --shadow-btn-primary: 0 4px 18px rgba(255, 120, 0, 0.35);
+    --shadow-logo: 0 0 20px rgba(255, 120, 0, 0.35);
+
+    /* Espaçamentos Globais */
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    
+    /* Arredondamentos */
+    --radius-sm: 4px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+}

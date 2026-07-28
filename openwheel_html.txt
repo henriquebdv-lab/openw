@@ -350,6 +350,7 @@
             <div class="card-body">
                 {% if ja_correu %}
                     <p class="text-success fw-bold">âœ… Corrida jÃ¡ executada.</p>
+                    <a href="{{ url_for('corrida_view') }}" class="btn btn-outline-primary mb-3 w-100">ðŸŽ¬ Ver Replay da Corrida</a>
                     <table class="table table-sm mt-3">
                         <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo Total</th><th>Pits</th></tr></thead>
                         <tbody>
@@ -925,13 +926,15 @@
         <a href="{{ url_for('treinamento_view') }}" class="ows-menu-link {% if request.endpoint == 'treinamento_view' %}active{% endif %}"><span class="ows-icon">ðŸ”§</span> Treinamento</a>
 
         <div class="ows-menu-section">CORRIDA</div>
-        <a href="{{ url_for('montagem_fim_de_semana') }}" class="ows-menu-link {% if request.endpoint == 'montagem_fim_de_semana' %}active{% endif %}"><span class="ows-icon">ðŸ”©</span> Montagem Fim de Semana</a>
+        <a href="{{ url_for('montagem_fim_de_semana') }}" class="ows-menu-link {% if request.endpoint == 'montagem_fim_de_semana' %}active{% endif %}"><span class="ows-icon">ðŸ”§</span> Montagem Fim de Semana</a>
         <a href="{{ url_for('treino_livre_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_livre_view' %}active{% endif %}"><span class="ows-icon">ðŸ“‹</span> Treino Livre</a>
         <a href="{{ url_for('treino_oficial_view') }}" class="ows-menu-link {% if request.endpoint == 'treino_oficial_view' %}active{% endif %}"><span class="ows-icon">ðŸ“Š</span> Treino Oficial</a>
         <a href="{{ url_for('estrategia_corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'estrategia_corrida_view' %}active{% endif %}"><span class="ows-icon">ðŸŽ¯</span> EstratÃ©gia</a>
 
         <div class="ows-menu-section">CAMPEONATO</div>
         <a href="{{ url_for('temporada_view') }}" class="ows-menu-link {% if request.endpoint == 'temporada_view' %}active{% endif %}"><span class="ows-icon">ðŸ†</span> Temporada</a>
+        <a href="{{ url_for('classificacao_view') }}" class="ows-menu-link {% if request.endpoint == 'classificacao_view' %}active{% endif %}"><span class="ows-icon">â±ï¸</span> ClassificaÃ§Ã£o</a>
+        <a href="{{ url_for('corrida_view') }}" class="ows-menu-link {% if request.endpoint == 'corrida_view' %}active{% endif %}"><span class="ows-icon">ðŸ</span> Replay da Corrida</a>
         <a href="{{ url_for('pistas_reais_view') }}" class="ows-menu-link {% if request.endpoint == 'pistas_reais_view' %}active{% endif %}"><span class="ows-icon">ðŸ—ºï¸</span> Pistas</a>
 
         {% if usuario_logado.eh_admin %}

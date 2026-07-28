@@ -4,7 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Open Wheel Strategy{% endblock %}</title>
-    <link href="{{ url_for('static', filename='css/tema.css') }}" rel="stylesheet">
+    
+    <!-- CSS Globais (Ordem Importante) -->
+    <link href="{{ url_for('static', filename='css/variaveis.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/base.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/componentes.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/formularios.css') }}" rel="stylesheet">
+    
+    <!-- CSS Específicos por Tela (Injetados dinamicamente) -->
+    {% block css_extra %}{% endblock %}
 </head>
 <body>
 {% if usuario_logado %}
@@ -59,11 +67,12 @@
         </header>
 
         <div class="ows-content">
-            <!-- MENSAGENS FLASH (confirmacao verde) -->
+            <!-- MENSAGENS FLASH -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="ows-alert" style="margin-bottom: 20px; {% if category == 'success' %}background:rgba(46,125,50,.12); border-color:rgba(46,125,50,.4); color:#8fe2a0;{% endif %}">
+                        <!-- Traduz as categorias Bootstrap (success, danger, etc) para nossas novas classes -->
+                        <div class="ows-alert ows-alert-{{ category }}">
                             {{ message }}
                         </div>
                     {% endfor %}
