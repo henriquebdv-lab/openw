@@ -30,10 +30,18 @@ def registrar(app):
             equipe_id=equipe.id, corrida_id=proxima_corrida.id
         ).first()
 
+        # 🧹 LIMPEZA DE SESSÃO FANTASMA: 
+        # Se não há setup para a corrida atual no banco, significa que é um novo fim de semana.
+        # Garantimos que qualquer treino livre antigo travado no navegador seja apagado.
+        if not setup_existente:
+            session.pop(f"stint_treino_{equipe.id}", None)
+            session.pop(f"treino_sliders_{equipe.id}", None)
+            session.pop("treino_livre_salvo", None)
+
         if request.method == "POST":
-            # Trava de seguranÃ§a: nÃ£o permite alterar se jÃ¡ estiver travado
+            # Trava de segurança: não permite alterar se já estiver travado
             if setup_existente and setup_existente.travado:
-                flash("Seu carro jÃ¡ estÃ¡ em Parc FermÃ© para esta corrida.", "warning")
+                flash("Seu carro já está em Parc Fermé para esta corrida.", "warning")
                 return redirect(url_for("montagem_fim_de_semana"))
                 
             mod_motor = request.form.get("modelo_motor")
@@ -67,7 +75,7 @@ def registrar(app):
                 flash("Montagem do fim de semana salva e travada com sucesso!", "success")
                 return redirect(url_for("montagem_fim_de_semana"))
             else:
-                flash("Modelos invÃ¡lidos selecionados.", "danger")
+                flash("Modelos inválidos selecionados.", "danger")
 
         return render_template(
             "montagem_fim_de_semana.html",

@@ -1,68 +1,230 @@
 {% extends "base.html" %}
-{% block content %}
-<h1 class="h3">Dia de Corrida</h1>
-{% include "_abas_corrida.html" %}
+{% block title %}Replay da Corrida • Open Wheel Strategy{% endblock %}
 
-{% if resultado %}
-<h2>Replay volta a volta</h2>
-<div class="card">
-    <p>
-        <strong>{{ resultado.pista.nome }}</strong> ({{ resultado.pista.pais }}) -
-        {{ resultado.posicoes_por_volta|length }} voltas, {{ resultado.distancia_total }} km total -
-        pit stop base: {{ resultado.pista.tempo_pit_stop_segundos }}s |
-        câmbio: {{ resultado.pista.categoria_cambio_ideal }} | suspensão: {{ resultado.pista.categoria_suspensao_ideal }}
-    </p>
-    <p>
-        Temperaturas por trecho:
-        <strong>{{ resultado.temperaturas_trechos[0] }}°C</strong> /
-        <strong>{{ resultado.temperaturas_trechos[1] }}°C</strong> /
-        <strong>{{ resultado.temperaturas_trechos[2] }}°C</strong> /
-        <strong>{{ resultado.temperaturas_trechos[3] }}°C</strong>
-    </p>
-    <p>
-        Volta <strong id="volta-atual">1</strong> de {{ resultado.posicoes_por_volta|length }}
-    </p>
-    <div>
-        <button type="button" id="btn-anterior">❮ Volta anterior</button>
-        <button type="button" id="btn-play">▶ Play</button>
-        <button type="button" id="btn-proxima">Próxima volta ❯</button>
-    </div>
-    <table id="tabela-replay">
-        <tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>
-    </table>
+{% block content %}
+<style>
+    /* Fase 3A - Estilos Visuais do Replay */
+    .replay-container {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        margin-top: 15px;
+    }
+    
+    /* A PISTA (Esquerda) */
+    .track-wrapper {
+        flex: 0 0 350px;
+        height: 75vh;
+        min-height: 600px;
+        background-color: #2b303b;
+        border-left: 8px solid #2ecc71;
+        border-right: 8px solid #2ecc71;
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    }
+    
+    .finish-line {
+        position: absolute;
+        top: 5%;
+        left: 0;
+        width: 100%;
+        height: 20px;
+        background: repeating-linear-gradient(90deg, #000, #000 10px, #fff 10px, #fff 20px);
+        z-index: 1;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+
+    .track-center-line {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 4px;
+        height: 100%;
+        background-image: linear-gradient(to bottom, rgba(255,255,255,0.4) 50%, transparent 50%);
+        background-size: 100% 40px;
+        transform: translateX(-50%);
+    }
+    
+    /* OS CARROS */
+    .car-marker {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: top 0.4s ease-in-out, left 0.4s ease-in-out, opacity 0.3s;
+        transform: translateX(-50%);
+        z-index: 10;
+        pointer-events: none; /* Não atrapalhar clicks */
+    }
+    
+    .car-box {
+        width: 14px;
+        height: 20px;
+        border: 2px solid #fff;
+        border-radius: 3px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    
+    .car-label {
+        color: #fff;
+        font-family: monospace;
+        font-size: 10px;
+        font-weight: bold;
+        background: rgba(0,0,0,0.7);
+        padding: 2px 4px;
+        border-radius: 3px;
+        white-space: nowrap;
+    }
+
+    /* O PAINEL E CONTROLES (Direita) */
+    .panel-wrapper {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .controls-card {
+        background: #1e2430;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border: 1px solid #364156;
+    }
+
+    .table-container {
+        height: calc(75vh - 100px); /* Desconta controles */
+        overflow-y: auto;
+        background: #1e2430;
+        border: 1px solid #364156;
+        border-radius: 8px;
+    }
+
+    .table-container table { margin: 0; }
+    .table-container thead th {
+        position: sticky;
+        top: 0;
+        background: #262d3d;
+        z-index: 2;
+        border-bottom: 2px solid #ff7a00;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Transmissão da Corrida</h1>
+    {% include "_abas_corrida.html" %}
 </div>
 
-<h2>Resultado final</h2>
-<table>
-    <tr><th>Posição</th><th>Equipe</th><th>Tempo total</th><th>Pit stops</th><th>Comb. qualifying</th></tr>
-    {% for r in resultado.classificacao_final %}
-    <tr class="{% if r.abandonou %}table-danger{% endif %}">
-        <td>P{{ r.posicao }}</td>
-        <td>{{ r.equipe }}</td>
-        {% if r.abandonou %}
-            <td colspan="3">Abandonou (pneu estourou na volta {{ r.volta_abandono }})</td>
-        {% else %}
-            <td>{{ r.tempo_total_segundos | tempo_min }}</td>
-            <td>{{ r.pit_stops }}</td>
-            <td>{{ r.combustivel_qualifying }} L</td>
-        {% endif %}
-    </tr>
-    {% endfor %}
-</table>
+{% if resultado %}
+    <div class="ows-card mb-2 py-2 px-3 d-flex justify-content-between text-muted small">
+        <span>📍 <strong>{{ resultado.pista.nome }}</strong> ({{ resultado.pista.pais }})</span>
+        <span>📏 {{ resultado.distancia_total }} km</span>
+        <span>⏱️ Pit base: {{ resultado.pista.tempo_pit_stop_segundos }}s</span>
+        <span>🌡️ T1: {{ resultado.temperaturas_trechos[0] }}°C | T2: {{ resultado.temperaturas_trechos[1] }}°C</span>
+    </div>
+
+    <!-- MAIN REPLAY AREA -->
+    <div class="replay-container">
+        <!-- 1. PISTA VISUAL (Esquerda) -->
+        <div class="track-wrapper" id="track-container">
+            <div class="finish-line"></div>
+            <div class="track-center-line"></div>
+            <!-- Carros injetados via JS -->
+        </div>
+
+        <!-- 2. PAINEL DE CONTROLE E TABELA (Direita) -->
+        <div class="panel-wrapper">
+            <div class="controls-card d-flex align-items-center gap-3">
+                <button type="button" id="btn-play" class="ows-btn ows-btn-primary" style="width: 120px;">▶ Play</button>
+                <button type="button" id="btn-anterior" class="ows-btn ows-btn-ghost px-2">❮</button>
+                
+                <!-- Scrubber Slider -->
+                <div class="flex-grow-1 mx-2 text-center">
+                    <label class="text-white mb-1 small fw-bold">VOLTA <span id="volta-atual">1</span> / {{ resultado.posicoes_por_volta|length }}</label>
+                    <input type="range" id="scrubber" min="1" max="{{ resultado.posicoes_por_volta|length }}" value="1" class="form-range">
+                </div>
+                
+                <button type="button" id="btn-proxima" class="ows-btn ows-btn-ghost px-2">❯</button>
+            </div>
+
+            <div class="table-container">
+                <table class="table table-dark table-hover table-sm text-center align-middle" id="tabela-replay">
+                    <thead>
+                        <tr>
+                            <th>POS</th>
+                            <th class="text-start">EQUIPE</th>
+                            <th>TEMPO TOTAL</th>
+                            <th>GAP LÍDER</th>
+                            <th>GAP FRENTE</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-body">
+                        <!-- Linhas injetadas via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTADO FINAL (Histórico fixo) -->
+    <div class="ows-card mt-4">
+        <h3 class="mb-3">🏁 Classificação Final</h3>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped">
+                <thead class="table-dark">
+                    <tr><th>Posição</th><th>Equipe</th><th>Tempo Total</th><th>Pit stops</th><th>Comb. Gasto (Quali)</th></tr>
+                </thead>
+                <tbody>
+                    {% for r in resultado.classificacao_final %}
+                    <tr class="{% if r.abandonou %}table-danger{% endif %}">
+                        <td class="fw-bold">P{{ r.posicao }}</td>
+                        <td>{{ r.equipe }}</td>
+                        {% if r.abandonou %}
+                            <td colspan="3" class="text-danger fw-bold">Abandonou (Volta {{ r.volta_abandono }} - Motivo: {{ r.motivo_abandono }})</td>
+                        {% else %}
+                            <td class="font-monospace">{{ r.tempo_total_segundos | tempo_min }}</td>
+                            <td>{{ r.pit_stops }} paradas</td>
+                            <td>{{ r.combustivel_qualifying }} L</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 <script>
+    // Dados injetados pelo Python
     const posicoesPorVolta = {{ resultado.posicoes_por_volta | tojson }};
+    const coresEquipes = {{ cores_equipes | tojson }};
+    const maxVoltas = posicoesPorVolta.length;
+
+    // Estado do Player
     let voltaIndex = 0;
     let playing = false;
     let playInterval = null;
+
+    // DOM Elements
+    const trackContainer = document.getElementById('track-container');
+    const tabelaBody = document.getElementById('tabela-body');
+    const txtVoltaAtual = document.getElementById('volta-atual');
+    const scrubber = document.getElementById('scrubber');
+    const btnPlay = document.getElementById('btn-play');
+
+    // Dicionários para gerenciar os carrinhos na pista
+    const carrosDOM = {};
+    const baseLanes = {}; // Guarda a raia X de cada carro para manter a coerência lateral
+
+    // Formatadores de Texto
     function formatarTempo(s) {
         const m = Math.floor(s / 60);
         const seg = (s % 60).toFixed(3).padStart(6, "0");
         return `${m}:${seg}`;
     }
     function formatarDiferenca(pos, dif, abandonou) {
-        if (abandonou) return "ABANDONOU";
-        if (pos === 1) return "-";
+        if (abandonou) return "OUT";
+        if (pos === 1) return "LÍDER";
         if (dif === null || dif === undefined) return "-";
         if (Math.abs(dif) >= 60) {
             const m = Math.floor(Math.abs(dif) / 60);
@@ -71,49 +233,153 @@
         }
         return `+${dif.toFixed(3)}s`;
     }
-    function renderVolta(index) {
-        const volta = posicoesPorVolta[index];
-        document.getElementById("volta-atual").textContent = index + 1;
-        const tabela = document.getElementById("tabela-replay");
-        tabela.innerHTML = "<tr><th>Posição</th><th>Equipe</th><th>Tempo</th><th>DL</th><th>DF</th></tr>";
-        volta.forEach(linha => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `<td>P${linha.posicao}</td><td>${linha.equipe}</td>` +
-                            `<td>${formatarTempo(linha.tempo_acumulado)}</td>` +
-                            `<td>${formatarDiferenca(linha.posicao, linha.diferenca_lider, linha.abandonou)}</td>` +
-                            `<td>${formatarDiferenca(linha.posicao, linha.diferenca_frente, linha.abandonou)}</td>`;
-            tabela.appendChild(tr);
+
+    // Inicialização da Pista Visual (Cria as DIVs)
+    function inicializarPista() {
+        if (!posicoesPorVolta[0]) return;
+        
+        posicoesPorVolta[0].forEach((carroInfo, index) => {
+            let eqNome = carroInfo.equipe;
+            
+            // Cria container do carro
+            let divMarker = document.createElement('div');
+            divMarker.className = 'car-marker';
+            
+            // Caixa com a cor
+            let box = document.createElement('div');
+            box.className = 'car-box';
+            box.style.backgroundColor = coresEquipes[eqNome] || '#88a0b9'; // Fallback
+            
+            // Label de Nome/Posição
+            let label = document.createElement('div');
+            label.className = 'car-label';
+            
+            divMarker.appendChild(box);
+            divMarker.appendChild(label);
+            trackContainer.appendChild(divMarker);
+            
+            carrosDOM[eqNome] = { marker: divMarker, label: label };
+            
+            // Define uma raia base aleatória entre 15% e 85% de largura (evita paredão vertical)
+            baseLanes[eqNome] = 15 + Math.random() * 70;
         });
     }
-    document.getElementById("btn-proxima").addEventListener("click", () => {
-        if (voltaIndex < posicoesPorVolta.length - 1) { voltaIndex++; renderVolta(voltaIndex); }
-    });
-    document.getElementById("btn-anterior").addEventListener("click", () => {
-        if (voltaIndex > 0) { voltaIndex--; renderVolta(voltaIndex); }
-    });
-    document.getElementById("btn-play").addEventListener("click", function() {
+
+    // Função de Renderização Principal (Atualiza Visual e Tabela)
+    function renderVolta(index) {
+        if (index < 0 || index >= maxVoltas) return;
+        
+        const dadosDaVolta = posicoesPorVolta[index];
+        txtVoltaAtual.textContent = index + 1;
+        scrubber.value = index + 1;
+        
+        // 1. Atualiza Tabela de Tempos
+        tabelaBody.innerHTML = "";
+        dadosDaVolta.forEach(linha => {
+            const tr = document.createElement("tr");
+            if (linha.abandonou) tr.className = "table-danger text-muted";
+            
+            tr.innerHTML = `
+                <td class="fw-bold">P${linha.posicao}</td>
+                <td class="text-start">
+                    <span style="display:inline-block; width:10px; height:10px; background:${coresEquipes[linha.equipe] || '#888'}; border-radius:50%; margin-right:5px;"></span>
+                    ${linha.equipe}
+                </td>
+                <td class="font-monospace">${formatarTempo(linha.tempo_acumulado)}</td>
+                <td class="font-monospace text-warning">${formatarDiferenca(linha.posicao, linha.diferenca_lider, linha.abandonou)}</td>
+                <td class="font-monospace">${formatarDiferenca(linha.posicao, linha.diferenca_frente, linha.abandonou)}</td>
+                <td>${linha.abandonou ? '💀 OUT' : (linha.pit_stop ? '🔧 PIT' : 'OK')}</td>
+            `;
+            tabelaBody.appendChild(tr);
+        });
+
+        // 2. Atualiza os Carros na Pista Visual
+        // Encontra o gap máximo da volta para escalar as alturas
+        let maxGap = 0;
+        dadosDaVolta.forEach(c => {
+            if (c.diferenca_lider && c.diferenca_lider > maxGap && !c.abandonou) {
+                maxGap = c.diferenca_lider;
+            }
+        });
+        if (maxGap < 5) maxGap = 5; // Pista mínima para não amontoar na primeira volta
+
+        dadosDaVolta.forEach((carData) => {
+            let dom = carrosDOM[carData.equipe];
+            if(!dom) return;
+
+            // Atualiza Label Visual
+            let nomeCurto = carData.equipe.substring(0, 8);
+            if (carData.abandonou) {
+                dom.label.innerHTML = `<span style="color:#e74c3c;">OUT</span> ${nomeCurto}`;
+                dom.marker.style.opacity = '0.3';
+                dom.marker.style.zIndex = '1';
+                dom.marker.style.left = '5%'; // Joga o carro estragado pra grama (canto esquerdo)
+            } else {
+                dom.label.innerHTML = `P${carData.posicao} <span style="color:#f1c40f">${formatarDiferenca(carData.posicao, carData.diferenca_lider, false)}</span>`;
+                dom.marker.style.opacity = '1';
+                // Líderes ficam com z-index alto para não serem sobrepostos por retardatários
+                dom.marker.style.zIndex = (100 - carData.posicao).toString();
+                
+                // --- Eixo Y (Vertical) ---
+                // Linha de chegada no topo (5%). Quanto maior o gap, mais para baixo vai. (Até max 90% pra não sumir da div).
+                let gap = carData.diferenca_lider || 0;
+                let topPerc = 5 + (gap / maxGap) * 85; 
+                dom.marker.style.top = topPerc + '%';
+                
+                // --- Eixo X (Horizontal) ---
+                // Variação minúscula para dar efeito de disputa/espalhamento a cada volta
+                let jitterX = (Math.random() - 0.5) * 6; // +/- 3%
+                let lanePerc = baseLanes[carData.equipe] + jitterX;
+                dom.marker.style.left = lanePerc + '%';
+            }
+        });
+    }
+
+    // Controles do Player
+    function togglePlay() {
         playing = !playing;
-        this.textContent = playing ? "⏸ Pausar" : "▶ Play";
+        btnPlay.textContent = playing ? "⏸ Pausar" : "▶ Play";
         if (playing) {
             playInterval = setInterval(() => {
-                if (voltaIndex < posicoesPorVolta.length - 1) {
+                if (voltaIndex < maxVoltas - 1) {
                     voltaIndex++;
                     renderVolta(voltaIndex);
                 } else {
                     clearInterval(playInterval);
                     playing = false;
-                    this.textContent = "▶ Play";
+                    btnPlay.textContent = "🔁 Restart";
                 }
-            }, 400);
+            }, 600); // Velocidade do Replay
         } else {
             clearInterval(playInterval);
+            if (voltaIndex >= maxVoltas - 1) voltaIndex = 0; // Prepara para recomeçar
         }
+    }
+
+    // Listeners
+    btnPlay.addEventListener("click", togglePlay);
+    
+    document.getElementById("btn-proxima").addEventListener("click", () => {
+        if (voltaIndex < maxVoltas - 1) { voltaIndex++; renderVolta(voltaIndex); }
     });
+    
+    document.getElementById("btn-anterior").addEventListener("click", () => {
+        if (voltaIndex > 0) { voltaIndex--; renderVolta(voltaIndex); }
+    });
+
+    scrubber.addEventListener("input", function() {
+        voltaIndex = parseInt(this.value) - 1;
+        renderVolta(voltaIndex);
+    });
+
+    // Boot inicial
+    inicializarPista();
     renderVolta(0);
 </script>
 {% else %}
-<p class="text-muted" style="margin-top: 15px;">
-    Nenhuma corrida foi executada recentemente. Aguarde o início da sessão.
-</p>
+<div class="ows-card text-center py-5 mt-4">
+    <h2 class="text-muted">Nenhuma corrida foi executada recentemente.</h2>
+    <p class="text-muted mb-0">Aguarde o início da sessão ou vá até o painel Admin.</p>
+</div>
 {% endif %}
 {% endblock %}

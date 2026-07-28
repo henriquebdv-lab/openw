@@ -113,24 +113,36 @@
 
             <form method="post" action="{{ url_for('treino_livre_view') }}">
                 <div style="margin-bottom: 20px;">
-                    <label class="d-flex justify-content-between text-white font-monospace">
-                        Câmbio (Curto/Longo) <output id="out_cambio" style="color:#f1c40f;">{{ sliders_atuais.cambio }}</output>
+                    <label class="d-flex justify-content-between text-white font-monospace align-items-center">
+                        Câmbio (Curto/Longo)
+                        <input type="number" id="num_cambio" min="1" max="99" value="{{ sliders_atuais.cambio }}"
+                               style="width: 65px; background: #1e2430; color: #f1c40f; border: 1px solid #364156; border-radius: 4px; text-align: center; font-weight: bold;"
+                               oninput="document.getElementById('range_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                     </label>
-                    <input type="range" class="form-range" name="slider_cambio" min="1" max="99" value="{{ sliders_atuais.cambio }}" oninput="document.getElementById('out_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" id="range_cambio" class="form-range" name="slider_cambio" min="1" max="99" step="1" value="{{ sliders_atuais.cambio }}" 
+                           oninput="document.getElementById('num_cambio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
                 
                 <div style="margin-bottom: 20px;">
-                    <label class="d-flex justify-content-between text-white font-monospace">
-                        Suspensão (Mole/Dura) <output id="out_susp" style="color:#f1c40f;">{{ sliders_atuais.suspensao }}</output>
+                    <label class="d-flex justify-content-between text-white font-monospace align-items-center">
+                        Suspensão (Mole/Dura)
+                        <input type="number" id="num_suspensao" min="1" max="99" value="{{ sliders_atuais.suspensao }}"
+                               style="width: 65px; background: #1e2430; color: #f1c40f; border: 1px solid #364156; border-radius: 4px; text-align: center; font-weight: bold;"
+                               oninput="document.getElementById('range_suspensao').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                     </label>
-                    <input type="range" class="form-range" name="slider_suspensao" min="1" max="99" value="{{ sliders_atuais.suspensao }}" oninput="document.getElementById('out_susp').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" id="range_suspensao" class="form-range" name="slider_suspensao" min="1" max="99" step="1" value="{{ sliders_atuais.suspensao }}" 
+                           oninput="document.getElementById('num_suspensao').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
                 
                 <div style="margin-bottom: 30px;">
-                    <label class="d-flex justify-content-between text-white font-monospace">
-                        Aerofólio (Menos/Mais Asa) <output id="out_aero" style="color:#f1c40f;">{{ sliders_atuais.aerofolio }}</output>
+                    <label class="d-flex justify-content-between text-white font-monospace align-items-center">
+                        Aerofólio (Menos/Mais Asa)
+                        <input type="number" id="num_aerofolio" min="1" max="99" value="{{ sliders_atuais.aerofolio }}"
+                               style="width: 65px; background: #1e2430; color: #f1c40f; border: 1px solid #364156; border-radius: 4px; text-align: center; font-weight: bold;"
+                               oninput="document.getElementById('range_aerofolio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                     </label>
-                    <input type="range" class="form-range" name="slider_aerofolio" min="1" max="99" value="{{ sliders_atuais.aerofolio }}" oninput="document.getElementById('out_aero').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
+                    <input type="range" id="range_aerofolio" class="form-range" name="slider_aerofolio" min="1" max="99" step="1" value="{{ sliders_atuais.aerofolio }}" 
+                           oninput="document.getElementById('num_aerofolio').value = this.value" {% if not stint.ativo %}disabled{% endif %}>
                 </div>
 
                 {% if stint.ativo %}

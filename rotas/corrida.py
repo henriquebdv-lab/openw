@@ -43,13 +43,15 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegivei
     numero_voltas, distancia_total = calcular_numero_voltas(pista["extensao_km"])
     config = Configuracao.obter()
     
-    # MUDANÇA CIRÚRGICA: Usa equipes elegíveis filtradas pelo admin ou fallback para todas
     todas_equipes = equipes_elegiveis if equipes_elegiveis is not None else CarroJogador.query.all()
+    
+    # TRAVA DE SEGURANÇA: Se não há equipes elegíveis, aborta imediatamente para não corromper o JSON.
+    if not todas_equipes:
+        return None
     
     carros = []
     for equipe_db in todas_equipes:
         carro = equipe_db.montar_carro()
-        # MUDANÇA CIRÚRGICA: Injeta as peças travadas no Parc Fermé (SetupFimDeSemana)
         if corrida_agendada:
             setup = SetupFimDeSemana.query.filter_by(equipe_id=equipe_db.id, corrida_id=corrida_agendada.id).first()
             if setup:
@@ -67,7 +69,6 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegivei
         carro.tempo_pit_stop = calcular_tempo_pit_stop(pista["tempo_pit_stop_segundos"], config, treinamento.percentual)
         _aplicar_dados_pista_no_carro(carro, pista)
         
-        # Carrega os stints da equipe pro motor de corrida
         carro.stints = [
             {'ordem': s.ordem, 'modelo_pneu': s.modelo_pneu, 'voltas': s.voltas, 'combustivel_litros': s.combustivel_litros}
             for s in equipe_db.stints
@@ -136,6 +137,10 @@ def _executar_corrida_e_persistir(pista, corrida_agendada=None, equipes_elegivei
         corrida_agendada.salvar_resultados(resultados_para_temporada)
         corrida_agendada.executada = True
         corrida_agendada.data_execucao = datetime.utcnow()
+        
+        # BUGFIX: Limpa o grid da classificação para não dar o bug de "corridas avançam sozinhas" na próxima etapa.
+        ResultadoClassificacao.query.delete()
+        
     db.session.commit()
     
     caminho_replay = os.path.join(BASE_DIR, 'ultimo_replay.json')
@@ -172,7 +177,6 @@ def registrar(app):
                 voltas_pista, _ = calcular_numero_voltas(pista["extensao_km"])
 
         if request.method == "POST":
-            # Salva os Stints Dinâmicos
             modelos_pneu_stints = request.form.getlist("modelo_pneu[]")
             voltas_stints = request.form.getlist("voltas[]")
             litros_stints = request.form.getlist("combustivel_litros[]")
@@ -231,7 +235,20 @@ def registrar(app):
                     resultado = json.load(f)
             except Exception as e:
                 print(f"Erro ao carregar replay: {e}")
+                
         criar_banco_pistas_reais()
         temporada = Temporada.ativa_atual()
         proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-        return render_template("corrida.html", resultado=resultado, temporada=temporada, proxima_corrida_temporada=proxima_corrida_temporada)
+
+        cores_equipes = {}
+        todas_equipes = CarroJogador.query.all()
+        for eq in todas_equipes:
+            cores_equipes[eq.nome] = eq.cor_primaria or "#cc0000"
+
+        return render_template(
+            "corrida.html", 
+            resultado=resultado, 
+            temporada=temporada, 
+            proxima_corrida_temporada=proxima_corrida_temporada,
+            cores_equipes=cores_equipes
+        )
