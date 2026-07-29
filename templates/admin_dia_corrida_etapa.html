@@ -1,0 +1,125 @@
+{% extends "admin_base.html" %}
+{% set secao_admin = 'dia_corrida' %}
+
+{% block admin_css_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/telas/admin_dia_corrida.css') }}">
+{% endblock %}
+
+{% block admin_content %}
+<div class="ows-mb-md">
+    <a href="{{ url_for('admin_dia_corrida') }}" class="ows-btn ows-btn-ghost">← Voltar ao Calendário</a>
+</div>
+
+<h1 class="admin-corrida-title ows-mb-md">Controle: {{ corrida_agendada.ordem }}ª Etapa - {{ pista_real.nome }}</h1>
+
+{% if ja_correu %}
+<div class="ows-alert ows-alert-info">
+    ✅ Esta etapa já foi finalizada e os resultados foram registrados no campeonato.
+</div>
+{% endif %}
+
+<div class="ows-card admin-corrida-next-race ows-mb-lg">
+    <div class="admin-corrida-header">
+        Status de Preparação Das Equipes
+    </div>
+    
+    <p class="admin-corrida-help-text ows-mb-md">Apenas as equipes com todos os itens prontos (✅) participarão da classificação e da corrida.</p>
+    
+    <table class="admin-corrida-table">
+        <thead>
+            <tr>
+                <th>Equipe</th>
+                <th class="center">Parc Fermé (Setup)</th>
+                <th class="center">Qualificação (Dados)</th>
+                <th class="center">Corrida (Stints)</th>
+                <th class="center">Status Final</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eq_status in status_equipes %}
+            <tr class="{% if eq_status.pronta %}table-success{% else %}table-danger{% endif %}">
+                <td>{{ eq_status.equipe.nome }}</td>
+                <td class="center">{% if eq_status.setup and eq_status.setup.travado %}✅{% else %}❌{% endif %}</td>
+                <td class="center">{% if eq_status.quali %}✅{% else %}❌{% endif %}</td>
+                <td class="center">{% if eq_status.stints %}✅{% else %}❌{% endif %}</td>
+                <td class="center ows-strong">
+                    {% if eq_status.pronta %}
+                        <span class="ows-text-success">ELEGÍVEL</span>
+                    {% else %}
+                        <span class="ows-text-danger">FORA</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="center ows-muted">Nenhuma equipe cadastrada.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="ows-grid-2 admin-corrida-grid ows-mb-lg">
+    <!-- 1. CLASSIFICAÇÃO -->
+    <div class="ows-card">
+        <h3 class="ows-strong">1. Classificação (Qualifying)</h3>
+        {% if ja_classificou %}
+            <span class="admin-corrida-status-success ows-mb-md">✅ Classificação já executada.</span>
+            {% if not ja_correu %}
+            <table class="admin-corrida-table">
+                <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo</th></tr></thead>
+                <tbody>
+                    {% for r in resultados_classi %}
+                    <tr>
+                        <td>{{ r.posicao_grid }}º</td>
+                        <td>{{ r.equipe.nome if r.equipe else 'Equipe #'~r.equipe_id }}</td>
+                        <td>{{ r.tempo_classificacao | tempo_min }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        {% else %}
+            <p class="admin-corrida-help-text ows-mb-md">
+                Gera o grid de largada baseado nos Dados de Classificação escolhidos pelas equipes elegíveis.
+            </p>
+            <form method="POST" action="{{ url_for('admin_dia_corrida_etapa', corrida_id=corrida_agendada.id) }}">
+                <input type="hidden" name="acao" value="classificacao">
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full">Rodar Classificação</button>
+            </form>
+        {% endif %}
+    </div>
+
+    <!-- 2. CORRIDA DA TEMPORADA -->
+    <div class="ows-card">
+        <h3 class="ows-strong">2. Corrida Oficial</h3>
+        {% if ja_correu %}
+            <span class="admin-corrida-status-success ows-mb-md">✅ Corrida já executada.</span>
+            <table class="admin-corrida-table">
+                <thead><tr><th>Pos</th><th>Equipe</th><th>Tempo Total</th><th>Pits</th></tr></thead>
+                <tbody>
+                    {% for r in corrida_agendada.resultados()|sort(attribute='posicao') %}
+                    <tr class="{% if r.abandonou %}table-danger ows-muted{% endif %}">
+                        <td>{{ r.posicao }}º</td>
+                        <td>{{ r.equipe_nome }}</td>
+                        <td>{% if r.abandonou %}Abandono{% else %}{{ r.tempo_total | tempo_min }}{% endif %}</td>
+                        <td>{{ r.get('pit_stops', '-') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="admin-corrida-help-text ows-mb-md">
+                Simula a corrida oficial usando o grid de largada, o Parc Fermé e a Estratégia de Stints de cada equipe.
+            </p>
+            <form method="POST" action="{{ url_for('admin_dia_corrida_etapa', corrida_id=corrida_agendada.id) }}">
+                <input type="hidden" name="acao" value="corrida_temporada">
+                <button type="submit" class="ows-btn ows-btn-primary ows-btn-full" {% if not ja_classificou %}disabled{% endif %}>
+                    ▶ Rodar Corrida Oficial
+                </button>
+            </form>
+            {% if not ja_classificou %}
+            <span class="admin-corrida-status-danger ows-mt-sm">Rode a classificação primeiro.</span>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

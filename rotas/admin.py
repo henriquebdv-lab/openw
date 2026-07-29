@@ -5,7 +5,7 @@ Rotas de administração (/admin/...):
 - temporadas (criar, editar, ativar, desativar, remover corrida)
 - usuários (listar, editar)
 - configurações de balanceamento
-- evento especial (novo)
+- evento especial
 """
 from datetime import datetime
 
@@ -36,66 +36,87 @@ def registrar(app):
                                total_temporadas=Temporada.query.count(),
                                total_usuarios=Usuario.query.count())
 
-    @app.route("/admin/dia-corrida", methods=["GET", "POST"])
+    @app.route("/admin/dia-corrida", methods=["GET"])
     @admin_requerido
     def admin_dia_corrida():
         temporada = Temporada.ativa_atual()
-        proxima_corrida_temporada = temporada.proxima_corrida() if temporada else None
-        
         criar_banco_pistas_reais()
         pistas = listar_pistas_reais()
         pistas_por_id = {p["id"]: p for p in pistas}
-        pista_proxima_temporada = pistas_por_id.get(proxima_corrida_temporada.pista_real_id) if proxima_corrida_temporada else None
+        proxima_corrida = temporada.proxima_corrida() if temporada else None
+
+        return render_template("admin_dia_corrida.html", 
+                               temporada=temporada,
+                               pistas_por_id=pistas_por_id,
+                               proxima_corrida=proxima_corrida)
+
+    @app.route("/admin/dia-corrida/<int:corrida_id>", methods=["GET", "POST"])
+    @admin_requerido
+    def admin_dia_corrida_etapa(corrida_id):
+        temporada = Temporada.ativa_atual()
+        if not temporada:
+            flash("Nenhuma temporada ativa.", "warning")
+            return redirect(url_for('admin_dia_corrida'))
+
+        corrida_agendada = CorridaAgendada.query.get_or_404(corrida_id)
+        if corrida_agendada.temporada_id != temporada.id:
+            flash("Esta corrida não pertence à temporada ativa.", "danger")
+            return redirect(url_for('admin_dia_corrida'))
+
+        proxima_corrida = temporada.proxima_corrida()
+
+        # TRAVA DE SEGURANÇA: Só acessa se já for executada (para ver resultados) 
+        # ou se for exatamente a próxima corrida pendente
+        if not corrida_agendada.executada:
+            if proxima_corrida and corrida_agendada.id != proxima_corrida.id:
+                flash("Você precisa finalizar as etapas anteriores primeiro.", "warning")
+                return redirect(url_for('admin_dia_corrida'))
+
+        criar_banco_pistas_reais()
+        pista_real = obter_pista_real(corrida_agendada.pista_real_id)
 
         # --- LÓGICA DE STATUS DAS EQUIPES ---
         todas_equipes = CarroJogador.query.all()
         status_equipes = []
         equipes_prontas = []
 
-        if proxima_corrida_temporada:
-            for eq in todas_equipes:
-                setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
-                quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
-                tem_stints = len(eq.stints) > 0
+        for eq in todas_equipes:
+            setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=corrida_agendada.id).first()
+            quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=corrida_agendada.id).first()
+            tem_stints = len(eq.stints) > 0
 
-                pronta = bool(setup and setup.travado and quali and tem_stints)
-                if pronta:
-                    equipes_prontas.append(eq)
+            pronta = bool(setup and setup.travado and quali and tem_stints)
+            if pronta:
+                equipes_prontas.append(eq)
 
-                status_equipes.append({
-                    "equipe": eq,
-                    "setup": setup,
-                    "quali": quali,
-                    "stints": tem_stints,
-                    "pronta": pronta
-                })
+            status_equipes.append({
+                "equipe": eq,
+                "setup": setup,
+                "quali": quali,
+                "stints": tem_stints,
+                "pronta": pronta
+            })
 
-        ja_classificou = False
-        if proxima_corrida_temporada:
-             ja_classificou = ResultadoClassificacao.query.count() > 0
-        ja_correu = proxima_corrida_temporada.executada if proxima_corrida_temporada else False
+        ja_classificou = ResultadoClassificacao.query.count() > 0
+        ja_correu = corrida_agendada.executada
 
         if request.method == "POST":
             acao = request.form.get("acao")
             
             if acao == "classificacao":
-                if not proxima_corrida_temporada:
-                    flash("Não há corrida pendente.", "danger")
-                    return redirect(url_for('admin_dia_corrida'))
                 if ja_classificou:
                     flash("A classificação já foi rodada para esta etapa.", "warning")
-                    return redirect(url_for('admin_dia_corrida'))
+                    return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
                 if not equipes_prontas:
                     flash("Nenhuma equipe cumpriu os requisitos para classificar.", "danger")
-                    return redirect(url_for('admin_dia_corrida'))
+                    return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
 
-                # Limpa a classificação anterior para a tela do jogador refletir o novo grid
                 ResultadoClassificacao.query.delete()
                 
                 carros = []
                 for eq in equipes_prontas:
-                    setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
-                    quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=proxima_corrida_temporada.id).first()
+                    setup = SetupFimDeSemana.query.filter_by(equipe_id=eq.id, corrida_id=corrida_agendada.id).first()
+                    quali = DadosClassificacao.query.filter_by(equipe_id=eq.id, corrida_id=corrida_agendada.id).first()
                     
                     carro = eq.montar_carro()
                     carro.definir_modelos(
@@ -119,48 +140,35 @@ def registrar(app):
                     ))
                 db.session.commit()
                 flash("Classificação rodada com sucesso! O grid já está disponível.", "success")
-                return redirect(url_for('admin_dia_corrida'))
+                return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
                 
             elif acao == "corrida_temporada":
-                if not proxima_corrida_temporada or not pista_proxima_temporada:
-                    flash("Não há corrida pendente nesta temporada.", "danger")
-                    return redirect(url_for('admin_dia_corrida'))
                 if not ja_classificou:
                     flash("Você precisa rodar a Classificação antes da Corrida.", "warning")
-                    return redirect(url_for('admin_dia_corrida'))
+                    return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
                 if ja_correu:
                     flash("Esta corrida já foi executada.", "warning")
-                    return redirect(url_for('admin_dia_corrida'))
+                    return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
                 if not equipes_prontas:
                     flash("Nenhuma equipe pronta para correr.", "danger")
-                    return redirect(url_for('admin_dia_corrida'))
+                    return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
 
                 _executar_corrida_e_persistir(
-                    pista_proxima_temporada, 
-                    corrida_agendada=proxima_corrida_temporada,
+                    pista_real, 
+                    corrida_agendada=corrida_agendada,
                     equipes_elegiveis=equipes_prontas
                 )
-                flash(f"Corrida oficial ({pista_proxima_temporada['nome']}) rodada com sucesso! Resultados liberados.", "success")
-                return redirect(url_for('admin_dia_corrida'))
-                    
-            elif acao == "corrida_livre":
-                pista_id = request.form.get("pista_id")
-                if pista_id:
-                    p = obter_pista_real(int(pista_id))
-                    if p:
-                        _executar_corrida_e_persistir(p, corrida_agendada=None)
-                        flash(f"Corrida Livre ({p['nome']}) simulada com sucesso!", "success")
-                return redirect(url_for('admin_dia_corrida'))
+                flash(f"Corrida oficial ({pista_real['nome']}) rodada com sucesso! Resultados liberados.", "success")
+                return redirect(url_for('admin_dia_corrida_etapa', corrida_id=corrida_id))
             
         resultados_classi = []
-        if ja_classificou:
+        if ja_classificou and not ja_correu:
             resultados_classi = ResultadoClassificacao.query.order_by(ResultadoClassificacao.posicao_grid).all()
 
-        return render_template("admin_dia_corrida.html", 
+        return render_template("admin_dia_corrida_etapa.html", 
                                temporada=temporada,
-                               proxima_corrida_temporada=proxima_corrida_temporada,
-                               pista_proxima_temporada=pista_proxima_temporada,
-                               pistas=pistas,
+                               corrida_agendada=corrida_agendada,
+                               pista_real=pista_real,
                                status_equipes=status_equipes,
                                ja_classificou=ja_classificou,
                                ja_correu=ja_correu,
@@ -180,7 +188,6 @@ def registrar(app):
             if pista_id and voltas_custom:
                 p = obter_pista_real(int(pista_id))
                 if p:
-                    # Roda o simulador com a quantidade exata de voltas (sem contar para a temporada ativa)
                     _executar_corrida_e_persistir(p, corrida_agendada=None, voltas_customizadas=int(voltas_custom))
                     flash(f"🏁 Evento Especial em {p['nome']} concluído! O replay com {voltas_custom} voltas já está disponível na aba Corrida.", "success")
             return redirect(url_for('admin_evento_especial'))
