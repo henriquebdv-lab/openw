@@ -3,7 +3,6 @@ Tabelas do banco de dados.
 """
 
 from datetime import datetime
-
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -16,9 +15,15 @@ def garantir_colunas_fornecedores():
         with db.engine.begin() as conexao:
             for tabela, coluna, definicao in [
                 ("fornecedores_pneu", "categoria_chuva", "TEXT DEFAULT 'seco'"),
+                ("fornecedores_pneu", "nivel", "INTEGER DEFAULT 1"),
                 ("fornecedores_cambio", "categoria_pista", "TEXT DEFAULT 'A'"),
+                ("fornecedores_cambio", "nivel", "INTEGER DEFAULT 1"),
                 ("fornecedores_suspensao", "categoria_pista", "TEXT DEFAULT 'A'"),
+                ("fornecedores_suspensao", "nivel", "INTEGER DEFAULT 1"),
                 ("fornecedores_engenheiro", "eficiencia_exata", "REAL DEFAULT 0.0"),
+                ("fornecedores_motor", "nivel", "INTEGER DEFAULT 1"),
+                ("fornecedores_combustivel", "nivel", "INTEGER DEFAULT 1"),
+                ("fornecedores_chassi", "nivel", "INTEGER DEFAULT 1"),
                 ("usuarios", "grupo", "TEXT"),
                 ("usuarios", "classe", "TEXT"),
                 ("usuarios", "nick", "TEXT"),
@@ -33,8 +38,15 @@ def garantir_colunas_fornecedores():
                 ("carros_jogadores", "modelo_pneu", "INTEGER"),
                 ("carros_jogadores", "modelo_cambio", "INTEGER"),
                 ("carros_jogadores", "modelo_suspensao", "INTEGER"),
+                ("carros_jogadores", "modelo_freio", "INTEGER"),
                 ("carros_jogadores", "estrategia_volta_pit", "INTEGER DEFAULT 10"),
                 ("carros_jogadores", "estrategia_dois_pits", "BOOLEAN DEFAULT 0"),
+                ("carros_jogadores", "tier_motor", "INTEGER DEFAULT 0"),
+                ("carros_jogadores", "tier_cambio", "INTEGER DEFAULT 0"),
+                ("carros_jogadores", "tier_suspensao", "INTEGER DEFAULT 0"),
+                ("carros_jogadores", "tier_chassi", "INTEGER DEFAULT 0"),
+                ("carros_jogadores", "tier_aero", "INTEGER DEFAULT 0"),
+                ("carros_jogadores", "tier_freio", "INTEGER DEFAULT 0"),
                 ("configuracao", "premio_corrida_pos_1", "REAL DEFAULT 12000.0"),
                 ("configuracao", "multiplicador_consumo", "REAL DEFAULT 1.0"),
                 ("configuracao", "chance_quebra_base", "REAL DEFAULT 0.10"),
@@ -62,7 +74,6 @@ def garantir_colunas_fornecedores():
 
 class Usuario(db.Model):
     __tablename__ = "usuarios"
-
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     senha_hash = db.Column(db.String(255), nullable=True)
@@ -72,7 +83,6 @@ class Usuario(db.Model):
     grupo = db.Column(db.String(50), nullable=True)
     classe = db.Column(db.String(50), nullable=True)
     nick = db.Column(db.String(50), nullable=True)
-
     equipe = db.relationship("CarroJogador", backref="usuario", uselist=False)
 
     def definir_senha(self, senha):
@@ -88,6 +98,7 @@ class FornecedorMotor(db.Model):
     __tablename__ = "fornecedores_motor"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
@@ -99,6 +110,7 @@ class FornecedorCombustivel(db.Model):
     __tablename__ = "fornecedores_combustivel"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
@@ -110,6 +122,7 @@ class FornecedorPneu(db.Model):
     __tablename__ = "fornecedores_pneu"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
@@ -122,6 +135,7 @@ class FornecedorChassi(db.Model):
     __tablename__ = "fornecedores_chassi"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
@@ -132,6 +146,7 @@ class FornecedorCambio(db.Model):
     __tablename__ = "fornecedores_cambio"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
@@ -143,6 +158,7 @@ class FornecedorSuspensao(db.Model):
     __tablename__ = "fornecedores_suspensao"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
@@ -150,23 +166,32 @@ class FornecedorSuspensao(db.Model):
     categoria_pista = db.Column(db.String(2), default="A")
 
 
+class FornecedorFreio(db.Model):
+    __tablename__ = "fornecedores_freio"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
+    custo_temporada = db.Column(db.Float, default=0.0)
+    custo_montagem = db.Column(db.Float, default=0.0)
+    ativo = db.Column(db.Boolean, default=True)
+    performance = db.Column(db.Float, default=0.0)
+
+
 class FornecedorEngenheiro(db.Model):
     __tablename__ = "fornecedores_engenheiro"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
+    nivel = db.Column(db.Integer, default=1)
     custo_temporada = db.Column(db.Float, default=0.0)
     custo_montagem = db.Column(db.Float, default=0.0)
     ativo = db.Column(db.Boolean, default=True)
-    nivel = db.Column(db.Integer, default=1)
     eficiencia_exata = db.Column(db.Float, default=0.0)
 
 
 class Configuracao(db.Model):
     __tablename__ = "configuracao"
-
     id = db.Column(db.Integer, primary_key=True)
     orcamento_inicial = db.Column(db.Float, default=55_000.0)
-
     dev_incremento_percentual = db.Column(db.Float, default=5.0)
     dev_tempo_base_horas = db.Column(db.Float, default=1.0)
     dev_tempo_fator_horas = db.Column(db.Float, default=10.0)
@@ -179,7 +204,6 @@ class Configuracao(db.Model):
     treino_custo_fator = db.Column(db.Float, default=1.0)
     pit_tempo_sem_treino = db.Column(db.Float, default=25.0)
     pit_tempo_treino_completo = db.Column(db.Float, default=9.0)
-
     premio_corrida_pos_1 = db.Column(db.Float, default=12000.0)
     multiplicador_consumo = db.Column(db.Float, default=1.0)
     chance_quebra_base = db.Column(db.Float, default=0.10)
@@ -197,20 +221,14 @@ class Configuracao(db.Model):
 
 class Desenvolvimento(db.Model):
     __tablename__ = "desenvolvimentos"
-
     id = db.Column(db.Integer, primary_key=True)
     equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
-
     percentual = db.Column(db.Float, default=0.0)
-
     chassi_percentual_aplicado = db.Column(db.Float, default=100.0)
     chassi_percentual_em_construcao = db.Column(db.Float, default=0.0)
-
     aero_percentual_aplicado = db.Column(db.Float, default=100.0)
     aero_percentual_em_construcao = db.Column(db.Float, default=0.0)
-
     nivel_engenheiro_projetista = db.Column(db.Integer, default=1)
-
     em_progresso = db.Column(db.Boolean, default=False)
     inicio_em = db.Column(db.DateTime, nullable=True)
     horario_conclusao = db.Column(db.DateTime, nullable=True)
@@ -246,7 +264,6 @@ class TreinamentoBox(db.Model):
 
 class CarroJogador(db.Model):
     __tablename__ = "carros_jogadores"
-
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), unique=True, nullable=False)
     nome = db.Column(db.String(100), nullable=False)
@@ -259,6 +276,7 @@ class CarroJogador(db.Model):
     cambio_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_cambio.id"), nullable=False)
     suspensao_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_suspensao.id"), nullable=False)
     engenheiro_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_engenheiro.id"), nullable=True)
+    freio_fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores_freio.id"), nullable=True)
 
     combustivel_carregado = db.Column(db.Float, default=110.0)
     cor_primaria = db.Column(db.String(7), default="#cc0000")
@@ -269,9 +287,17 @@ class CarroJogador(db.Model):
     modelo_pneu = db.Column(db.Integer, nullable=True)
     modelo_cambio = db.Column(db.Integer, nullable=True)
     modelo_suspensao = db.Column(db.Integer, nullable=True)
+    modelo_freio = db.Column(db.Integer, nullable=True)
 
     estrategia_volta_pit = db.Column(db.Integer, default=10)
     estrategia_dois_pits = db.Column(db.Boolean, default=False)
+
+    tier_motor = db.Column(db.Integer, default=0)
+    tier_cambio = db.Column(db.Integer, default=0)
+    tier_suspensao = db.Column(db.Integer, default=0)
+    tier_chassi = db.Column(db.Integer, default=0)
+    tier_aero = db.Column(db.Integer, default=0)
+    tier_freio = db.Column(db.Integer, default=0)
 
     def montar_carro(self):
         from equipamentos import Motor, Combustivel, Pneu, Chassi, Cambio, Suspensao, Engenheiro
@@ -424,7 +450,6 @@ class ResultadoCorrida(db.Model):
 
 class ResultadoTreinoLivre(db.Model):
     __tablename__ = "resultados_treino_livre"
-
     id = db.Column(db.Integer, primary_key=True)
     equipe_id = db.Column(db.Integer, db.ForeignKey("carros_jogadores.id"), unique=True, nullable=False)
     pneu_nome = db.Column(db.String(100))
@@ -442,17 +467,13 @@ class ResultadoTreinoLivre(db.Model):
     def registrar_se_melhor(cls, equipe_id, resultado):
         novo_tempo = resultado.get("melhor_volta_tempo")
         existente = cls.query.filter_by(equipe_id=equipe_id).first()
-
         if not novo_tempo or novo_tempo <= 0:
             return existente, False
-
         if existente and existente.melhor_volta_tempo and novo_tempo >= existente.melhor_volta_tempo:
             return existente, False
-
         if not existente:
             existente = cls(equipe_id=equipe_id)
             db.session.add(existente)
-
         existente.pneu_nome = resultado.get("pneu_nome")
         existente.combustivel_nome = resultado.get("combustivel_nome")
         existente.total_voltas = int(resultado.get("total_voltas") or 0)
@@ -463,6 +484,7 @@ class ResultadoTreinoLivre(db.Model):
         existente.criado_em = datetime.utcnow()
         db.session.commit()
         return existente, True
+
 
 class SetupFimDeSemana(db.Model):
     __tablename__ = "setup_fim_de_semana"
