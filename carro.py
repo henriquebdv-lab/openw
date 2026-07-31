@@ -52,18 +52,11 @@ class Carro:
         return modelos_componente.modificadores(numero, componente)
 
     def _delta_velocidade_modelos(self):
-        """
-        Soma o delta de velocidade dos modelos.
-        Aplica a influência da pista aos multiplicadores específicos para que a 
-        decisão técnica responda ativamente às características do traçado.
-        """
         delta = 0.0
-        for componente in ("motor", "combustivel", "pneu"):
+        for componente in ("combustivel", "pneu"):
             mod = self._mod(componente)
             if mod:
-                if componente == "motor":
-                    delta += mod["velocidade_delta_s"] * self._fator_influencia("motor")
-                elif componente == "pneu":
+                if componente == "pneu":
                     delta += mod["velocidade_delta_s"] * self._fator_influencia("pneu")
                 else:
                     delta += mod["velocidade_delta_s"]
@@ -88,7 +81,11 @@ class Carro:
         return (self.pneu.categoria_chuva or "seco").lower()
 
     def potencia_efetiva_motor(self):
-        return self.motor.potencia * (1 + self.combustivel.aumento_potencia_motor)
+        potencia_base = self.motor.potencia
+        mod = self._mod("motor")
+        if mod and "potencia_delta" in mod:
+            potencia_base += mod["potencia_delta"]
+        return potencia_base * (1 + self.combustivel.aumento_potencia_motor)
 
     def _fator_influencia(self, nome):
         valor = getattr(self, f"influencia_pista_{nome}", INFLUENCIA_ESCALA)
@@ -138,6 +135,8 @@ class Carro:
 
     def tempo_base(self):
         tempo = TEMPO_VOLTA_BASE_SEGUNDOS
+        
+        # A nova potência efetiva (que embute o modelo) interage diretamente com a pista aqui
         tempo -= self.potencia_efetiva_motor() * self._fator_influencia("motor")
         tempo -= self.pneu.performance * self._fator_influencia("pneu")
         tempo -= self.chassi.performance
@@ -160,14 +159,16 @@ class Carro:
         variacao = random.gauss(0, VARIACAO_ALEATORIA_DESVIO_PADRAO)
         penalidade_pneu = self.penalidade_desgaste_pneu(desgaste_atual)
         
-        # Penalidade por peso do carro: 0.03 segundos para cada litro a bordo.
+        # O peso pune diretamente o tanque cheio, fortalecendo a importância do consumo
         penalidade_peso = combustivel_atual * 0.03
         
         return self.tempo_base() + variacao + penalidade_pneu + penalidade_peso
 
     def consumo_por_volta(self):
+        # A eficiência do fornecedor (perfil Achado/Furada) já é calculada aqui naturalmente
         eficiencia_total = min(self.motor.eficiencia_combustivel + self.combustivel.eficiencia, 0.9)
         tamanho_volta_km = getattr(self, "tamanho_volta_km", None)
+        
         if tamanho_volta_km and tamanho_volta_km > 0:
             consumo = CONSUMO_BASE_LITROS_POR_KM * (1 - eficiencia_total) * tamanho_volta_km
         else:

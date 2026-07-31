@@ -127,6 +127,11 @@ def criar_app():
     _registrar_contexto(app)
     _registrar_cli(app)
     registrar_rotas(app)
+    
+    # Injeta a nova rota administrativa de análise
+    import rotas.admin_analise
+    rotas.admin_analise.registrar(app)
+    
     return app
 
 
